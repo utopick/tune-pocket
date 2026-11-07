@@ -1,0 +1,21 @@
+{
+  "name": "tune-pocket",
+  "version": "2.0.0",
+  "private": true,
+  "description": "TUNE.Pocket: pocket tuner, note detector, scales and jam band. Sister app of TRACK.Pocket.",
+  "pocket": {
+    "webSource": "index.html"
+  },
+  "scripts": {
+    "www": "node scripts/prepare-www.js",
+    "android:init": "npm run www && npx cap add android && node scripts/android-permissions.js",
+    "android:apk": "npm run www && npx cap sync android && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  }
+}

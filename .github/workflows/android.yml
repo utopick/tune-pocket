@@ -1,0 +1,48 @@
+name: Android APK
+
+# Builds a debug APK on every push (any branch), and on demand from the Actions tab (Run workflow).
+# Download it from the run page under Artifacts.
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Capacitor
+        run: npm install --no-audit --no-fund
+
+      # android/ is generated on every build (it is not committed), then given the microphone permissions.
+      - name: Create the Android project
+        run: npm run android:init
+
+      - name: Build the APK
+        run: npm run android:apk
+
+      - name: Name the APK
+        run: |
+          v=$(node -p "require('./package.json').version")
+          n=$(node -p "require('./package.json').name")
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk "out/${n}-${v}-${GITHUB_RUN_NUMBER}-debug.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.repository.name }}-apk
+          path: out/*.apk
+          retention-days: 30

@@ -1,0 +1,11 @@
+{
+  "appId": "com.utopick.tunepocket",
+  "appName": "TUNE.Pocket",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#0d0f12"
+  }
+}

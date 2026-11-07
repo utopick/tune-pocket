@@ -1,0 +1,43 @@
+# TUNE.Pocket
+
+TUNE.Pocket is a pocket tuner for guitar, bass, violin, guitalele and ukulele, the sister app of [TRACK.Pocket](https://github.com/utopick/track-pocket). Like TRACK.Pocket, it is one self-contained HTML file with no network requests, and it shares TRACK.Pocket's look and themes.
+
+## Run it
+
+Open `index.html` in a modern browser. The microphone needs `https://` or `localhost` (or the Android app).
+
+## Views
+
+- **Tuner:** pick the instrument and tuning, tap **●** and play a string. The nearest string pad lights up, and the meter and trace show how far off you are. Tap a pad to lock onto that string; **AUTO** follows the nearest one again. **TONE** plays the reference.
+- **Detect:** shows any note you play or sing, with its frequency and cents, and draws it over time.
+- **Scales:** 15 scales in any key, with a fretboard that follows the tuner's instrument and tuning. Play the scale, an arpeggio, or a root drone to practise over.
+- **Jam:** a drum, bass and chord band in 8 styles, in any key, major or minor, with tap tempo and a mixer.
+- **Setup:** custom tunings (notes like `E2`, `F#3`, `Bb1`, or frequencies in Hz), theme, and about.
+
+The A4 reference (415–466 Hz) is in the header. Settings and custom tunings are stored in the browser (`localStorage`); tunings saved by the old LFTuner load automatically.
+
+## Android app (APK)
+
+GitHub Actions builds a debug APK on every push (or from **Actions → Android APK → Run workflow**). Download it from the run page under **Artifacts**, unzip it, and open the `.apk` on the phone (Android asks you to allow installing from that source once). The first time you tap **●**, Android asks for microphone permission.
+
+To build locally you need Node 20, JDK 17 and the Android SDK:
+
+```bash
+npm install
+npm run android:init   # once: creates android/
+npm run android:apk    # android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Why the old Cordova APK had no microphone
+
+1. Android only lets a WebView capture audio when the app holds **both** `RECORD_AUDIO` and `MODIFY_AUDIO_SETTINGS`. The old manifest only declared `RECORD_AUDIO`.
+2. `RECORD_AUDIO` is a runtime ("dangerous") permission: declaring it is not enough, the app must ask for it. Nothing asked. The permissions plugin was configured, but the page never loaded `cordova.js` or called it.
+3. The hook meant to patch the WebView looked for `CordovaWebChromeClient.java`, a file that doesn't exist in cordova-android 13 (it is `SystemWebChromeClient.java`), so it silently did nothing.
+4. The page forced its AudioContext to 44.1 kHz. Android microphones usually run at 48 kHz, and some WebViews refuse to connect a stream to a context at a different rate.
+
+The build now uses Capacitor. Its WebView asks for both permissions at runtime when the page calls `getUserMedia`, and `scripts/android-permissions.js` declares them in the generated manifest.
+
+## Files
+
+- `index.html` — the complete app
+- `package.json`, `capacitor.config.json`, `scripts/`, `.github/workflows/android.yml` — Android build
