@@ -22,7 +22,11 @@ jobs:
         with:
           node-version: "20"
 
+      # The action's default package list includes "tools", which Google removed from the SDK repository;
+      # name what Capacitor 6 builds with instead (compileSdk 34).
       - uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools platforms;android-34 build-tools;34.0.0"
 
       - name: Install Capacitor
         run: npm install --no-audit --no-fund
