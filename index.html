@@ -6,11 +6,12 @@
 
   Layout of this file
     <head>    theme bootstrap (reads localStorage before first paint), <style>
-    <body>    header, one <section> per view (tun, det, scl, jam, set), toast
+    <body>    backdrop canvas, header, one <section> per view (tun, det, scl, jam, set), help + welcome dialogs, toast
     <script>  music theory and data, mic + pitch detection, one block per view, boot
 
   localStorage keys
     tune.theme      dark | light | demo | term | dungeon | dmg
+    tune.lang       help language (en | es)                 tune.welcome    "1" once the first-visit dialog was closed
     tune.state      { inst, tun, a4, view, auto, jam: { genre, key, pattern, bpm, mix } }
     customTunings   [{ name, instrument, strings: ["E2" | "82.41", ...] }]  (key kept from LFTuner so old tunings load)
 -->
@@ -98,7 +99,8 @@
         body.pocket .mark .sub { display: none; }
         body.pocket header { gap: 3px; padding: 6px 4px; }
         body.pocket #play, body.pocket #rec { width: 31px; }
-        body.pocket .bpm input { width: 40px; }
+        body.pocket .bpm input { width: 40px; appearance: textfield; }
+        body.pocket .bpm input::-webkit-inner-spin-button, body.pocket .bpm input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         body.pocket .bpm { margin-left: 4px; }
       }
       body.pocket button, body.pocket select, body.pocket input[type="number"], body.pocket input[type="text"] { border-radius: 6px; }
@@ -155,6 +157,10 @@
       .rib button.rec.on b { color: #fff; }
       body.pocket #toast { bottom: calc(74px + env(safe-area-inset-bottom)); }
       #wm { position: absolute; left: 0; right: 0; top: 37.5%; transform: translateY(-50%); text-align: center; white-space: nowrap; overflow: hidden; font-weight: 900; font-size: min(18vw, 118px); line-height: 1; letter-spacing: 0.04em; color: var(--text); opacity: 0.05; pointer-events: none; user-select: none; z-index: 4; }
+      #bgfx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; display: none; image-rendering: pixelated; pointer-events: none; }
+      @media (min-width: 760px) {
+        #bgfx { display: block; }
+      }
       html[data-theme="term"] { --bg: #030708; --panel: #061215; --panel2: #0a2024; --line: #12868b; --text: #c8fbff; --dim: #4aa3a8; --acc: #19f0e6; --acc2: #ff7a45; --hot: #ff4d5e; --blue: #ffd23f; --r: 2px; --ink: #001416; --ink2: #1a0a00; --beat: #081a1d; --playbg: #0f3d40; --playbg2: #145b5d; --wave: #020a0b; --scope: #ff7a45; --tie: #0c2d30; --lcn: #0c2428; --hi: #ffd23f; --blink: #14585a; --mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace; }
       html[data-theme="term"] * { border-radius: 2px !important; }
       html[data-theme="term"] body { font-family: var(--mono); text-shadow: 0 0 5px rgba(25, 240, 230, 0.25); }
@@ -171,9 +177,12 @@
       html[data-theme="term"] .mark .t::after { content: ""; display: inline-block; width: 0.42em; height: 0.72em; margin-left: 2px; vertical-align: baseline; background: var(--acc2); animation: blinkc 1.05s steps(1) infinite; }
       html[data-theme="term"] .mark b { display: none; }
       html[data-theme="term"] .mark .sub { color: var(--acc2); }
-      html[data-theme="term"] .card { border: 1px solid var(--line); box-shadow: inset 0 0 0 1px #04282b; }
+      html[data-theme="term"] .card, html[data-theme="term"] .wc, html[data-theme="term"] .hp { border: 1px solid var(--line); box-shadow: inset 0 0 0 1px #04282b; }
+      html[data-theme="term"] .wc { border-color: var(--acc2); }
       html[data-theme="term"] .sq { border: 1px solid #0b4a4e; }
       html[data-theme="term"] .sq.has { box-shadow: inset 0 0 0 1px rgba(25, 240, 230, 0.25); }
+      html[data-theme="term"] .hb h3 { color: var(--acc); }
+      html[data-theme="term"] .hb h4 { color: var(--acc2); }
       @keyframes blinkc {
               50% {
                 opacity: 0;
@@ -182,6 +191,31 @@
       @media (prefers-reduced-motion: reduce) {
         html[data-theme="term"] .mark .t::after { animation: none; }
       }
+      #help, #welcome { position: fixed; inset: 0; z-index: 80; background: rgba(0, 0, 0, 0.62); display: flex; justify-content: center; }
+      #help[hidden], #welcome[hidden] { display: none; }
+      .hp { width: 100%; max-width: 600px; height: 100%; background: var(--bg); display: flex; flex-direction: column; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+      .hh { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex: none; }
+      .hh b { font-size: 18px; flex: 1; }
+      .hh button { min-height: 40px; }
+      .hh .hl { display: flex; gap: 4px; }
+      .hn { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px; flex: none; border-bottom: 1px solid var(--line); }
+      .hn button { flex: 1 1 auto; min-height: 34px; padding: 4px 10px; font-size: 13px; }
+      .hb { position: relative; flex: 1; overflow: auto; padding: 4px 16px 40px; -webkit-overflow-scrolling: touch; user-select: text; -webkit-user-select: text; line-height: 1.5; font-size: 15px; }
+      .hb h3 { font-size: 19px; margin: 22px 0 6px; color: var(--acc); }
+      .hb h4 { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--acc2); margin: 14px 0 4px; }
+      .hb p { margin: 6px 0; }
+      .hb ul { margin: 6px 0; padding-left: 20px; }
+      .hb li { margin: 4px 0; }
+      .hb b { color: var(--text); }
+      .hb em { color: var(--dim); }
+      .wc { align-self: center; width: calc(100% - 28px); max-width: 440px; background: var(--panel); border: 2px solid var(--acc); border-radius: 14px; padding: 18px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5); }
+      .wc h2 { margin: 0 0 6px; font-size: 20px; }
+      .wc p { margin: 4px 0 12px; line-height: 1.45; }
+      .wc hr { border: 0; border-top: 1px solid var(--line); margin: 10px 0; }
+      .wc .wb { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+      .wc .wb button { flex: 1; min-height: 46px; }
+      html[data-theme="demo"] .wc, html[data-theme="demo"] .hp { border: 2px solid var(--acc2); }
+      html[data-theme="demo"] .hb h3 { text-shadow: 2px 2px 0 #000; }
       html[data-theme="dungeon"] { --bg: #0f0d0b; --panel: #1a1612; --panel2: #26201a; --line: #4a3d2c; --text: #e9d9b4; --dim: #9a8562; --acc: #d9a648; --acc2: #a8392c; --hot: #d0452f; --blue: #8aa6b8; --r: 3px; --ink: #1a1206; --ink2: #f6e8c8; --beat: #211b15; --playbg: #3b2a12; --playbg2: #4e3716; --wave: #0a0807; --scope: #d9a648; --tie: #2a2118; --lcn: #211b15; --hi: #ffe7a6; --blink: #3d3224; --chink: #160e05;  --chc: 217, 166, 72 / 196, 78, 60 / 143, 160, 92 / 138, 166, 184 / 154, 116, 172 / 214, 198, 164; --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif; }
       @media (min-width: 760px) {
         html[data-theme="dungeon"] { background: #060504; }
@@ -201,10 +235,15 @@
       html[data-theme="dungeon"] .mark .t { font-family: var(--serif); font-weight: 700; font-variant: small-caps; letter-spacing: 3px; color: #f0dcae; text-shadow: 0 0 10px rgba(217, 166, 72, 0.55), 0 1px 0 #000; animation: candle 3.2s ease-in-out infinite; }
       html[data-theme="dungeon"] .mark b { color: var(--hot); text-shadow: 0 0 8px rgba(208, 69, 47, 0.8); }
       html[data-theme="dungeon"] .mark .sub { color: var(--acc2); font-family: var(--serif); font-style: italic; font-variant: small-caps; text-transform: none; letter-spacing: 2px; font-size: 12px; }
-      html[data-theme="dungeon"] .card { border: 1px solid #4a3d2c; box-shadow: inset 0 0 0 3px var(--panel), inset 0 0 0 4px #33291e, inset 0 0 30px rgba(0, 0, 0, 0.5); }
+      html[data-theme="dungeon"] .card, html[data-theme="dungeon"] .hp { border: 1px solid #4a3d2c; box-shadow: inset 0 0 0 3px var(--panel), inset 0 0 0 4px #33291e, inset 0 0 30px rgba(0, 0, 0, 0.5); }
+      html[data-theme="dungeon"] .wc { border: 3px double var(--acc); background: radial-gradient(ellipse at 50% 0%, #2a2219, var(--panel) 70%); box-shadow: 0 0 0 1px #000, 0 -6px 40px rgba(0, 0, 0, 0.85), 0 0 30px rgba(217, 166, 72, 0.12); }
+      html[data-theme="dungeon"] .wc h2, html[data-theme="dungeon"] .hh b, html[data-theme="dungeon"] .hb h3 { font-variant: small-caps; letter-spacing: 1.5px; color: var(--acc); text-shadow: 0 0 10px rgba(217, 166, 72, 0.35); }
+      html[data-theme="dungeon"] .hb h4 { color: var(--hot); font-style: italic; }
+      html[data-theme="dungeon"] .hb em { color: var(--blue); }
       html[data-theme="dungeon"] .sq { box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.35); }
       html[data-theme="dungeon"] .sq.has { box-shadow: inset 0 0 10px rgba(var(--ccrgb), 0.25), inset 0 -2px 0 rgba(0, 0, 0, 0.35); }
       html[data-theme="dungeon"] .sq.has.play { box-shadow: 0 0 14px rgba(var(--ccrgb), 0.6); }
+      html[data-theme="dungeon"] #help, html[data-theme="dungeon"] #welcome { background: rgba(4, 3, 2, 0.78); }
       @keyframes candle {
               0%,
               100% {
@@ -249,11 +288,17 @@
       html[data-theme="dmg"] .mark b { color: #9b2257; }
       html[data-theme="dmg"] .mark .sub { color: #0f380f; letter-spacing: 1.5px; }
       html[data-theme="dmg"] .mark .sub::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 5px; vertical-align: 1px; background: #e8304a; box-shadow: 0 0 0 1px #0f380f; border-radius: 50% !important; }
-      html[data-theme="dmg"] .card { border: 2px solid #0f380f; box-shadow: 4px 4px 0 #306230; }
+      html[data-theme="dmg"] .card, html[data-theme="dmg"] .hp { border: 2px solid #0f380f; box-shadow: 4px 4px 0 #306230; }
+      html[data-theme="dmg"] .hp { box-shadow: none; }
+      html[data-theme="dmg"] .wc { border: 3px solid #0f380f; background: #9bbc0f; box-shadow: inset 0 0 0 2px #9bbc0f, inset 0 0 0 4px #306230, 6px 6px 0 #0f380f; }
       html[data-theme="dmg"] .sq { border: 2px solid #306230; }
       html[data-theme="dmg"] .sq.has { border-color: rgb(var(--ccrgb)); background: repeating-linear-gradient( 45deg, rgba(var(--ccrgb), calc(0.08 + var(--v) * 0.14)) 0 2px, transparent 2px 4px ), var(--panel); }
       html[data-theme="dmg"] .sq.has.play, html[data-theme="dmg"] .sq.play { color: var(--chink); }
       html[data-theme="dmg"] .sq.sel { outline: 3px dashed #0f380f; }
+      html[data-theme="dmg"] .hb h3, html[data-theme="dmg"] .wc h2 { color: #34366e; font-style: italic; }
+      html[data-theme="dmg"] .hb h4 { color: #9b2257; }
+      html[data-theme="dmg"] .hb em { color: #306230; }
+      html[data-theme="dmg"] #help, html[data-theme="dmg"] #welcome { background: repeating-linear-gradient(0deg, rgba(15, 56, 15, 0.6) 0 2px, rgba(15, 56, 15, 0.35) 2px 4px); }
       .mark .t .l { font-style: normal; }
       html[data-theme="light"] { --bg: #eceff3; --panel: #ffffff; --panel2: #e3e8ee; --line: #bcc5d1; --text: #151a21; --dim: #566170; --acc: #12a05c; --acc2: #d97706; --hot: #e0245e; --blue: #2563eb; --ink: #ffffff; --ink2: #ffffff; --beat: #eef2f7; --playbg: #c6efd6; --playbg2: #bfe9cf; --wave: #f7f9fb; --scope: #c2410c; --tie: #d3ecdd; --lcn: #e9eef4; --hi: #151a21; --blink: #cfd8e3; }
       html[data-theme="light"] body.pocket { box-shadow: 0 0 40px rgba(20, 30, 50, 0.12); }
@@ -771,8 +816,63 @@
         grid-template-columns: repeat(3, 1fr);
         gap: 4px;
       }
-      #wm {
-        top: 50%;
+      /* last view, laid out like TRACK.Pocket's Files: the list takes the screen, the bottom bar opens one panel */
+      #set {
+        gap: 0;
+      }
+      #set .list {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        touch-action: pan-y;
+        margin: 0 0 6px;
+      }
+      #set .list {
+        min-height: 96px; /* the list stays visible above an open panel */
+      }
+      #set .fpanel {
+        flex: 0 1 auto;
+        min-height: 0;
+        max-height: 72%;
+        overflow: auto;
+        touch-action: pan-y;
+        margin: 0 0 6px;
+      }
+      #setTabs {
+        margin: 0 0 0;
+      }
+      .saved.cur b {
+        color: var(--acc);
+      }
+      #savedList .grp {
+        font: 700 9px var(--mono);
+        letter-spacing: 1px;
+        color: var(--dim);
+      }
+      /* the tunings view button sits last in the header, like Files in TRACK.Pocket */
+      #hViews button,
+      #hSet {
+        flex: 1 1 0;
+        min-width: 0;
+        max-width: 38px;
+        height: 44px;
+        min-height: 0;
+        padding: 0;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #hViews button.on,
+      #hSet.on {
+        background: var(--acc);
+        border-color: var(--acc);
+        color: var(--ink);
+      }
+      #hSet {
+        order: 3;
+        flex: none;
+        width: 34px;
       }
       @media (max-height: 640px) {
         .pads .sq {
@@ -788,8 +888,9 @@
     </style>
   </head>
   <body class="pocket">
+    <canvas id="bgfx" aria-hidden="true"></canvas>
     <header>
-      <button class="mark" id="logo" title="About">
+      <button class="mark" id="logo" title="Help / Ayuda">
         <span class="t"
           ><span class="l" style="--i: 0">T</span><span class="l" style="--i: 1">U</span
           ><span class="l" style="--i: 2">N</span><span class="l" style="--i: 3">E</span><b>.</b></span
@@ -806,13 +907,15 @@
         ><button data-v="scl" title="Scales">
           <svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h16M4 18h16" /><circle cx="8" cy="10" r="1.6" /><circle cx="14" cy="14" r="1.6" /><circle cx="18" cy="6" r="1.6" /></svg></button
         ><button data-v="jam" title="Jam">
-          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /><path d="M12 4v2M12 18v2" /></svg></button
-        ><button data-v="set" title="Custom tunings and setup">
-          <svg class="ic" viewBox="0 0 24 24"><path d="M5 4v16M12 4v16M19 4v16" /><path d="M3 9h4M10 15h4M17 7h4" /></svg>
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /><path d="M12 4v2M12 18v2" /></svg>
         </button>
       </div>
       <button id="rec" class="rec" title="Listen (microphone on / off)">●</button>
       <button id="play" class="big" title="Jam: play / stop">▶</button>
+      <!-- a view button like the ones in #hViews, kept apart so it can sit last in the header -->
+      <button id="hSet" data-v="set" title="Tunings, theme and help">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M5 4v16M12 4v16M19 4v16" /><path d="M3 9h4M10 15h4M17 7h4" /></svg>
+      </button>
     </header>
 
     <main>
@@ -898,49 +1001,56 @@
         </div>
       </section>
 
-      <!-- SETUP: custom tunings, theme, about -->
+      <!-- TUNINGS: the saved tunings take the screen; the bottom bar opens one panel at a time -->
       <section id="set">
-        <div class="scroll">
-          <div class="card">
-            <h3>Custom tuning</h3>
-            <div class="row"><input id="cName" type="text" placeholder="Name, e.g. Open C6" /></div>
-            <div class="row">
-              <select id="cInst"></select>
-            </div>
-            <div id="cStrings"></div>
-            <div class="row">
-              <button id="cAdd" style="flex: 1">+ STRING</button><button id="cFromCur" style="flex: 1" title="Copy the tuner's current tuning">COPY</button
-              ><button id="cSave" class="on" style="flex: 1">SAVE</button>
-            </div>
-            <div class="hint">Each string is a note with its octave (E2, F#3, Bb1) or a frequency in Hz (82.41). Lowest string first.</div>
+        <div class="card list" id="savedList"></div>
+        <div class="card fpanel" data-fp="edit" hidden>
+          <h3 id="cTitle">New tuning</h3>
+          <div class="row"><input id="cName" type="text" placeholder="Name, e.g. Open C6" /></div>
+          <div class="row">
+            <select id="cInst"></select>
           </div>
-          <div class="card">
-            <h3>Saved tunings</h3>
-            <div id="savedList"></div>
+          <div id="cStrings"></div>
+          <div class="row">
+            <button id="cAdd" style="flex: 1">+ STRING</button><button id="cFromCur" style="flex: 1" title="Copy the tuner's current tuning">COPY</button
+            ><button id="cSave" class="on" style="flex: 1">SAVE</button>
           </div>
-          <div class="card">
-            <h3>Theme</h3>
-            <div id="themeBar">
-              <button data-th="dark">DARK</button><button data-th="light">LIGHT</button><button data-th="demo">DEMO</button
-              ><button data-th="term">TERM</button><button data-th="dungeon">DUNGEON</button><button data-th="dmg">DMG</button>
-            </div>
+          <div class="hint">Each string is a note with its octave (E2, F#3, Bb1) or a frequency in Hz (82.41). Lowest string first.</div>
+        </div>
+        <div class="card fpanel" data-fp="theme" hidden>
+          <h3>Theme</h3>
+          <div id="themeBar">
+            <button data-th="dark">DARK</button><button data-th="light">LIGHT</button><button data-th="demo">DEMO</button
+            ><button data-th="term">TERM</button><button data-th="dungeon">DUNGEON</button><button data-th="dmg">DMG</button>
           </div>
-          <div class="card" id="about">
-            <h3>About</h3>
-            <div class="hint">
-              <b>TUNE.Pocket</b>, the tuning sister of TRACK.Pocket. Everything runs on this device: nothing is recorded or
-              uploaded. The microphone is used only while ● is lit.<br /><br />
-              <b>Tuner</b>: play one string; the pad of the nearest string lights up. Tap a pad to lock the tuner onto
-              that string (AUTO off), tap ▶ TONE to hear it.<br />
-              <b>Detect</b>: shows any note and draws it over time.<br />
-              <b>Scales</b>: the fretboard follows the instrument and tuning picked in the tuner.<br />
-              <b>Jam</b>: a drum, bass and chord band in any key, to practise over.
-            </div>
-          </div>
+        </div>
+        <div class="prow" id="setTabs">
+          <button data-fpb="edit"><i>TUNING</i>NEW</button>
+          <button data-fpb="theme"><i>LOOK</i>THEME</button>
+          <button id="helpBtn"><i>MANUAL</i>HELP</button>
         </div>
       </section>
       <div id="wm" aria-hidden="true">TUNER</div>
     </main>
+    <div id="help" hidden>
+      <div class="hp" role="dialog" aria-modal="true">
+        <div class="hh">
+          <b id="hTitle"></b>
+          <div class="hl"><button data-lg="en">EN</button><button data-lg="es">ES</button></div>
+          <button id="hClose" aria-label="Close">✕</button>
+        </div>
+        <div class="hn" id="hNav"></div>
+        <div class="hb" id="hBody"></div>
+      </div>
+    </div>
+    <div id="welcome" hidden>
+      <div class="wc" role="dialog" aria-modal="true">
+        <h2>Welcome to TUNE.Pocket · Bienvenida</h2>
+        <p id="wEn"></p>
+        <p id="wEs"></p>
+        <div class="wb"><button id="wOpen" class="on"></button><button id="wOk"></button></div>
+      </div>
+    </div>
     <div id="toast"></div>
 
     <script>
@@ -1319,6 +1429,7 @@
         $("#tunTxt").innerHTML = `<i>TUNING</i>${esc(ts[S.tun] ? ts[S.tun].name : "—")}`;
         renderStrings();
         renderScale();
+        if ($("#savedList")) renderSaved();
       }
       function renderStrings() {
         const ss = curStrings();
@@ -1711,6 +1822,9 @@
         if (!J.g) {
           const bus = c.createDynamicsCompressor();
           bus.connect(c.destination);
+          J.an = c.createAnalyser(); // read by the backdrop
+          J.an.fftSize = 2048;
+          bus.connect(J.an);
           J.g = { drums: c.createGain(), bass: c.createGain(), chord: c.createGain() };
           Object.values(J.g).forEach((g) => g.connect(bus));
         }
@@ -1958,6 +2072,7 @@
         S.tun = allTunings().findIndex((x) => x.name === full);
         renderInst();
         saveState();
+        filePanel(null);
         toast("Saved and selected in the tuner");
       };
       function persistCustom() {
@@ -1966,18 +2081,47 @@
         } catch {}
         renderSaved();
       }
+      // the list in the tunings view: your tunings first, then the built-in ones of the tuner's instrument
       function renderSaved() {
-        $("#savedList").innerHTML =
-          customTunings
+        const cur = allTunings()[S.tun];
+        const mine = customTunings
             .map(
               (t, i) =>
-                `<div class="saved"><div><b>${esc(t.name.replace(/ \(custom\)$/, ""))}</b><small>${esc(t.instrument || "guitar")} · ${esc(t.strings.join(" "))}</small></div><button data-use="${i}">USE</button><button data-edit="${i}">EDIT</button><button data-del="${i}">✕</button></div>`,
+                `<div class="saved${t === cur ? " cur" : ""}"><div><b>${esc(t.name.replace(/ \(custom\)$/, ""))}</b><small>${esc(t.instrument || "guitar")} · ${esc(t.strings.join(" "))}</small></div><button data-use="${i}">USE</button><button data-edit="${i}">EDIT</button><button data-del="${i}">✕</button></div>`,
             )
-            .join("") || '<div class="hint">No custom tunings yet.</div>';
+            .join(""),
+          inst = INSTRUMENTS.find((x) => x[0] === S.inst)[1],
+          built = (TUNINGS[S.inst] || [])
+            .map(
+              (t, i) =>
+                `<div class="saved${t === cur ? " cur" : ""}"><div><b>${esc(t.name)}</b><small>${esc(t.strings.join(" "))}</small></div><button data-pick="${i}">USE</button><button data-copy="${i}">COPY</button></div>`,
+            )
+            .join("");
+        $("#savedList").innerHTML =
+          `<div class="grp">YOUR TUNINGS</div>` +
+          (mine || '<div class="hint" style="padding:6px 0 10px">None yet: tap NEW below, or COPY one of the built-in tunings to change it.</div>') +
+          `<div class="grp" style="margin-top:10px">BUILT IN · ${esc(inst.toUpperCase())}</div>` +
+          built;
+      }
+      function editPanel(t, title) {
+        $("#cTitle").textContent = title;
+        $("#cName").value = t ? t.name.replace(/ \(custom\)$/, "") : "";
+        $("#cInst").value = (t && t.instrument) || S.inst;
+        rows = t ? t.strings.slice() : ["", "", "", "", "", ""];
+        renderRows();
+        filePanel("edit", true);
       }
       $("#savedList").onclick = (e) => {
         const b = e.target.closest("button");
         if (!b) return;
+        if (b.dataset.pick != null || b.dataset.copy != null) {
+          const t = TUNINGS[S.inst][+(b.dataset.pick ?? b.dataset.copy)];
+          if (b.dataset.copy != null) return editPanel({ name: t.name + " (copy)", strings: t.strings, instrument: S.inst }, "Copy of " + t.name);
+          S.tun = allTunings().indexOf(t);
+          renderInst();
+          saveState();
+          return showView("tun");
+        }
         const i = +(b.dataset.use ?? b.dataset.edit ?? b.dataset.del),
           t = customTunings[i];
         if (b.dataset.use != null) {
@@ -1987,11 +2131,7 @@
           saveState();
           showView("tun");
         } else if (b.dataset.edit != null) {
-          $("#cName").value = t.name.replace(/ \(custom\)$/, "");
-          $("#cInst").value = t.instrument || "guitar";
-          rows = t.strings.slice();
-          renderRows();
-          $("#set .scroll").scrollTop = 0;
+          editPanel(t, "Edit tuning");
         } else if (b.classList.contains("arm")) {
           customTunings.splice(i, 1);
           persistCustom();
@@ -2006,22 +2146,19 @@
       // ======================================================================
       // views, ribbons, themes
       // ======================================================================
-      const WM = { tun: "TUNER", det: "DETECT", scl: "SCALES", jam: "JAM", set: "SETUP" };
+      const WM = { tun: "TUNER", det: "DETECT", scl: "SCALES", jam: "JAM", set: "TUNINGS" };
       function showView(v) {
         if (!WM[v]) v = "tun";
         S.view = v;
         $$("main > section").forEach((s) => s.classList.toggle("show", s.id === v));
-        $$("#hViews button").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
+        $$("#hViews button, #hSet").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
         $("#wm").textContent = WM[v];
         $("#rec").style.visibility = v === "tun" || v === "det" ? "" : "hidden";
         if (v === "scl") renderScale();
         if (v !== "tun" && v !== "det" && MIC.on) micStop(); // the mic only runs where it is shown
         saveState();
       }
-      $("#hViews").onclick = (e) => {
-        const b = e.target.closest("[data-v]");
-        if (b) showView(b.dataset.v);
-      };
+      $$("#hViews button, #hSet").forEach((b) => (b.onclick = () => showView(b.dataset.v)));
       const IC = (p) => `<svg class="ic" viewBox="0 0 24 24">${p}</svg>`;
       const ICONS = {
         mic: IC('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>'),
@@ -2096,10 +2233,19 @@
         saveState();
         toast("A4 = " + v + " Hz");
       };
-      $("#logo").onclick = () => {
-        showView("set");
-        $("#about").scrollIntoView({ behavior: "smooth" });
-      };
+      // tunings view: NEW / THEME open their panel (tap again to close), HELP opens the manual
+      let fpOpen = null;
+      function filePanel(k, keep) {
+        fpOpen = fpOpen === k && !keep ? null : k;
+        $$("#set .fpanel").forEach((p) => (p.hidden = p.dataset.fp !== fpOpen));
+        $$("#setTabs [data-fpb]").forEach((b) => b.classList.toggle("on", b.dataset.fpb === fpOpen));
+      }
+      $("#setTabs").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-fpb]");
+        if (!b) return;
+        if (b.dataset.fpb === "edit" && fpOpen !== "edit") return editPanel(null, "New tuning");
+        filePanel(b.dataset.fpb);
+      });
       function setTheme(t, save) {
         if (!["dark", "light", "demo", "term", "dungeon", "dmg"].includes(t)) t = "dark";
         document.documentElement.dataset.theme = t;
@@ -2113,6 +2259,7 @@
         renderStrings();
         renderScale();
         renderJam();
+        bgTheme();
       }
       $("#themeBar").onclick = (e) => {
         const b = e.target.closest("[data-th]");
@@ -2127,6 +2274,585 @@
       });
 
       // ======================================================================
+      // animated backdrop, the same as TRACK.Pocket (wide screens only; reacts to the band or the mic; static if the system asks for less motion)
+      // ======================================================================
+      // Backdrop canvas: drawn at 1/3 resolution, only when the window is at least 760 px wide.
+      // Levels are smoothed so it does not flash. It stops when the tab is hidden and is drawn once if the system asks for less motion.
+      const bgc = $("#bgfx"),
+        bgx = bgc.getContext("2d"),
+        bgWide = matchMedia("(min-width:760px)"),
+        bgCalm = matchMedia("(prefers-reduced-motion:reduce)");
+      let bgT = 0,
+        bgLast = 0,
+        bgBuf = null,
+        bgCol = {},
+        bgRun = false;
+      const bgStars = Array.from({ length: 70 }, () => ({
+        x: Math.random(),
+        y: Math.random(),
+        z: 0.25 + Math.random() * 0.75,
+      }));
+      // dungeon: embers drifting up from the torches, and a row of carved runes that glow with the music
+      const bgEmbers = [];
+      const bgRunes = Array.from({ length: 12 }, (_, n) => {
+        let h = 2166136261 ^ (n * 7919);
+        const rnd = () => ((h = Math.imul(h ^ (h >>> 13), 16777619)) >>> 0) / 4294967296;
+        const px = [];
+        for (let y = 0; y < 7; y++)
+          for (let x = 0; x < 3; x++)
+            if (rnd() < (x === 2 ? 0.8 : 0.4)) px.push(...(x === 2 ? [[2, y]] : [[x, y], [4 - x, y]])); // 5x7 glyph, mirrored around a stave
+        return px;
+      });
+      let bgCache = null,
+        bgLcd = null;
+      function bgCached(key, W, H, paint) {
+        if (bgCache && bgCache.key === key) return bgCache.cv;
+        const cv = document.createElement("canvas");
+        cv.width = W;
+        cv.height = H;
+        paint(cv.getContext("2d"));
+        bgCache = { key, cv };
+        return cv;
+      }
+      function bgStone(g, W, H) {
+        g.fillStyle = "#060504";
+        g.fillRect(0, 0, W, H);
+        const bw = 22,
+          bh = 9;
+        for (let r = 0; r * bh < H; r++)
+          for (let c = -1; c * bw < W; c++) {
+            const x = c * bw + (r % 2 ? bw / 2 : 0),
+              y = r * bh,
+              n = Math.abs(Math.sin(r * 12.9898 + c * 78.233) * 43758.5453) % 1,
+              v = 18 + Math.floor(n * 12);
+            g.fillStyle = `rgb(${v + 4},${v},${v - 4})`;
+            g.fillRect(x + 1, y + 1, bw - 2, bh - 2);
+            g.fillStyle = "rgba(255,230,180,.05)"; // worn top edge
+            g.fillRect(x + 1, y + 1, bw - 2, 1);
+            if (n > 0.86) {
+              g.fillStyle = "rgba(0,0,0,.5)"; // a crack
+              g.fillRect(x + 3 + Math.floor(n * 9), y + 2, 1, bh - 4);
+            }
+            if (n < 0.08) {
+              g.fillStyle = "rgba(90,110,50,.35)"; // moss
+              g.fillRect(x + 1, y + bh - 3, bw - 2, 2);
+            }
+          }
+      }
+      const bgDrops = Array.from({ length: 64 }, (_, i) => ({
+        y: Math.random(),
+        v: 0.15 + Math.random() * 0.35,
+        l: 6 + Math.floor(Math.random() * 14),
+        o: Math.random() < 0.22,
+      }));
+      function bgTheme() {
+        bgCol = {
+          acc: css("--acc"),
+          acc2: css("--acc2"),
+          blue: css("--blue"),
+          hi: css("--hi"),
+          page: getComputedStyle(document.documentElement).backgroundColor,
+        };
+        bgSize();
+        bgKick();
+      }
+      function bgSize() {
+        bgc.width = Math.max(2, Math.ceil(innerWidth / 3));
+        bgc.height = Math.max(2, Math.ceil(innerHeight / 3));
+        bgFrame(0); // resizing wipes the canvas: repaint at once rather than waiting for the next frame
+      }
+      const bgPrev = [];
+      function bgBins(n, t) {
+        const out = new Array(n);
+        let live = false;
+        const analyser = bgSource();
+        if (analyser) {
+          if (!bgBuf || bgBuf.length !== analyser.frequencyBinCount)
+            bgBuf = new Uint8Array(analyser.frequencyBinCount);
+          analyser.getByteFrequencyData(bgBuf);
+          live = true;
+        }
+        for (let i = 0; i < n; i++) {
+          if (live) {
+            const a = Math.floor(Math.pow(i / n, 1.7) * bgBuf.length * 0.6),
+              b = Math.max(a + 1, Math.floor(Math.pow((i + 1) / n, 1.7) * bgBuf.length * 0.6));
+            let m = 0;
+            for (let k = a; k < b; k++) m = Math.max(m, bgBuf[k]);
+            out[i] = m / 255;
+          } else
+            out[i] =
+              0.12 + 0.1 * Math.sin(t * 0.6 + i * 0.45) + 0.06 * Math.sin(t * 0.35 - i * 0.21);
+          bgPrev[i] = out[i] = (bgPrev[i] ?? out[i]) + (out[i] - (bgPrev[i] ?? out[i])) * 0.07; // slow glide: no flicker
+        }
+        return out;
+      }
+      function bgFrame(dt) {
+        const th = document.documentElement.dataset.theme,
+          W = bgc.width,
+          H = bgc.height,
+          g = bgx;
+        bgT += dt;
+        const t = bgT,
+          N = 56,
+          lv = bgBins(N, t),
+          bass = (lv[0] + lv[1] + lv[2]) / 3;
+        // paint the page colour ourselves instead of clearing: some browsers (Safari) keep showing the
+        // previous theme's page background behind a cleared canvas after a theme switch
+        g.fillStyle = bgCol.page || "#000";
+        g.fillRect(0, 0, W, H);
+        if (th === "demo") {
+          for (let y = 0; y < H; y += 2) {
+            const k = Math.sin(y * 0.045 + t * 0.7) + Math.sin(y * 0.012 - t * 0.4);
+            g.fillStyle = `hsla(${(t * 10 + y * 1.6) % 360},95%,55%,${(0.05 + ((0.1 * (k + 2)) / 4) * (1 + bass)).toFixed(3)})`;
+            g.fillRect(0, y, W, 2);
+          }
+          g.fillStyle = "#fff";
+          bgStars.forEach((s) => {
+            const x = (((s.x - t * 0.006 * s.z) % 1) + 1) % 1;
+            g.globalAlpha = 0.25 + 0.5 * s.z;
+            g.fillRect(Math.floor(x * W), Math.floor(s.y * H), s.z > 0.7 ? 2 : 1, 1);
+          });
+          g.globalAlpha = 1;
+          for (let i = 0; i < N; i++) {
+            const h = lv[i] * H * 0.45,
+              x = Math.floor((i * W) / N);
+            g.fillStyle = `hsla(${(i * 6 + t * 12) % 360},100%,60%,.38)`;
+            g.fillRect(x, H - h, Math.ceil(W / N) - 1, h);
+          }
+        } else if (th === "term") {
+          const cw = 4,
+            cols = Math.ceil(W / cw);
+          for (let c = 0; c < cols; c++) {
+            const d = bgDrops[c % bgDrops.length];
+            if (c < bgDrops.length) d.p = (d.p ?? d.y) + dt * d.v * 0.22 * (1 + bass * 0.5);
+            const head = (((d.p || 0) + c * 0.137) % 1.4) * H * 1.2 - H * 0.1;
+            for (let i = 0; i < d.l; i++) {
+              const y = Math.floor(head - i * 3);
+              if (y < 0 || y >= H) continue;
+              const a = (1 - i / d.l) * (i === 0 ? 0.9 : 0.5);
+              g.globalAlpha = Math.min(1, a * (0.5 + lv[c % N] * 0.35));
+              g.fillStyle = d.o ? bgCol.acc2 : i === 0 ? bgCol.blue : bgCol.acc;
+              g.fillRect(c * cw, y, 2 + ((c * 7 + i * 3) % 2), 1);
+            }
+          }
+          g.globalAlpha = 1;
+        } else if (th === "dungeon") {
+          const side = Math.max(0, W / 2 - 100), // the app column covers the middle 600 css px
+            torches = side > 24 ? [side / 2, W - side / 2] : [W * 0.1, W * 0.9],
+            ty = Math.floor(H * 0.36),
+            flick = (k) =>
+              0.86 + 0.08 * Math.sin(t * 9.1 + k * 2) + 0.06 * Math.sin(t * 23.7 + k * 5) + bass * 0.35;
+          g.drawImage(
+            bgCached("dungeon" + W + "x" + H, W, H, (c) => bgStone(c, W, H)),
+            0,
+            0,
+          );
+          // darkness, with a pool of warm light around each torch
+          g.save();
+          g.fillStyle = "rgba(0,0,0,.86)";
+          g.fillRect(0, 0, W, H);
+          g.globalCompositeOperation = "lighter";
+          torches.forEach((x, k) => {
+            const rad = H * 0.55 * flick(k),
+              gr = g.createRadialGradient(x, ty, 0, x, ty, rad);
+            gr.addColorStop(0, "rgba(255,170,70,.42)");
+            gr.addColorStop(0.35, "rgba(200,110,40,.16)");
+            gr.addColorStop(1, "rgba(0,0,0,0)");
+            g.fillStyle = gr;
+            g.fillRect(x - rad, ty - rad, rad * 2, rad * 2);
+          });
+          g.restore();
+          // sconces and flames
+          torches.forEach((x, k) => {
+            const f = flick(k),
+              fx = Math.floor(x),
+              fh = Math.floor(9 + 7 * f + lv[3 + k] * 8);
+            g.fillStyle = "#1b1610";
+            g.fillRect(fx - 4, ty + 2, 9, 3);
+            g.fillRect(fx - 1, ty + 5, 3, 9);
+            g.fillStyle = "#3a2e20";
+            g.fillRect(fx - 4, ty + 2, 9, 1);
+            for (let i = 0; i < fh; i++) {
+              const u = i / fh,
+                w = Math.max(1, Math.round((1 - u * u) * 4 * (0.8 + 0.2 * Math.sin(t * 17 + i + k)))),
+                sway = Math.round(Math.sin(t * 6 + i * 0.5 + k) * u * 2);
+              g.fillStyle = u < 0.25 ? "#fff3c4" : u < 0.55 ? "#ffc35a" : u < 0.8 ? "#e2702a" : "#9c2f1c";
+              g.fillRect(fx - w + 1 + sway, ty + 1 - i, w * 2 - 1, 1);
+            }
+            // embers: more and faster when the music is loud
+            if (dt && Math.random() < dt * (3 + bass * 30))
+              bgEmbers.push({ x: x + (Math.random() - 0.5) * 6, y: ty - fh, vx: (Math.random() - 0.5) * 6, vy: -(10 + Math.random() * 18 + bass * 25), l: 1 });
+          });
+          for (let i = bgEmbers.length - 1; i >= 0; i--) {
+            const e = bgEmbers[i];
+            e.l -= dt * 0.45;
+            e.x += (e.vx + Math.sin(t * 3 + i) * 4) * dt;
+            e.y += e.vy * dt;
+            if (e.l <= 0 || e.y < 0) {
+              bgEmbers.splice(i, 1);
+              continue;
+            }
+            g.globalAlpha = e.l;
+            g.fillStyle = e.l > 0.6 ? "#ffd27a" : "#d0452f";
+            g.fillRect(Math.floor(e.x), Math.floor(e.y), 1, 1);
+          }
+          if (bgEmbers.length > 160) bgEmbers.splice(0, bgEmbers.length - 160);
+          // runes along the bottom of each wall: each one is a frequency band
+          const rw = 9,
+            per = Math.max(1, Math.floor((side - 8) / rw)),
+            ry = H - 18;
+          [0, 1].forEach((sd) => {
+            for (let j = 0; j < per; j++) {
+              const band = Math.floor((j / per) * N * 0.7),
+                glow = Math.min(1, 0.12 + lv[band] * 1.6),
+                x0 = sd ? W - side + 4 + j * rw : side - 4 - (j + 1) * rw + 2;
+              g.globalAlpha = glow;
+              g.fillStyle = glow > 0.55 ? "#ffcf6e" : "#a8392c";
+              bgRunes[(j + sd * 5) % bgRunes.length].forEach(([px, py]) =>
+                g.fillRect(x0 + px, ry + py, 1, 1),
+              );
+            }
+          });
+          g.globalAlpha = 1;
+        } else if (th === "dmg") {
+          // a dot-matrix spectrum, low bands at the outer edges; cells fade slowly like an old LCD
+          const cs = 4,
+            cols = Math.ceil(W / cs),
+            rows = Math.ceil(H / cs),
+            mid = cols / 2;
+          g.drawImage(
+            bgCached("dmg" + W + "x" + H, W, H, (c) => {
+              c.fillStyle = "#8bac0f";
+              c.fillRect(0, 0, W, H);
+              c.fillStyle = "#84a40e";
+              for (let y = 0; y < rows; y++)
+                for (let x = 0; x < cols; x++) c.fillRect(x * cs, y * cs, cs - 1, cs - 1);
+            }),
+            0,
+            0,
+          );
+          if (!bgLcd || bgLcd.c !== cols || bgLcd.r !== rows)
+            bgLcd = { c: cols, r: rows, v: new Float32Array(cols * rows), pk: new Float32Array(cols) };
+          const V = bgLcd.v,
+            up = dt ? 1 - Math.exp(-dt * 18) : 1,
+            down = dt ? 1 - Math.exp(-dt * 4) : 1,
+            shade = ["", "#6b8c0c", "#306230", "#0f380f"];
+          for (let x = 0; x < cols; x++) {
+            const gap = x % 3 === 2,
+              band = Math.min(N - 1, Math.floor((1 - Math.abs(x + 0.5 - mid) / mid) * N * 0.75)),
+              h = gap ? 0 : Math.round(lv[band] * rows * 0.75);
+            bgLcd.pk[x] = gap ? 0 : Math.max(h, bgLcd.pk[x] - dt * 9);
+            const cap = Math.ceil(bgLcd.pk[x]);
+            for (let y = 0; y < rows; y++) {
+              const hy = rows - 1 - y, // height of this cell above the floor
+                tgt = gap ? 0 : hy === cap && cap > h ? 1 : hy < h ? (hy > h - 2 ? 1 : 0.66) : 0,
+                i = y * cols + x,
+                v = (V[i] += (tgt - V[i]) * (tgt > V[i] ? up : down)),
+                s = v > 0.8 ? 3 : v > 0.5 ? 2 : v > 0.18 ? 1 : 0;
+              if (!s) continue;
+              g.fillStyle = shade[s];
+              g.fillRect(x * cs, y * cs, cs - 1, cs - 1);
+            }
+          }
+        } else {
+          const light = th === "light";
+          for (let i = 0; i < N; i++) {
+            const h = lv[i] * H * 0.7,
+              w = W / N,
+              x = i * w;
+            g.globalAlpha = light ? 0.2 : 0.26;
+            g.fillStyle = bgCol.acc;
+            g.fillRect(x + 1, H - h, w - 2, h);
+            g.globalAlpha = light ? 0.1 : 0.13;
+            g.fillStyle = bgCol.acc2;
+            g.fillRect(x + 1, 0, w - 2, h * 0.5);
+          }
+          g.globalAlpha = 1;
+        }
+      }
+      function bgLoop(ts) {
+        if (!bgWide.matches || document.hidden || bgCalm.matches) {
+          bgRun = false;
+          return;
+        }
+        requestAnimationFrame(bgLoop);
+        if (ts - bgLast < 33) return;
+        const dt = Math.min(0.1, (ts - bgLast) / 1000 || 0.033);
+        bgLast = ts;
+        bgFrame(dt);
+      }
+      function bgKick() {
+        if (bgWide.matches && !document.hidden && !bgCalm.matches) {
+          if (!bgRun) {
+            bgRun = true;
+            requestAnimationFrame(bgLoop);
+          }
+        } else {
+          bgRun = false;
+          bgFrame(0);
+        }
+      }
+      addEventListener("resize", bgSize);
+      document.addEventListener("visibilitychange", bgKick);
+      bgWide.addEventListener?.("change", bgKick);
+      // what the backdrop listens to: the jam band while it plays, else the microphone while it is on
+      const bgSource = () => (J.on && J.an ? J.an : MIC.on && MIC.an ? MIC.an : null);
+
+      // ======================================================================
+      // help manual (EN / ES), same format as TRACK.Pocket: "## " heading, "- " list item, **bold**, *dim*
+      // ======================================================================
+      const HELP = [
+        {
+          id: "start",
+          t: { en: "Welcome", es: "Bienvenida" },
+          b: {
+            en: [
+              "**TUNE.Pocket** is a pocket tuner, note detector, scale finder and jam band: the tuning sister of TRACK.Pocket. Everything runs on this phone; nothing is recorded or uploaded.",
+              "## The header",
+              "- **TUNE.** opens this manual.",
+              "- **A4 Hz** is the reference pitch (440 by default, 415 to 466). Every note, string and scale follows it.",
+              "- The view buttons: **Tuner**, **Detect**, **Scales**, **Jam**, and **Tunings** at the far right.",
+              "- **●** turns the microphone on and off (Tuner and Detect only). It is lit while the app listens.",
+              "- **▶** starts and stops the jam band from any view.",
+              "## Microphone",
+              "The first time you tap **●** the phone asks for permission to use the microphone. In the Android app, if you refused it, allow it in *Settings → Apps → TUNE.Pocket → Permissions → Microphone*. The microphone turns off when you leave the Tuner or Detect views or switch apps.",
+            ],
+            es: [
+              "**TUNE.Pocket** es un afinador de bolsillo, detector de notas, buscador de escalas y banda para tocar encima: la app hermana de TRACK.Pocket. Todo funciona en el teléfono; no se graba ni se sube nada.",
+              "## La cabecera",
+              "- **TUNE.** abre este manual.",
+              "- **A4 Hz** es el tono de referencia (440 por defecto, de 415 a 466). Todas las notas, cuerdas y escalas lo siguen.",
+              "- Los botones de vista: **Afinador**, **Detectar**, **Escalas**, **Jam**, y **Afinaciones** a la derecha del todo.",
+              "- **●** enciende y apaga el micrófono (solo en Afinador y Detectar). Se ilumina mientras la app escucha.",
+              "- **▶** arranca y para la banda desde cualquier vista.",
+              "## Micrófono",
+              "La primera vez que tocas **●** el teléfono pide permiso para usar el micrófono. En la app de Android, si lo rechazaste, actívalo en *Ajustes → Aplicaciones → TUNE.Pocket → Permisos → Micrófono*. El micrófono se apaga al salir de Afinador o Detectar, o al cambiar de app.",
+            ],
+          },
+        },
+        {
+          id: "tun",
+          t: { en: "Tuner", es: "Afinador" },
+          b: {
+            en: [
+              "Pick the **instrument** and the **tuning** at the top, tap **●** and play one string at a time, letting it ring.",
+              "- The big letter is the string's note. The bar below shows how far off you are, from −50 to +50 cents (a cent is 1/100 of a semitone).",
+              "- **Orange, ▼ FLAT**: tighten the string. **Red, ▲ SHARP**: loosen it. **Green, ✓ IN TUNE**: within 4 cents.",
+              "- The faint line behind the meter is the last few seconds of readings: a straight green line is a steady, tuned string.",
+              "## String pads",
+              "The pad of the string being tuned is outlined, and glows when it is in tune. Tap a pad to hear its note and to **lock** the tuner onto that string, useful when a string is so far off that it sounds like its neighbour.",
+              "## Bottom buttons",
+              "- **LISTEN**: the microphone, like **●**.",
+              "- **AUTO / LOCKED**: AUTO follows the nearest string; LOCKED keeps the string you picked.",
+              "- **TONE**: plays the selected string (the first one if none is selected).",
+              "- **‹ STRING ›**: select the previous or next string and hear it.",
+            ],
+            es: [
+              "Elige el **instrumento** y la **afinación** arriba, toca **●** y toca una cuerda cada vez, dejándola sonar.",
+              "- La letra grande es la nota de la cuerda. La barra de debajo muestra cuánto te desvías, de −50 a +50 cents (un cent es 1/100 de semitono).",
+              "- **Naranja, ▼ FLAT** (baja): tensa la cuerda. **Rojo, ▲ SHARP** (alta): aflójala. **Verde, ✓ IN TUNE**: a menos de 4 cents.",
+              "- La línea tenue detrás del medidor son las lecturas de los últimos segundos: una línea verde y recta es una cuerda estable y afinada.",
+              "## Pads de cuerdas",
+              "El pad de la cuerda que estás afinando se marca, y brilla cuando está afinada. Toca un pad para oír su nota y **fijar** el afinador en esa cuerda, útil cuando una cuerda está tan desafinada que suena como la de al lado.",
+              "## Botones de abajo",
+              "- **LISTEN**: el micrófono, como **●**.",
+              "- **AUTO / LOCKED**: AUTO sigue la cuerda más cercana; LOCKED mantiene la que elegiste.",
+              "- **TONE**: toca la cuerda seleccionada (la primera si no hay ninguna).",
+              "- **‹ STRING ›**: selecciona la cuerda anterior o siguiente y la hace sonar.",
+            ],
+          },
+        },
+        {
+          id: "det",
+          t: { en: "Detect", es: "Detectar" },
+          b: {
+            en: [
+              "Shows any note you play, hum or sing, and draws it over time like a piano roll: useful to check your voice or to find the note of a sound.",
+              "- **FREQUENCY**, **CENTS** and **EXACT NOTE** show the reading in detail; the exact note is the frequency of the perfectly tuned note.",
+              "- The coloured bar under the roll is the input level.",
+              "- **MIN HZ / MAX HZ** limit the range the detector looks in. Narrow it to ignore noise, for example 80 to 1000 for a voice.",
+              "- **HOLD** freezes the last note; **CLEAR** wipes the roll.",
+              "- **PLAY NOTE** plays the last note heard, perfectly in tune.",
+            ],
+            es: [
+              "Muestra cualquier nota que toques, tararees o cantes, y la dibuja en el tiempo como un piano roll: útil para comprobar tu voz o encontrar la nota de un sonido.",
+              "- **FREQUENCY**, **CENTS** y **EXACT NOTE** muestran la lectura en detalle; la nota exacta es la frecuencia de la nota perfectamente afinada.",
+              "- La barra de colores bajo el gráfico es el nivel de entrada.",
+              "- **MIN HZ / MAX HZ** limitan el rango en el que busca el detector. Estréchalo para ignorar ruido, por ejemplo de 80 a 1000 para la voz.",
+              "- **HOLD** congela la última nota; **CLEAR** borra el gráfico.",
+              "- **PLAY NOTE** toca la última nota detectada, perfectamente afinada.",
+            ],
+          },
+        },
+        {
+          id: "scl",
+          t: { en: "Scales", es: "Escalas" },
+          b: {
+            en: [
+              "Pick a **root** and a **scale**. The pads show its notes and their degree (1, ♭3, 5…); tap one to hear it.",
+              "The **fretboard** follows the instrument and tuning chosen in the Tuner, with the highest string on top: green dots are the root, blue dots the other notes. Tap a dot to hear it.",
+              "- **SCALE**: plays the scale up and down.",
+              "- **ARPEGGIO**: plays 1-3-5 of the scale up and down.",
+              "- **DRONE**: holds the root under your playing, to hear how each note sounds against it. Tap again to stop.",
+              "- **OCTAVE**: the octave the pads and buttons play in (2 to 5).",
+            ],
+            es: [
+              "Elige una **raíz** y una **escala**. Los pads muestran sus notas y su grado (1, ♭3, 5…); toca uno para oírlo.",
+              "El **mástil** sigue el instrumento y la afinación elegidos en el Afinador, con la cuerda más aguda arriba: los puntos verdes son la raíz, los azules el resto de notas. Toca un punto para oírlo.",
+              "- **SCALE**: toca la escala subiendo y bajando.",
+              "- **ARPEGGIO**: toca 1-3-5 de la escala subiendo y bajando.",
+              "- **DRONE**: mantiene la raíz sonando mientras tocas, para oír cómo suena cada nota contra ella. Toca otra vez para parar.",
+              "- **OCTAVE**: la octava en la que suenan los pads y los botones (2 a 5).",
+            ],
+          },
+        },
+        {
+          id: "jam",
+          t: { en: "Jam", es: "Jam" },
+          b: {
+            en: [
+              "A drum, bass and chord band to practise over. Tap a **style** pad to start it; tap **▶** or **STOP** to stop.",
+              "- **KEY** and **MAJOR / MINOR** set the key the bass and chords play in.",
+              "- **PATTERN** changes the groove without changing the style's tempo.",
+              "- **BPM** is the tempo; **TAP TEMPO** sets it from three or more taps.",
+              "- **DRUMS / BASS / CHORDS** are the mixer.",
+              "- The 16 squares are the bar: orange is the kick, red the snare, blue the hi-hat. The lit square is the step playing now.",
+            ],
+            es: [
+              "Una banda de batería, bajo y acordes para practicar encima. Toca un pad de **estilo** para arrancarla; toca **▶** o **STOP** para pararla.",
+              "- **KEY** y **MAJOR / MINOR** fijan la tonalidad del bajo y los acordes.",
+              "- **PATTERN** cambia el ritmo sin cambiar el tempo del estilo.",
+              "- **BPM** es el tempo; **TAP TEMPO** lo fija con tres o más toques.",
+              "- **DRUMS / BASS / CHORDS** son el mezclador.",
+              "- Los 16 cuadros son el compás: naranja es el bombo, rojo la caja, azul el charles. El cuadro iluminado es el paso que suena.",
+            ],
+          },
+        },
+        {
+          id: "set",
+          t: { en: "Tunings", es: "Afinaciones" },
+          b: {
+            en: [
+              "The last view lists **your tunings** and the **built-in** ones of the tuner's instrument. **USE** sends one to the tuner; the current one is shown in green.",
+              "## Your own tunings",
+              "- **NEW** (bottom bar) opens the editor. Give the tuning a name and an instrument, and write each string, lowest first, as a note with its octave (*E2*, *F#3*, *Bb1*) or a frequency in Hz (*82.41*). A ✓ or ✕ shows whether each string can be read.",
+              "- **COPY** in the editor fills it with the tuner's current tuning; **COPY** on a built-in tuning does the same for that one. Change it and **SAVE**.",
+              "- **EDIT** changes one of yours; saving with the same name replaces it. **✕** deletes it after a second tap.",
+              "## Theme",
+              "**THEME** has the six looks shared with TRACK.Pocket. On a wide screen the background is animated and moves with the band or the microphone.",
+              "Tunings and settings are kept on this device. Tunings saved by the old LFTuner app are loaded automatically.",
+            ],
+            es: [
+              "La última vista lista **tus afinaciones** y las **incluidas** para el instrumento del afinador. **USE** la manda al afinador; la actual sale en verde.",
+              "## Tus afinaciones",
+              "- **NEW** (barra de abajo) abre el editor. Dale un nombre y un instrumento, y escribe cada cuerda, de la más grave a la más aguda, como nota con su octava (*E2*, *F#3*, *Bb1*) o una frecuencia en Hz (*82.41*). Un ✓ o ✕ indica si se puede leer cada cuerda.",
+              "- **COPY** en el editor lo rellena con la afinación actual del afinador; **COPY** en una afinación incluida hace lo mismo con esa. Cámbiala y pulsa **SAVE**.",
+              "- **EDIT** cambia una de las tuyas; guardar con el mismo nombre la sustituye. **✕** la borra tras un segundo toque.",
+              "## Tema",
+              "**THEME** tiene los seis aspectos que comparte con TRACK.Pocket. En pantallas anchas el fondo está animado y se mueve con la banda o el micrófono.",
+              "Las afinaciones y ajustes se guardan en este dispositivo. Las afinaciones guardadas en la antigua app LFTuner se cargan automáticamente.",
+            ],
+          },
+        },
+      ];
+      const HELPUI = {
+        en: {
+          title: "Help",
+          close: "Close",
+          wb: "Tap the **TUNE.** logo (top left), or **HELP** in the Tunings view, at any time to open the help manual: it explains every view and button.",
+          wopen: "Open the manual",
+          wok: "Got it",
+        },
+        es: {
+          title: "Ayuda",
+          close: "Cerrar",
+          wb: "Toca el logo **TUNE.** (arriba a la izquierda), o **HELP** en la vista de afinaciones, en cualquier momento para abrir el manual de ayuda: explica cada vista y cada botón.",
+          wopen: "Abrir el manual",
+          wok: "Entendido",
+        },
+      };
+      let HLANG = "en";
+      try {
+        HLANG =
+          localStorage.getItem("tune.lang") || ((navigator.language || "en").toLowerCase().startsWith("es") ? "es" : "en");
+      } catch {}
+      const hfmt = (t) => t.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\*(.+?)\*/g, "<em>$1</em>");
+      function helpRender() {
+        const L = HLANG,
+          U = HELPUI[L];
+        $("#hTitle").textContent = "TUNE.Pocket · " + U.title;
+        $("#hClose").title = U.close;
+        $$("#help [data-lg]").forEach((b) => b.classList.toggle("on", b.dataset.lg === L));
+        $("#hNav").innerHTML = HELP.map((x) => `<button data-hs="${x.id}">${x.t[L]}</button>`).join("");
+        $("#hBody").innerHTML = HELP.map((x) => {
+          let h = `<h3 id="hs-${x.id}">${x.t[L]}</h3>`,
+            ul = false;
+          x.b[L].forEach((l) => {
+            if (l.startsWith("- ")) {
+              if (!ul) ((h += "<ul>"), (ul = true));
+              h += `<li>${hfmt(l.slice(2))}</li>`;
+              return;
+            }
+            if (ul) ((h += "</ul>"), (ul = false));
+            h += l.startsWith("## ") ? `<h4>${hfmt(l.slice(3))}</h4>` : `<p>${hfmt(l)}</p>`;
+          });
+          return h + (ul ? "</ul>" : "");
+        }).join("");
+      }
+      // opens on the section of the view you are in
+      function openHelp(sec) {
+        helpRender();
+        $("#help").hidden = false;
+        $("#hBody").scrollTop = 0;
+        const el = $("#hs-" + (sec || S.view));
+        if (el) $("#hBody").scrollTo(0, el.offsetTop - 8);
+      }
+      const closeHelp = () => ($("#help").hidden = true);
+      $("#logo").onclick = () => openHelp();
+      $("#helpBtn").onclick = () => openHelp("set");
+      $("#hClose").onclick = closeHelp;
+      $("#help").addEventListener("click", (e) => {
+        if (e.target.id === "help") return closeHelp();
+        const l = e.target.closest("[data-lg]");
+        if (l) {
+          HLANG = l.dataset.lg;
+          try {
+            localStorage.setItem("tune.lang", HLANG);
+          } catch {}
+          const y = $("#hBody").scrollTop;
+          helpRender();
+          $("#hBody").scrollTop = y;
+          return;
+        }
+        const n = e.target.closest("[data-hs]");
+        if (n) {
+          const el = $("#hs-" + n.dataset.hs);
+          el && $("#hBody").scrollTo({ top: el.offsetTop - 8, behavior: "smooth" });
+        }
+      });
+      addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !$("#help").hidden) closeHelp();
+      });
+      // first visit: a short note in both languages pointing at the manual
+      function welcome() {
+        $("#wEn").innerHTML = hfmt(HELPUI.en.wb);
+        $("#wEs").innerHTML = hfmt(HELPUI.es.wb);
+        $("#wOpen").textContent = HELPUI[HLANG].wopen;
+        $("#wOk").textContent = HELPUI[HLANG].wok;
+        $("#welcome").hidden = false;
+      }
+      function welcomeDone(open) {
+        $("#welcome").hidden = true;
+        try {
+          localStorage.setItem("tune.welcome", "1");
+        } catch {}
+        if (open) openHelp("start");
+      }
+      $("#wOpen").onclick = () => welcomeDone(true);
+      $("#wOk").onclick = () => welcomeDone(false);
+
+
+      // ======================================================================
       // boot
       // ======================================================================
       buildMeter();
@@ -2135,13 +2861,14 @@
       renderInst();
       renderJam();
       renderCustom();
-      for (let i = 0; i < 6; i++) rows.push("");
-      renderRows();
       setTheme(document.documentElement.dataset.theme);
       ribFace();
       tunIdle();
       detIdle();
       showView(S.view);
+      try {
+        if (!localStorage.getItem("tune.welcome")) welcome();
+      } catch {}
     </script>
   </body>
 </html>
