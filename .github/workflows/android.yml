@@ -10,6 +10,9 @@ jobs:
   apk:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: android # everything Android lives there; the app itself stays at the root
     steps:
       - uses: actions/checkout@v4
 
@@ -31,7 +34,7 @@ jobs:
       - name: Install Capacitor
         run: npm install --no-audit --no-fund
 
-      # android/ is generated on every build (it is not committed), then given the microphone permissions.
+      # android/native/ is generated on every build (it is not committed), then given the microphone permissions.
       - name: Create the Android project
         run: npm run android:init
 
@@ -43,10 +46,10 @@ jobs:
           v=$(node -p "require('./package.json').version")
           n=$(node -p "require('./package.json').name")
           mkdir -p out
-          cp android/app/build/outputs/apk/debug/app-debug.apk "out/${n}-${v}-${GITHUB_RUN_NUMBER}-debug.apk"
+          cp native/app/build/outputs/apk/debug/app-debug.apk "out/${n}-${v}-${GITHUB_RUN_NUMBER}-debug.apk"
 
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ github.event.repository.name }}-apk
-          path: out/*.apk
+          path: android/out/*.apk
           retention-days: 30

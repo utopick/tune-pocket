@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Copies the single-file app into www/, the folder Capacitor packages into the APK.
+// Copies the single-file app (pocket.webSource in package.json) into android/www/, the folder Capacitor packages.
 const fs = require("fs");
 const { webSource } = require("../package.json").pocket;
 fs.mkdirSync("www", { recursive: true });

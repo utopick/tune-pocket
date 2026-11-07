@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Adds the permissions the WebView needs for the microphone to the generated Android manifest.
-// Run after `npx cap add android`. Capacitor's WebView then asks for them at runtime the first time the
+// Run from android/ after `npx cap add android`. Capacitor's WebView then asks for them at runtime the first time the
 // page calls getUserMedia (see BridgeWebChromeClient.onPermissionRequest): both must be declared, or
 // Android denies the request without showing a prompt.
 const fs = require("fs");
-const file = "android/app/src/main/AndroidManifest.xml";
+const file = "native/app/src/main/AndroidManifest.xml"; // android.path in capacitor.config.json
 const PERMS = ["android.permission.RECORD_AUDIO", "android.permission.MODIFY_AUDIO_SETTINGS"];
 let xml = fs.readFileSync(file, "utf8");
 const add = PERMS.filter((p) => !xml.includes(`"${p}"`))
