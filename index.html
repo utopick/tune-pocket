@@ -6,7 +6,7 @@
 
   Layout of this file
     <head>    theme bootstrap (reads localStorage before first paint), <style>
-    <body>    backdrop canvas, header, one <section> per view (tun, det, scl, jam, set), help + welcome dialogs, toast
+    <body>    backdrop canvas, header, one <section> per view (tun, det, scl, jam, cof, set), help + welcome dialogs, toast
     <script>  music theory and data, mic + pitch detection, one block per view, boot
 
   localStorage keys
@@ -1074,6 +1074,127 @@
         font-size: 15px;
         font-family: system-ui, -apple-system, sans-serif;
       }
+      /* circle of fifths */
+      .cofw {
+        flex: 1;
+        min-height: 220px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .cofw svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+        touch-action: manipulation;
+      }
+      .cofw .rot {
+        transform-origin: 150px 150px;
+        transition: transform 0.55s cubic-bezier(0.3, 1.3, 0.5, 1);
+      }
+      .cofw .lab {
+        transform-box: fill-box;
+        transform-origin: center;
+        transition: transform 0.55s cubic-bezier(0.3, 1.3, 0.5, 1);
+      }
+      .cofw .w {
+        cursor: pointer;
+      }
+      .cofw .w path {
+        fill: var(--panel);
+        stroke: var(--bg);
+        stroke-width: 1.5;
+        transition: fill 0.25s;
+      }
+      .cofw .w.in path {
+        fill: var(--panel2);
+      }
+      .cofw .w.in.dg path {
+        fill: color-mix(in srgb, var(--acc) 28%, var(--panel2));
+      }
+      .cofw .w.in.ton path {
+        fill: var(--acc);
+      }
+      .cofw .w.in.lit path {
+        fill: var(--acc2);
+      }
+      .cofw .w text {
+        fill: var(--dim);
+        font: 700 13px system-ui, -apple-system, sans-serif;
+        text-anchor: middle;
+        dominant-baseline: central;
+        pointer-events: none;
+      }
+      .cofw .w.mi text {
+        font-size: 10.5px;
+      }
+      .cofw .w.in text {
+        fill: var(--text);
+      }
+      .cofw .w text.rl {
+        font: 700 7.5px var(--mono);
+        fill: var(--acc);
+      }
+      .cofw .w.in.ton text,
+      .cofw .w.in.lit text,
+      .cofw .w.in.ton text.rl,
+      .cofw .w.in.lit text.rl {
+        fill: var(--ink);
+      }
+      .cofw .sg {
+        font: 700 7.5px var(--mono);
+        fill: var(--dim);
+        text-anchor: middle;
+        dominant-baseline: central;
+      }
+      .cofw .sg.in {
+        fill: var(--acc);
+      }
+      .cofw .ctr {
+        fill: var(--bg);
+        stroke: var(--line);
+      }
+      .cofw .ck {
+        fill: var(--text);
+        font: 800 22px system-ui, -apple-system, sans-serif;
+        text-anchor: middle;
+      }
+      .cofw .cm {
+        fill: var(--acc2);
+        font: 700 8px var(--mono);
+        letter-spacing: 1.5px;
+        text-anchor: middle;
+      }
+      .cofinfo {
+        flex: none;
+        text-align: center;
+        font: 700 11px var(--mono);
+        color: var(--dim);
+        line-height: 1.5;
+      }
+      .cofinfo b {
+        color: var(--text);
+      }
+      #cofPads {
+        grid-template-columns: repeat(7, 1fr);
+      }
+      #cofPads .sq {
+        min-height: 50px;
+      }
+      #cofPads .sq .nt {
+        font-size: 13px;
+        font-family: system-ui, -apple-system, sans-serif;
+        white-space: nowrap;
+      }
+      #cofPads .sq .in {
+        font-size: 9px;
+      }
+      #cofPads .sq.lit {
+        background: var(--acc2);
+        color: var(--ink);
+        border-color: var(--acc2);
+      }
       #steps {
         grid-template-columns: repeat(16, 1fr);
         gap: 2px;
@@ -1331,7 +1452,9 @@
         ><button data-v="scl" title="Scales">
           <svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 10h16M4 14h16M4 18h16" /><circle cx="8" cy="10" r="1.6" /><circle cx="14" cy="14" r="1.6" /><circle cx="18" cy="6" r="1.6" /></svg></button
         ><button data-v="jam" title="Jam">
-          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /><path d="M12 4v2M12 18v2" /></svg>
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /><path d="M12 4v2M12 18v2" /></svg></button
+        ><button data-v="cof" title="Circle of fifths">
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><path d="M12 3.5v4M19.4 7.8l-3.5 2M19.4 16.2l-3.5-2" /></svg>
         </button>
       </div>
       <button id="rec" class="rec" title="Listen (microphone on / off)">●</button>
@@ -1454,6 +1577,17 @@
         <div class="prow rib">
           <button id="jPlay"></button><button id="jTap"></button><button id="jMinor"></button><button id="jSnd"></button
           ><button id="jFxB"></button>
+        </div>
+      </section>
+
+      <!-- CIRCLE OF FIFTHS: tap a key; its chords light up and play -->
+      <section id="cof">
+        <div class="cofw" id="cofW"></div>
+        <div class="cofinfo" id="cofInfo"></div>
+        <div class="pads" id="cofPads"></div>
+        <div class="prow rib">
+          <button id="cPlay"></button><button id="cMinor"></button><button id="c7"></button><button id="cScl"></button
+          ><button id="cJam"></button>
         </div>
       </section>
 
@@ -1723,6 +1857,7 @@
         a4: 440,
         scl: { root: "A", type: "Pentatonic Minor", oct: 3, pos: 0, reg: 0, pass: false, spd: 140, wv: "one" },
         jam: { genre: "rock", key: "A", pattern: "straight4", bpm: 100, minor: false, mix: { drums: 0.8, bass: 0.6, chord: 0.35 }, snd: null, fx: [], latch: true, song: 8 },
+        cof: { i: 0, minor: false, sev: false }, // circle of fifths: position (0 = C, 1 = G...), minor key, sevenths
       };
       let customTunings = [];
       try {
@@ -1731,11 +1866,12 @@
         for (const k of ["view", "inst", "tun", "auto", "a4"]) if (k in o) S[k] = o[k];
         if (o.scl) Object.assign(S.scl, o.scl);
         if (o.jam) Object.assign(S.jam, o.jam, { mix: Object.assign(S.jam.mix, o.jam.mix) });
+        if (o.cof) Object.assign(S.cof, o.cof);
       } catch {}
       A4 = S.a4;
       function saveState() {
         try {
-          localStorage.setItem("tune.state", JSON.stringify({ view: S.view, inst: S.inst, tun: S.tun, auto: S.auto, a4: S.a4, scl: S.scl, jam: S.jam }));
+          localStorage.setItem("tune.state", JSON.stringify({ view: S.view, inst: S.inst, tun: S.tun, auto: S.auto, a4: S.a4, scl: S.scl, jam: S.jam, cof: S.cof }));
         } catch {}
       }
 
@@ -4508,9 +4644,9 @@
         TP.timers.push(setTimeout(stringsStop, (strum + 1.6) * 1000));
       }
       // the header ▶ does what fits the view; it is hidden where nothing plays
-      const PLAYS = { tun: true, scl: true, jam: true };
+      const PLAYS = { tun: true, scl: true, jam: true, cof: true };
       function playOn() {
-        return S.view === "tun" ? TP.on : S.view === "scl" ? SP.on : J.on;
+        return S.view === "tun" ? TP.on : S.view === "scl" ? SP.on : S.view === "cof" ? COF.on : J.on;
       }
       function playFace() {
         const b = $("#play"),
@@ -4518,13 +4654,14 @@
         b.style.visibility = PLAYS[S.view] ? "" : "hidden";
         b.classList.toggle("on", on);
         b.textContent = on ? "■" : "▶";
-        b.title = { tun: "Play the strings, then strum", scl: "Play the scale", jam: "Play / stop the band" }[S.view] || "";
+        b.title = { tun: "Play the strings, then strum", scl: "Play the scale", jam: "Play / stop the band", cof: "Play a progression in the key" }[S.view] || "";
         ribFace();
       }
       function playToggle() {
         if (S.view === "tun") return TP.on ? stringsStop() : playStrings();
         if (S.view === "scl") return SP.on ? scaleStop() : playScale(false);
         if (S.view === "jam") return jamToggle();
+        if (S.view === "cof") return COF.on ? cofStop() : cofProg();
       }
       // ---- live effects on the band (the same chain and settings as TRACK.Pocket's FX)
       const jStep = () => 60 / S.jam.bpm / 4;
@@ -4797,6 +4934,198 @@
       };
 
       // ======================================================================
+      // circle of fifths
+      // ======================================================================
+      // Position i (0 = top) holds the major key whose tonic is i fifths above C, and its relative minor inside.
+      // i sharps for i <= 6, 12 - i flats after. The ring turns so the chosen key sits at the top: its IV is on
+      // the left, its V on the right, and the three minors under them are ii, vi, iii; vii° is the next minor on.
+      var COF = { on: false, timers: [], rot: null, k: -1 };
+      const FLATN = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+      const SHARPS = ["F", "C", "G", "D", "A", "E", "B"];
+      const cofPc = (i) => (((i * 7) % 12) + 12) % 12;
+      const cofFlat = (i) => ((i % 12) + 12) % 12 >= 7; // the flat side (F, B♭... D♭); F♯ / G♭ is spelled sharp
+      const cofNm = (pc, flat) => {
+        const n = (flat ? FLATN : NOTE_NAMES)[((pc % 12) + 12) % 12];
+        return nl(n[0]) + (n[1] === "#" ? "♯" : n[1] === "b" ? "♭" : "");
+      };
+      // the seven chords of the key at circle position i: [roman, root pc, quality, ring, position]
+      function cofChords(i, minor) {
+        const t = cofPc(i),
+          M = [["I", 0, "", 0, 0], ["ii", 2, "m", 1, -1], ["iii", 4, "m", 1, 1], ["IV", 5, "", 0, -1], ["V", 7, "", 0, 1], ["vi", 9, "m", 1, 0], ["vii°", 11, "dim", 1, 2]],
+          m = [["i", 9, "m", 1, 0], ["ii°", 11, "dim", 1, 2], ["III", 0, "", 0, 0], ["iv", 2, "m", 1, -1], ["v", 4, "m", 1, 1], ["VI", 5, "", 0, -1], ["VII", 7, "", 0, 1]];
+        return (minor ? m : M).map(([r, iv, q, ring, d]) => ({ r, pc: (t + iv) % 12, q, ring, pos: (((i + d) % 12) + 12) % 12 }));
+      }
+      const SEV = { "": [0, 4, 7, 11], m: [0, 3, 7, 10], dim: [0, 3, 6, 10] };
+      function cofIvs(ch, sev, dom) {
+        if (!sev) return ch.q === "m" ? [0, 3, 7] : ch.q === "dim" ? [0, 3, 6] : [0, 4, 7];
+        return dom ? [0, 4, 7, 10] : SEV[ch.q];
+      }
+      // the V of a major key and the VII of a minor key are dominant sevenths
+      const cofDom = (ch, minor) => ch.r === (minor ? "VII" : "V");
+      const cofSuf = (ch, sev, dom) => (sev ? (dom ? "7" : ch.q === "m" ? "m7" : ch.q === "dim" ? "m7♭5" : "maj7") : ch.q === "dim" ? "°" : ch.q);
+      function cofChordName(ch) {
+        return cofNm(ch.pc, cofFlat(S.cof.i)) + cofSuf(ch, S.cof.sev, cofDom(ch, S.cof.minor));
+      }
+      const cofArc = (r1, r2, a0, a1) => {
+        const P = (r, a) => (150 + r * Math.cos(a)).toFixed(2) + " " + (150 + r * Math.sin(a)).toFixed(2);
+        return `M${P(r2, a0)}A${r2} ${r2} 0 0 1 ${P(r2, a1)}L${P(r1, a1)}A${r1} ${r1} 0 0 0 ${P(r1, a0)}Z`;
+      };
+      function cofRender() {
+        const box = $("#cofW");
+        if (!box) return;
+        const i = S.cof.i,
+          minor = S.cof.minor,
+          chs = cofChords(i, minor),
+          at = (ring, pos) => chs.find((c) => c.ring === ring && c.pos === pos);
+        if (COF.rot == null) COF.rot = i;
+        else {
+          let d = (((i - COF.rot) % 12) + 12) % 12;
+          if (d > 6) d -= 12;
+          COF.rot += d;
+        }
+        const R = COF.rot * 30;
+        let w = "";
+        for (let j = 0; j < 12; j++) {
+          const a = ((j * 30 - 90 - 15) * Math.PI) / 180,
+            b = ((j * 30 - 90 + 15) * Math.PI) / 180,
+            c = ((j * 30 - 90) * Math.PI) / 180,
+            fl = cofFlat(j);
+          for (const ring of [0, 1]) {
+            const ch = at(ring, j),
+              [r1, r2] = ring ? [76, 112] : [112, 150],
+              rm = (r1 + r2) / 2,
+              x = 150 + rm * Math.cos(c),
+              y = 150 + rm * Math.sin(c),
+              pc = ring ? (cofPc(j) + 9) % 12 : cofPc(j),
+              ton = ch && (ch.r === "I" || ch.r === "i"),
+              name = ring ? cofNm(pc, fl) + "m" : j === 6 ? cofNm(6, false) + "/" + cofNm(6, true) : cofNm(pc, fl),
+              label =
+                !ring && j === 6
+                  ? `<tspan x="${x.toFixed(1)}" dy="-0.55em">${cofNm(6, false)}</tspan><tspan x="${x.toFixed(1)}" dy="1.1em">${cofNm(6, true)}</tspan>`
+                  : name;
+            w +=
+              `<g class="w${ring ? " mi" : ""}${ch ? " in dg" : ""}${ton ? " ton" : ""}" data-ring="${ring}" data-j="${j}"><path d="${cofArc(r1, r2, a, b)}"/>` +
+              `<g class="lab" style="transform:rotate(${R}deg)"><text x="${x.toFixed(1)}" y="${(y - (ch ? 4 : 0)).toFixed(1)}">${label}</text>` +
+              (ch ? `<text class="rl" x="${x.toFixed(1)}" y="${(y + 9).toFixed(1)}">${ch.r}</text>` : "") +
+              `</g></g>`;
+          }
+          const sx = 150 + 64 * Math.cos(c),
+            sy = 150 + 64 * Math.sin(c),
+            n = j <= 6 ? j : 12 - j,
+            sg = n === 0 ? "0" : j === 6 ? "6♯/♭" : n + (j < 6 ? "♯" : "♭");
+          w += `<g class="lab" style="transform:rotate(${R}deg)"><text class="sg${j === i ? " in" : ""}" x="${sx.toFixed(1)}" y="${sy.toFixed(1)}">${sg}</text></g>`;
+        }
+        const ton = chs[0],
+          key = cofNm(ton.pc, cofFlat(i));
+        box.innerHTML =
+          `<svg viewBox="-2 -2 304 304" preserveAspectRatio="xMidYMid meet"><g class="rot" style="transform:rotate(${-R}deg)">${w}</g>` +
+          `<circle class="ctr" cx="150" cy="150" r="52"/><text class="ck" x="150" y="152">${key}${minor ? "m" : ""}</text>` +
+          `<text class="cm" x="150" y="170">${minor ? "MINOR" : "MAJOR"}</text></svg>`;
+        // the key signature, the scale and the relative key
+        const n = i <= 6 ? i : 12 - i,
+          acc = i === 0 ? "no ♯ or ♭" : i <= 6 ? SHARPS.slice(0, n).map((x) => nl(x) + "♯").join(" ") : SHARPS.slice().reverse().slice(0, n).map((x) => nl(x) + "♭").join(" "),
+          scale = chs.map((c) => c).sort((a, b) => ((a.pc - ton.pc + 12) % 12) - ((b.pc - ton.pc + 12) % 12)).map((c) => cofNm(c.pc, cofFlat(i))).join(" "),
+          rel = minor ? cofNm(cofPc(i), cofFlat(i)) + " major" : cofNm((cofPc(i) + 9) % 12, cofFlat(i)) + " minor";
+        $("#cofInfo").innerHTML = `<b>${acc}</b> · ${scale}<br>relative key: <b>${rel}</b>`;
+        $("#cofPads").innerHTML = chs
+          .map((c, k) => `<div class="sq has${k === 0 ? " ok" : ""}" data-ch="${k}" style="--ccrgb:${PC(k)}"><span class="in">${c.r}</span><span class="nt"${cofChordName(c).length > 7 ? ' style="font-size:8.5px"' : cofChordName(c).length > 5 ? ' style="font-size:10px"' : ""}>${cofChordName(c)}</span></div>`)
+          .join("");
+        ribFace();
+      }
+      // a chord: the root low, the chord above it; strummed on the strings, struck on the piano (and the winds)
+      function cofPlay(ch, t = 0, len = 1.6) {
+        const ivs = cofIvs(ch, S.cof.sev, cofDom(ch, S.cof.minor)),
+          root = 48 + ch.pc,
+          kind = KIND(S.inst),
+          strum = kind === "fret" || kind === "fretless" ? 0.03 : 0.008,
+          note = (m, at) =>
+            kind === "fret" || kind === "fretless"
+              ? playInst(midiToHz(m), at, len)
+              : getCtx().then((c) => TK.voice(c, sclOut(c), tkIndex("Piano"), m, c.currentTime + at + 0.01, len, 0.55));
+        note(root - 12, t);
+        ivs.forEach((iv, n) => note(root + iv, t + (n + 1) * strum));
+      }
+      function cofLight(k, ms) {
+        COF.k = k;
+        const ch = cofChords(S.cof.i, S.cof.minor)[k];
+        $$("#cofW .w.lit, #cofPads .lit").forEach((e) => e.classList.remove("lit"));
+        if (!ch) return;
+        const w = $(`#cofW .w[data-ring="${ch.ring}"][data-j="${ch.pos}"]`),
+          p = $(`#cofPads [data-ch="${k}"]`);
+        [w, p].forEach((e) => e && e.classList.add("lit"));
+        if (ms) COF.timers.push(setTimeout(() => [w, p].forEach((e) => e && e.classList.remove("lit")), ms));
+      }
+      function cofStop() {
+        COF.timers.forEach(clearTimeout);
+        COF.timers = [];
+        COF.on = false;
+        cofLight(-1);
+        playFace();
+      }
+      // I V vi IV (or i VI III VII in minor), one chord every two seconds, round and round until STOP
+      function cofProg() {
+        cofStop();
+        COF.on = true;
+        playFace();
+        const seq = S.cof.minor ? [0, 5, 2, 6] : [0, 4, 5, 3],
+          len = 2;
+        let n = 0;
+        const step = () => {
+          if (!COF.on) return;
+          const k = seq[n++ % seq.length];
+          cofPlay(cofChords(S.cof.i, S.cof.minor)[k], 0, len * 0.95);
+          cofLight(k);
+          COF.timers.push(setTimeout(step, len * 1000));
+        };
+        step();
+      }
+      $("#cofW").onclick = (e) => {
+        const g = e.target.closest(".w");
+        if (!g) return;
+        const ring = +g.dataset.ring,
+          j = +g.dataset.j;
+        S.cof.i = j;
+        S.cof.minor = !!ring;
+        cofRender();
+        saveState();
+        if (COF.on) return; // the progression goes on in the new key
+        cofPlay(cofChords(j, !!ring)[0]);
+        cofLight(0, 900);
+      };
+      $("#cofPads").onclick = (e) => {
+        const p = e.target.closest("[data-ch]");
+        if (!p) return;
+        if (COF.on) cofStop();
+        cofPlay(cofChords(S.cof.i, S.cof.minor)[+p.dataset.ch]);
+        cofLight(+p.dataset.ch, 900);
+      };
+      $("#cPlay").onclick = () => (COF.on ? cofStop() : cofProg());
+      // MAJOR / MINOR swaps to the relative key: the same notes, the same place on the circle
+      $("#cMinor").onclick = () => {
+        S.cof.minor = !S.cof.minor;
+        cofRender();
+        saveState();
+      };
+      $("#c7").onclick = () => {
+        S.cof.sev = !S.cof.sev;
+        cofRender();
+        saveState();
+      };
+      const cofTonic = () => NOTE_NAMES[cofChords(S.cof.i, S.cof.minor)[0].pc];
+      $("#cScl").onclick = () => {
+        S.scl.root = cofTonic();
+        S.scl.type = S.cof.minor ? "Natural Minor" : "Major";
+        S.scl.pos = 0;
+        showView("scl");
+      };
+      $("#cJam").onclick = () => {
+        S.jam.key = cofTonic();
+        S.jam.minor = S.cof.minor;
+        renderJam();
+        showView("jam");
+      };
+
+      // ======================================================================
       // custom tunings (setup view)
       // ======================================================================
       let rows = [];
@@ -4929,7 +5258,7 @@
       // ======================================================================
       // views, ribbons, themes
       // ======================================================================
-      const WM = { tun: "TUNER", det: "DETECT", scl: "SCALES", jam: "JAM", set: "TUNINGS" };
+      const WM = { tun: "TUNER", det: "DETECT", scl: "SCALES", jam: "JAM", cof: "CIRCLE", set: "TUNINGS" };
       function showView(v) {
         if (!WM[v]) v = "tun";
         S.view = v;
@@ -4940,7 +5269,9 @@
         $("#rec").style.visibility = v === "tun" || v === "det" ? "" : "hidden";
         if (TP.on && v !== "tun") stringsStop();
         if (SP.on && v !== "scl") scaleStop();
+        if (COF.on && v !== "cof") cofStop();
         playFace();
+        if (v === "cof") cofRender();
         if (v === "scl") renderScale();
         if (v !== "scl") practiceStop();
         if (v === "scl") requestAnimationFrame(drawDia);
@@ -4983,6 +5314,14 @@
         rib("tPrev", "prev", "STRING");
         rib("tNext", "next", "STRING");
         rib("dTone", "tone", "PLAY NOTE");
+        if ($("#cPlay")) {
+          rib("cPlay", COF.on ? "stop" : "play", COF.on ? "STOP" : S.cof.minor ? "i VI III VII" : "I V vi IV", COF.on);
+          rib("cMinor", "minor", S.cof.minor ? "MINOR" : "MAJOR", S.cof.minor);
+          $("#c7").innerHTML = `<b>7</b><i>${S.cof.sev ? "SEVENTHS" : "TRIADS"}</i>`;
+          $("#c7").classList.toggle("on", !!S.cof.sev);
+          rib("cScl", "up", "SCALES");
+          rib("cJam", "snd", "JAM");
+        }
         rib("sUp", SP.on ? "stop" : "up", SP.on ? "STOP" : "SCALE", SP.on);
         rib("sArp", "arp", "ARPEGGIO");
         rib("sPrac", "mic", PR.on ? PR.i + 1 + "/" + PR.seq.length : "PRACTICE", PR.on);
@@ -5080,6 +5419,7 @@
         notesFace();
         renderInst();
         renderJam();
+        cofRender();
         ribFace();
         toast(NOTES_SOL ? "Notes: Do Re Mi" : "Notes: A B C");
       };
@@ -5449,7 +5789,7 @@
               "## The header",
               "- **TUNE.** opens this manual.",
               "- **A4 Hz** is the reference pitch (440 by default, 415 to 466). Every note, string and scale follows it.",
-              "- The view buttons: **Tuner**, **Detect**, **Scales**, **Jam**, and **Tunings** (the disk) at the far right.",
+              "- The view buttons: **Tuner**, **Detect**, **Scales**, **Jam**, **Circle** (of fifths), and **Tunings** (the disk) at the far right.",
               "- **●** turns the microphone on and off (Tuner and Detect only). It is lit while the app listens.",
               "- **▶** plays what the view has to play: the strings and a strum in the Tuner, the scale in Scales, the band in Jam. It is hidden in Detect and Tunings.",
               "## Microphone",
@@ -5460,7 +5800,7 @@
               "## La cabecera",
               "- **TUNE.** abre este manual.",
               "- **A4 Hz** es el tono de referencia (440 por defecto, de 415 a 466). Todas las notas, cuerdas y escalas lo siguen.",
-              "- Los botones de vista: **Afinador**, **Detectar**, **Escalas**, **Jam**, y **Afinaciones** (el disco) a la derecha del todo.",
+              "- Los botones de vista: **Afinador**, **Detectar**, **Escalas**, **Jam**, **Círculo** (de quintas), y **Afinaciones** (el disco) a la derecha del todo.",
               "- **●** enciende y apaga el micrófono (solo en Afinador y Detectar). Se ilumina mientras la app escucha.",
               "- **▶** toca lo que corresponde a la vista: las cuerdas y un rasgueo en el Afinador, la escala en Escalas, la banda en Jam. Se oculta en Detectar y Afinaciones.",
               "## Micrófono",
@@ -5595,6 +5935,38 @@
               "**SOUNDS** elige la batería, el bajo y el instrumento de acordes de toda la lista de TRACK.Pocket. Cada estilo carga un conjunto adecuado; cámbialo después.",
               "## FX",
               "**FX** es una mesa de efectos en directo sobre toda la banda: filtros, lo-fi, saturación, flanger, eco, reverb, radio y puertas rítmicas. Con **LATCH** activo, un toque enciende o apaga un efecto; sin él, el efecto suena solo mientras mantienes el pad. **ALL OFF** los quita. Toca SOUNDS o FX otra vez para volver al mezclador.",
+            ],
+          },
+        },
+        {
+          id: "cof",
+          t: { en: "Circle of fifths", es: "Círculo de quintas" },
+          b: {
+            en: [
+              "The twelve keys in a ring, each a fifth above the one before it: C, G, D, A… clockwise, F, B♭, E♭… the other way. Keys side by side share all their notes but one, so it shows which keys and chords go well together.",
+              "- The **outer ring** is the major keys, the **inner ring** their relative minors (the same notes, another home), and the small ring the **key signature**: how many ♯ or ♭.",
+              "- **Tap a key** to choose it and hear its chord: outer for major, inner for minor. The circle turns to put it at the top.",
+              "- The **seven chords of the key** light up with their numbers: the key in the middle, its **IV** on the left and **V** on the right, and the three minors under them (**ii vi iii**), with the **vii°** one step further. Every pop song in that key lives in these seven.",
+              "- Under the circle: the key signature, the scale and the relative key. Tap a **chord pad** to hear it.",
+              "## The bar",
+              "- **I V vi IV** (**i VI III VII** in minor) plays that progression round and round, lighting the chord playing; tap a key while it plays to move it there. **▶** does the same.",
+              "- **MAJOR / MINOR** swaps to the relative key.",
+              "- **TRIADS / SEVENTHS**: three-note chords, or with the seventh (maj7, m7, 7, m7♭5).",
+              "- **SCALES** opens the key's scale on your instrument; **JAM** sets the band to the key.",
+              "Chords sound strummed on the string instruments and on the piano otherwise.",
+            ],
+            es: [
+              "Las doce tonalidades en un anillo, cada una una quinta por encima de la anterior: Do, Sol, Re, La… en el sentido del reloj, Fa, Si♭, Mi♭… al revés. Las vecinas comparten todas sus notas menos una, así que muestra qué tonalidades y acordes van bien juntos.",
+              "- El **anillo de fuera** son las tonalidades mayores, el **de dentro** sus relativas menores (las mismas notas, otra casa), y el anillo pequeño la **armadura**: cuántos ♯ o ♭.",
+              "- **Toca una tonalidad** para elegirla y oír su acorde: fuera mayor, dentro menor. El círculo gira para ponerla arriba.",
+              "- Los **siete acordes de la tonalidad** se iluminan con sus números: la tonalidad en el centro, su **IV** a la izquierda y su **V** a la derecha, y los tres menores debajo (**ii vi iii**), con el **vii°** un paso más allá. Cualquier canción pop en esa tonalidad vive en estos siete.",
+              "- Bajo el círculo: la armadura, la escala y la tonalidad relativa. Toca un **pad de acorde** para oírlo.",
+              "## La barra",
+              "- **I V vi IV** (**i VI III VII** en menor) toca esa progresión en bucle e ilumina el acorde que suena; toca una tonalidad mientras suena para llevarla allí. **▶** hace lo mismo.",
+              "- **MAJOR / MINOR** cambia a la tonalidad relativa.",
+              "- **TRIADS / SEVENTHS**: acordes de tres notas, o con la séptima (maj7, m7, 7, m7♭5).",
+              "- **SCALES** abre la escala de la tonalidad en tu instrumento; **JAM** pone la banda en esa tonalidad.",
+              "Los acordes suenan rasgueados en los instrumentos de cuerda y en el piano en los demás.",
             ],
           },
         },
