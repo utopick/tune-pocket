@@ -40,6 +40,12 @@ Everything for the Android build lives in `android/`; the native project (`andro
 
 The build now uses Capacitor. Its WebView asks for both permissions at runtime when the page calls `getUserMedia`, and `android/scripts/android-permissions.js` declares them in the generated manifest.
 
+## AI use
+
+I built this app starting from my own older code, with the help of an AI coding assistant (Claude, by Anthropic), which wrote and reworked much of the code following my directions and ideas.
+
+The app itself uses no AI: everything runs on your device, and nothing you play, sing or record is sent to any AI service.
+
 ## Files
 
 - `index.html` — the complete app

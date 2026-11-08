@@ -8,7 +8,7 @@
   },
   "scripts": {
     "www": "node scripts/prepare-www.js",
-    "android:init": "npm run www && npx cap add android && node scripts/android-permissions.js",
+    "android:init": "npm run www && npx cap add android && node scripts/android-permissions.js && node scripts/android-icons.js",
     "android:apk": "npm run www && npx cap sync android && cd native && ./gradlew assembleDebug"
   },
   "dependencies": {
