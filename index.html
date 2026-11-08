@@ -426,6 +426,81 @@
       .disp.flat {
         --st: var(--acc2);
       }
+      /* the microphone is off: a big button in the middle says how to start */
+      .idleMic {
+        position: absolute !important;
+        inset: 0;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        background: color-mix(in srgb, var(--panel) 94%, transparent);
+      }
+      body.listening .idleMic {
+        display: none;
+      }
+      body:not(.listening) .disp > .stat,
+      body:not(.listening) .disp > .freq {
+        visibility: hidden;
+      }
+      .idleMic b {
+        font: 800 12px var(--mono);
+        letter-spacing: 2px;
+        color: var(--text);
+      }
+      .idleMic small {
+        font-size: 11px;
+        color: var(--dim);
+      }
+      .disp .bigMic {
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid var(--hot);
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--hot) 16%, var(--panel2));
+        color: var(--hot);
+        box-shadow: 0 0 26px -6px var(--hot);
+        animation: micPulse 2.2s ease-in-out infinite;
+      }
+      .disp .bigMic svg {
+        width: 46px;
+        height: 46px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      @keyframes micPulse {
+        50% {
+          box-shadow: 0 0 34px 2px color-mix(in srgb, var(--hot) 55%, transparent);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .disp .bigMic {
+          animation: none;
+        }
+      }
+      .autoChip {
+        min-height: 0;
+        height: 30px;
+        padding: 0 14px;
+        border-radius: 15px;
+        font: 800 10px var(--mono);
+        letter-spacing: 1px;
+      }
+      .autoChip.on {
+        background: var(--acc);
+        border-color: var(--acc);
+        color: var(--ink);
+      }
       .disp.sharp {
         --st: var(--hot);
       }
@@ -566,84 +641,427 @@
       #sclNotes {
         grid-template-columns: repeat(var(--n, 7), 1fr);
       }
-      .fb {
+      /* scales: the instrument diagram (neck, keyboard or fingering charts) */
+      .dia {
+        position: relative;
         flex: 1;
-        min-height: 150px;
-        display: grid;
-        grid-template-columns: 24px repeat(13, 1fr);
-        grid-template-rows: repeat(var(--n, 6), 1fr) 14px;
+        min-height: 200px;
         border-radius: 8px;
         background: var(--panel);
         border: 1px solid var(--line);
-        padding: 6px 6px 2px 2px;
         overflow: hidden;
+        touch-action: manipulation;
       }
-      .fb .lab {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font: 800 11px var(--mono);
-        color: var(--dim);
+      .dia svg {
+        display: block;
       }
-      .fb .fc {
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-right: 2px solid var(--line);
-        min-width: 0;
+      .dia .fno,
+      .dia .sno {
+        font: 700 10px var(--mono);
+        fill: var(--dim);
       }
-      .fb .fc.nut {
-        border-right: 4px solid var(--dim);
+      .dia .sno {
+        font-size: 11px;
+        fill: var(--text);
       }
-      .fb .fc::before {
-        content: "";
+      .dia .nd {
+        fill: #e9e2cf;
+        opacity: 0.35;
+        cursor: pointer;
+      }
+      .dia .nd.root {
+        fill: var(--acc);
+        opacity: 0.55;
+      }
+      .dia .nb {
+        cursor: pointer;
+      }
+      .dia .nb circle {
+        fill: var(--blue, #6ab7ff);
+        stroke: rgba(0, 0, 0, 0.45);
+        stroke-width: 1;
+        transition: transform 0.12s;
+      }
+      .dia .nb.root circle {
+        fill: var(--acc);
+      }
+      .dia .nb text {
+        font-family: var(--mono);
+        font-weight: 900;
+        fill: var(--ink, #06100a);
+        pointer-events: none;
+      }
+      .dia .nb .nm {
+        display: none;
+      }
+      .dia .nb.lit circle,
+      .dia .nb.done circle {
+        fill: var(--hi);
+        filter: drop-shadow(0 0 6px var(--hi));
+      }
+      .dia .nb.done circle {
+        fill: var(--acc);
+      }
+      .dia .nb.lit text,
+      .dia .nb.done text {
+        display: none;
+      }
+      .dia .nb.lit .nm,
+      .dia .nb.done .nm {
+        display: block;
+      }
+      .dia .nb.tgt circle {
+        stroke: var(--hot);
+        stroke-width: 3;
+        animation: tgt 0.7s ease-in-out infinite alternate;
+      }
+      .dia .nd.lit {
+        fill: var(--hi);
+        opacity: 1;
+      }
+      @keyframes tgt {
+        to {
+          stroke-width: 6;
+        }
+      }
+      .dia .msg {
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        bottom: 6px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        background: color-mix(in srgb, var(--panel2) 92%, transparent);
+        border: 1px solid var(--hot);
+        font: 800 12px var(--mono);
+        text-align: center;
+        color: var(--text);
+        display: none;
+      }
+      .dia .msg.show {
+        display: block;
+      }
+      /* piano, sideways */
+      .dia .kb {
+        position: absolute;
+        top: 28px;
+        bottom: 8px;
+        left: 50%;
+        width: min(calc(100% - 16px), 340px);
+        transform: translateX(-50%);
+      }
+      .dia .wk,
+      .dia .bk {
         position: absolute;
         left: 0;
-        right: 0;
-        top: 50%;
-        height: var(--sw, 1px);
-        background: var(--dim);
-        opacity: 0.6;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        cursor: pointer;
       }
-      .fb .dot {
-        position: relative;
-        width: min(22px, 92%);
-        aspect-ratio: 1;
+      .dia .wk {
+        right: 0;
+        background: linear-gradient(90deg, #dcd7cc, #f4f1ea);
+        border: 1px solid #555;
+        border-radius: 0 6px 6px 0;
+        padding-right: 10px;
+      }
+      .dia .bk {
+        width: 60%;
+        background: linear-gradient(90deg, #0c0c0c, #2b2b2b);
+        border: 1px solid #000;
+        border-radius: 0 5px 5px 0;
+        z-index: 1;
+        padding-right: 6px;
+      }
+      .dia .wk b,
+      .dia .bk b {
+        width: 24px;
+        height: 24px;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font: 800 8.5px var(--mono);
-        color: var(--ink);
-        background: var(--blue);
-        cursor: pointer;
+        font: 900 9px var(--mono);
+        background: var(--blue, #6ab7ff);
+        color: #06100a;
       }
-      .fb .dot.root {
+      .dia .bk b {
+        width: 20px;
+        height: 20px;
+      }
+      .dia .wk b.root,
+      .dia .bk b.root {
         background: var(--acc);
-        box-shadow: 0 0 8px -1px var(--acc);
       }
-      .fb .dot.hit {
-        transform: scale(1.25);
+      .dia .wk b.pass,
+      .dia .bk b.pass {
+        background: transparent;
+        border: 2px dashed var(--blue, #6ab7ff);
+        color: var(--blue, #6ab7ff);
+      }
+      .dia .wk.lit,
+      .dia .bk.lit {
         background: var(--hi);
+        box-shadow: 0 0 18px var(--hi);
       }
-      .fb .fn {
-        font: 700 9px var(--mono);
-        color: var(--dim);
+      .dia .wk.tgt,
+      .dia .bk.tgt {
+        outline: 3px solid var(--hot);
+        outline-offset: -3px;
+      }
+      .dia .wk.done,
+      .dia .bk.done {
+        background: var(--acc);
+      }
+      .dia .kbl {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 8px;
         text-align: center;
+        font: 700 10px var(--mono);
+        color: var(--dim);
       }
-      .desc {
+      /* the instrument bar under the header */
+      #instBar {
+        padding: 4px 6px 0;
+      }
+      body[data-view="tun"] #instBar small {
+        display: none;
+      }
+      #instBar small {
+        font-weight: 600;
+        color: var(--dim);
+      }
+      /* small two-line buttons in a row of selects */
+      .prow > button.tb {
+        flex: 0.75;
+        font-size: 15px;
+        font-weight: 900;
+        flex-direction: column-reverse;
+      }
+      .prow > button.tb i {
+        margin-bottom: 1px;
+      }
+      .prow > button.tb.on i {
+        color: var(--ink);
+      }
+      .wvb {
         flex: none;
-        padding: 8px 10px;
-        border-radius: 8px;
+        height: 38px;
+        min-height: 0;
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        line-height: 1.1;
+        font-size: 12px;
+        font-weight: 800;
+        padding: 0;
+      }
+      .wvb[hidden] {
+        display: none;
+      }
+      /* passing tones */
+      .pads .sq.pass {
+        border-style: dashed;
+      }
+      .dia .nb.pass circle {
+        fill: var(--panel2);
+        stroke: var(--blue, #6ab7ff);
+        stroke-width: 2;
+        stroke-dasharray: 3 2;
+      }
+      .dia .nb.pass text {
+        fill: var(--text);
+      }
+      .dia .nd.pass {
+        fill: none;
+        stroke: #e9e2cf;
+        stroke-width: 1.2;
+      }
+      .dia .fno.mk {
+        fill: var(--text);
+      }
+      .dia .wch.pass b {
+        color: var(--blue);
+      }
+      /* one big recorder / whistle */
+      .dia .wone {
+        position: absolute;
+        inset: 0;
+      }
+      .dia .wone .body.rec {
+        fill: #d9c49a;
+      }
+      .dia .wone .body.whi {
+        fill: #9aa3ad;
+      }
+      .dia .wone .head {
+        fill: #24353b;
+      }
+      .dia .wone .lab {
+        fill: #15110c;
+      }
+      .dia .wone .hof {
+        fill: #20180f;
+        stroke: rgba(0, 0, 0, 0.5);
+        stroke-width: 1.5;
+      }
+      .dia .wone .hon {
+        fill: var(--acc);
+        filter: drop-shadow(0 0 7px var(--acc));
+      }
+      .dia .wone .back {
+        fill: none;
+        stroke: #15110c;
+        stroke-width: 2;
+        stroke-dasharray: 4 3;
+      }
+      .dia .wone .wl {
+        font: 700 12px var(--mono);
+        fill: var(--dim);
+      }
+      .dia .wone .wl.on {
+        fill: var(--acc);
+      }
+      .dia .wone .wn {
+        font: 900 54px var(--mono);
+        fill: var(--text);
+      }
+      .dia .wone .wn.root {
+        fill: var(--acc);
+      }
+      .dia .wone .ws {
+        font: 700 11px var(--mono);
+        fill: var(--dim);
+        letter-spacing: 0.5px;
+      }
+      .dia .wone .ws.hot {
+        fill: var(--hot);
+      }
+      /* jam: the chords of the part playing */
+      .jprog {
+        display: flex;
+        gap: 3px;
+        flex: none;
+        height: 30px;
+      }
+      .jprog .sec {
+        display: flex;
+        align-items: center;
+        padding: 0 6px;
+        font: 800 9px var(--mono);
+        letter-spacing: 1px;
+        color: var(--acc2);
+      }
+      .jprog span {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 5px;
         background: var(--panel);
         border: 1px solid var(--line);
-        font-size: 12px;
-        line-height: 1.45;
+        font: 800 12px var(--mono);
         color: var(--dim);
-        max-height: 82px;
-        overflow-y: auto;
-        touch-action: pan-y;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+      .jprog span.now {
+        background: var(--acc);
+        border-color: var(--acc);
+        color: var(--ink);
+      }
+      /* recorder / whistle fingering charts */
+      .dia .wind {
+        position: absolute;
+        inset: 26px 4px 4px;
+        display: flex;
+        justify-content: center;
+        gap: 2px;
+      }
+      .dia .wch {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 0;
+        border-radius: 6px;
+        cursor: pointer;
+        border: 1px solid transparent;
+      }
+      .dia .wch b {
+        font: 900 12px var(--mono);
+      }
+      .dia .wch.root b {
+        color: var(--acc);
+      }
+      .dia .wch i {
+        font-style: normal;
+        font: 700 9px var(--mono);
+        color: var(--hot);
+      }
+      .dia .wch .body.rec {
+        fill: #d9c49a;
+      }
+      .dia .wch .body.whi {
+        fill: #9aa3ad;
+      }
+      .dia .wch .hc {
+        fill: #15110c;
+      }
+      .dia .wch .ho {
+        fill: #f6f1e4;
+        stroke: #15110c;
+        stroke-width: 1.2;
+      }
+      .dia .wch .tl {
+        font: 700 8px var(--mono);
+        fill: var(--dim);
+      }
+      .dia .wch.lit {
+        background: color-mix(in srgb, var(--hi) 25%, transparent);
+        border-color: var(--hi);
+      }
+      .dia .wch.tgt {
+        border-color: var(--hot);
+        background: color-mix(in srgb, var(--hot) 15%, transparent);
+      }
+      .dia .wch.done {
+        background: color-mix(in srgb, var(--acc) 30%, transparent);
+      }
+      .sq.tgt {
+        outline: 2px solid var(--hot);
+        outline-offset: -2px;
+      }
+      /* jam: effects pads and the sounds panel */
+      .jp {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: 1;
+        min-height: 0;
+      }
+      .jp[hidden] {
+        display: none;
+      }
+      #jFx {
+        grid-template-columns: repeat(5, 1fr);
+        flex: 1;
+      }
+      #jFx .sq {
+        min-height: 54px;
+        cursor: pointer;
+      }
+      #jFx .nt.sm {
+        font-size: 12px;
+        font-family: system-ui, -apple-system, sans-serif;
+        white-space: nowrap;
       }
       /* jam */
       #genres {
@@ -911,19 +1329,21 @@
         </button>
       </div>
       <button id="rec" class="rec" title="Listen (microphone on / off)">●</button>
-      <button id="play" class="big" title="Jam: play / stop">▶</button>
+      <button id="play" class="big" title="Play: the strings, the scale or the jam band">▶</button>
       <!-- a view button like the ones in #hViews, kept apart so it can sit last in the header -->
       <button id="hSet" data-v="set" title="Tunings, theme and help">
-        <svg class="ic" viewBox="0 0 24 24"><path d="M5 4v16M12 4v16M19 4v16" /><path d="M3 9h4M10 15h4M17 7h4" /></svg>
+        <svg class="ic" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z" /><path d="M8 4v5h7V4M8 20v-6h8v6" /></svg>
       </button>
     </header>
+    <div class="prow" id="instBar">
+      <label class="dd"><span id="instTxt"></span><select id="inst" title="Instrument"></select></label>
+    </div>
 
     <main>
       <!-- TUNER -->
       <section id="tun" class="show">
         <div class="prow">
-          <label class="dd"><span id="instTxt"></span><select id="inst" title="Instrument"></select></label>
-          <label class="dd" style="flex: 1.6"><span id="tunTxt"></span><select id="tuning" title="Tuning"></select></label>
+          <label class="dd"><span id="tunTxt"></span><select id="tuning" title="Tuning"></select></label>
         </div>
         <div class="disp idle" id="tunDisp">
           <canvas id="tunTrace"></canvas>
@@ -934,6 +1354,13 @@
             <div class="mscale"><span>−50</span><span>−25</span><span>0¢</span><span>+25</span><span>+50</span></div>
           </div>
           <div class="stat" id="tunStat"></div>
+          <div class="idleMic">
+            <button class="bigMic" title="Listen">
+              <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8" /></svg>
+            </button>
+            <b>TAP TO LISTEN</b>
+            <button class="autoChip" id="tAuto2"></button>
+          </div>
         </div>
         <div class="pads" id="strings"></div>
         <div class="prow rib">
@@ -953,6 +1380,13 @@
           <canvas id="detRoll"></canvas>
           <div class="note" id="detNote">—</div>
           <div class="stat" id="detStat">tap ● to listen</div>
+          <div class="idleMic">
+            <button class="bigMic" title="Listen">
+              <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8" /></svg>
+            </button>
+            <b>TAP TO LISTEN</b>
+            <small>sing or play one note at a time</small>
+          </div>
         </div>
         <div class="vol"><i id="vol"></i></div>
         <div class="prow">
@@ -969,14 +1403,16 @@
       <!-- SCALES -->
       <section id="scl">
         <div class="prow">
-          <label class="dd"><span id="rootTxt"></span><select id="root" title="Root"></select></label>
-          <label class="dd" style="flex: 2.2"><span id="typeTxt"></span><select id="stype" title="Scale"></select></label>
+          <label class="dd"><span id="rootTxt"></span><select id="root" title="Root"></select></label
+          ><button id="sOct" class="tb"></button><button id="sPass" class="tb" title="Passing tones: extra notes that lead from one scale note to the next"></button
+          ><label class="dd" style="flex: 2"><span id="typeTxt"></span><select id="stype" title="Scale"></select></label>
         </div>
         <div class="pads" id="sclNotes"></div>
-        <div class="fb" id="fb"></div>
-        <div class="desc" id="sclDesc"></div>
+        <div class="dia" id="dia"></div>
+        <button id="sWv" class="wvb" hidden></button>
         <div class="prow rib">
-          <button id="sUp"></button><button id="sArp"></button><button id="sDrone"></button><button id="sOct"></button>
+          <button id="sUp"></button><button id="sArp"></button><button id="sPrac"></button><button id="sDrone"></button
+          ><button id="sSpd"></button>
         </div>
       </section>
 
@@ -985,8 +1421,10 @@
         <div class="pads" id="genres"></div>
         <div class="prow">
           <label class="dd"><span id="keyTxt"></span><select id="jKey" title="Key"></select></label>
-          <label class="dd" style="flex: 1.5"><span id="patTxt"></span><select id="jPat" title="Pattern"></select></label>
+          <label class="dd" style="flex: 1.5"><span id="patTxt"></span><select id="jPat" title="Pattern"></select></label
+          ><button id="jSong" class="tb" title="Song: change the part (verse, chorus, break) every few bars"></button>
         </div>
+        <div class="jp" data-jp="mix">
         <div class="prow">
           <label class="knob"><i>BPM</i><b id="bpmTxt">100</b><input id="jBpm" type="range" min="40" max="220" step="1" value="100" /></label>
           <label class="knob"><i>DRUMS</i><b id="mixDrumsTxt"></b><input id="mixDrums" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
@@ -995,9 +1433,21 @@
           <label class="knob"><i>BASS</i><b id="mixBassTxt"></b><input id="mixBass" type="range" min="0" max="1" step="0.01" value="0.6" /></label>
           <label class="knob"><i>CHORDS</i><b id="mixChordTxt"></b><input id="mixChord" type="range" min="0" max="1" step="0.01" value="0.35" /></label>
         </div>
+        <div class="jprog" id="jProg"></div>
         <div class="pads" id="steps"></div>
+        </div>
+        <div class="jp" data-jp="snd" hidden>
+          <div class="prow"><label class="dd"><span id="kitTxt"></span><select id="jKit" title="Drum kit"></select></label></div>
+          <div class="prow"><label class="dd"><span id="jbTxt"></span><select id="jBassI" title="Bass instrument"></select></label></div>
+          <div class="prow"><label class="dd"><span id="jcTxt"></span><select id="jChordI" title="Chord instrument"></select></label></div>
+        </div>
+        <div class="jp" data-jp="fx" hidden>
+          <div class="pads" id="jFx"></div>
+          <div class="prow"><button id="jLatch">LATCH<i>TAP ON / OFF</i></button><button id="jFxOff">ALL OFF<i>EFFECTS</i></button></div>
+        </div>
         <div class="prow rib">
-          <button id="jPlay"></button><button id="jTap"></button><button id="jMinor"></button>
+          <button id="jPlay"></button><button id="jTap"></button><button id="jMinor"></button><button id="jSnd"></button
+          ><button id="jFxB"></button>
         </div>
       </section>
 
@@ -1025,7 +1475,7 @@
           </div>
         </div>
         <div class="prow" id="setTabs">
-          <button data-fpb="edit"><i>TUNING</i>NEW</button>
+          <button data-fpb="edit"><i>NEW · EDIT</i>TUNINGS</button>
           <button data-fpb="theme"><i>LOOK</i>THEME</button>
           <button id="helpBtn"><i>MANUAL</i>HELP</button>
         </div>
@@ -1139,6 +1589,9 @@
         ["violin", "Violin"],
         ["guitalele", "Guitalele"],
         ["ukulele", "Ukulele"],
+        ["piano", "Piano"],
+        ["recorder", "Recorder"],
+        ["whistle", "Tin whistle"],
       ];
       const T = (name, s) => ({ name, strings: s.split(" ") });
       const TUNINGS = {
@@ -1180,6 +1633,9 @@
           T("Half step down", "G#2 C#3 F#3 B3 D#4 G#4"),
           T("Guitar EADGBE", "E2 A2 D3 G3 B3 E4"),
         ],
+        piano: [T("Middle octave C4–C5", "C4 D4 E4 F4 G4 A4 B4 C5"), T("A reference A3 A4 A5", "A3 A4 A5")],
+        recorder: [T("Soprano in C", "C5 D5 E5 F5 G5 A5 B5 C6"), T("Alto in F", "F4 G4 A4 Bb4 C5 D5 E5 F5")],
+        whistle: [T("Whistle in D", "D5 E5 F#5 G5 A5 B5 C#6 D6"), T("Whistle in C", "C5 D5 E5 F5 G5 A5 B5 C6")],
         ukulele: [
           T("Standard gCEA", "G4 C4 E4 A4"),
           T("Low G GCEA", "G3 C4 E4 A4"),
@@ -1242,8 +1698,8 @@
         auto: true, // tuner follows the nearest string; off = locked to the selected one
         sel: -1, // selected string
         a4: 440,
-        scl: { root: "A", type: "Pentatonic Minor", oct: 3 },
-        jam: { genre: "rock", key: "A", pattern: "straight4", bpm: 100, minor: false, mix: { drums: 0.8, bass: 0.6, chord: 0.35 } },
+        scl: { root: "A", type: "Pentatonic Minor", oct: 3, pos: 0, reg: 0, pass: false, spd: 140, wv: "one" },
+        jam: { genre: "rock", key: "A", pattern: "straight4", bpm: 100, minor: false, mix: { drums: 0.8, bass: 0.6, chord: 0.35 }, snd: null, fx: [], latch: true, song: 8 },
       };
       let customTunings = [];
       try {
@@ -1295,6 +1751,98 @@
         });
       }
 
+      // The reference notes sound like the instrument being tuned. Plucked strings use Karplus-Strong (a burst of
+      // noise in a delay line that loses its highs on every pass), rendered once per note and cached; the buffer is
+      // replayed at the exact rate that puts it on pitch, so the reference stays accurate to a fraction of a cent.
+      const VOICE = {
+        guitar: { decay: 0.9965, bright: 0.5, dur: 2.6, vol: 0.5 },
+        bass: { decay: 0.998, bright: 0.25, dur: 3, vol: 0.65 },
+        guitalele: { decay: 0.993, bright: 0.35, dur: 1.8, vol: 0.5 },
+        ukulele: { decay: 0.99, bright: 0.3, dur: 1.4, vol: 0.5 },
+      };
+      const ksCache = new Map();
+      function ksBuffer(c, inst, hz) {
+        const v = VOICE[inst] || VOICE.guitar,
+          sr = c.sampleRate,
+          p = Math.max(2, Math.floor(sr / hz - 0.5)),
+          key = inst + "|" + p;
+        if (ksCache.has(key)) return { buf: ksCache.get(key), rate: (hz * (p + 0.5)) / sr };
+        const n = Math.round(sr * v.dur),
+          b = c.createBuffer(1, n, sr),
+          d = b.getChannelData(0),
+          line = new Float32Array(p);
+        let lp = 0;
+        for (let i = 0; i < p; i++) {
+          // softer pick (lower "bright") = the noise burst is smoothed first
+          lp += (Math.random() * 2 - 1 - lp) * (0.25 + v.bright);
+          line[i] = lp;
+        }
+        let k = 0,
+          prev = 0;
+        for (let i = 0; i < n; i++) {
+          const cur = line[k];
+          d[i] = cur;
+          line[k] = v.decay * 0.5 * (cur + prev);
+          prev = cur;
+          k = k + 1 === p ? 0 : k + 1;
+        }
+        let pk = 0;
+        for (let i = 0; i < n; i++) pk = Math.max(pk, Math.abs(d[i]));
+        if (pk) for (let i = 0; i < n; i++) d[i] /= pk;
+        if (ksCache.size > 64) ksCache.delete(ksCache.keys().next().value);
+        ksCache.set(key, b);
+        return { buf: b, rate: (hz * (p + 0.5)) / sr };
+      }
+      // play one note of the tuner's instrument at time t (seconds from now)
+      function playInst(hz, t = 0, dur) {
+        if (S.inst === "piano" || S.inst === "recorder" || S.inst === "whistle")
+          return getCtx().then((c) => TK.voice(c, c.destination, tkIndex(S.inst === "piano" ? "Piano" : "Recorder"), hzToMidi(hz), c.currentTime + t + 0.01, dur || 1.2, 0.8));
+        return getCtx().then((c) => {
+          const at = c.currentTime + t + 0.01,
+            g = c.createGain();
+          g.connect(c.destination);
+          if (S.inst === "violin") {
+            // bowed: a sawtooth through a body filter, with a slow attack and a gentle vibrato
+            const o = c.createOscillator(),
+              vib = c.createOscillator(),
+              vg = c.createGain(),
+              f = c.createBiquadFilter(),
+              len = dur || 1.8;
+            o.type = "sawtooth";
+            o.frequency.value = hz;
+            vib.frequency.value = 5.5;
+            vg.gain.setValueAtTime(0, at);
+            vg.gain.linearRampToValueAtTime(hz * 0.004, at + 0.5);
+            vib.connect(vg).connect(o.frequency);
+            f.type = "lowpass";
+            f.frequency.value = Math.min(6000, hz * 6);
+            f.Q.value = 2;
+            g.gain.setValueAtTime(0.0001, at);
+            g.gain.exponentialRampToValueAtTime(0.16, at + 0.12);
+            g.gain.setValueAtTime(0.16, at + len - 0.2);
+            g.gain.exponentialRampToValueAtTime(0.0001, at + len);
+            o.connect(f).connect(g);
+            o.start(at);
+            vib.start(at);
+            o.stop(at + len + 0.05);
+            vib.stop(at + len + 0.05);
+            return;
+          }
+          const { buf, rate } = ksBuffer(c, S.inst, hz),
+            src = c.createBufferSource(),
+            body = c.createBiquadFilter();
+          src.buffer = buf;
+          src.playbackRate.value = rate;
+          body.type = "peaking";
+          body.frequency.value = S.inst === "bass" ? 120 : 220;
+          body.gain.value = 4;
+          g.gain.value = (VOICE[S.inst] || VOICE.guitar).vol;
+          if (dur) g.gain.setTargetAtTime(0.0001, at + dur, 0.08);
+          src.connect(body).connect(g);
+          src.start(at);
+        });
+      }
+
       const MIC = { on: false, stream: null, an: null, buf: new Float32Array(4096), raf: 0 };
       async function micStart() {
         if (MIC.on) return;
@@ -1341,6 +1889,7 @@
       }
       function micFace() {
         $$("#rec, #tMic, #dMic").forEach((b) => b.classList.toggle("on", MIC.on));
+        document.body.classList.toggle("listening", MIC.on);
       }
 
       // Autocorrelation pitch detector. Lags are limited to the range a musical note can have,
@@ -1401,6 +1950,7 @@
         }
         if (S.view === "tun") tunFrame(lastHz);
         else if (S.view === "det") detFrame(lastHz, rms);
+        else if (S.view === "scl") sclFrame(lastHz);
         MIC.raf = requestAnimationFrame(micLoop);
       }
 
@@ -1421,9 +1971,9 @@
       function renderInst() {
         $("#inst").innerHTML = INSTRUMENTS.map(([id, n]) => `<option value="${id}">${n}</option>`).join("");
         $("#inst").value = S.inst;
-        $("#instTxt").innerHTML = `<i>INSTRUMENT</i>${INSTRUMENTS.find((x) => x[0] === S.inst)[1]}`;
         const ts = allTunings();
         if (S.tun >= ts.length) S.tun = 0;
+        $("#instTxt").innerHTML = `<i>INSTRUMENT</i>${INSTRUMENTS.find((x) => x[0] === S.inst)[1]} <small>· ${esc(ts[S.tun] ? ts[S.tun].name : "")}</small>`;
         $("#tuning").innerHTML = ts.map((t, i) => `<option value="${i}">${esc(t.name)}</option>`).join("");
         $("#tuning").value = S.tun;
         $("#tunTxt").innerHTML = `<i>TUNING</i>${esc(ts[S.tun] ? ts[S.tun].name : "—")}`;
@@ -1465,7 +2015,7 @@
           ribFace();
           toast("Locked on string " + (i + 1) + ". AUTO follows the nearest string.");
         }
-        playTone(curStrings()[i].hz);
+        playInst(curStrings()[i].hz);
         renderStrings();
         saveState();
       };
@@ -1649,12 +2199,1702 @@
       };
 
       // ======================================================================
+      // TRACK.Pocket's sound engine, copied as it is: instrument recipes (INST, EXT), voice(), the drum kits (drum()),
+      // and the live FX chain (buildFxChain). Wrapped in TK so its names (noise, drum, env...) stay apart from TUNE's.
+      // ======================================================================
+      const TK = (() => {
+        const song = { kit: 0, bpm: 120 }; // what voice() and drum() read from a TRACK song
+        const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+        // ======================================================================
+        // instruments
+        // ======================================================================
+        // Each is a recipe played by voice(): oscillators + envelope + optional filter/FM.
+        // Note numbers are stored in saved songs: do not reorder or insert here. Add new instruments to EXT (index 1000 and up).
+        // Recipe fields: w = wave, a/d/s/r = envelope, f/q = low-pass cutoff/Q, fenv = filter sweep, fm/idx = FM ratio/depth, det = detune,
+        // vib = vibrato Hz, g = gain, oct = octave shift, organ = additive organ.
+        const INST = [
+          { id: "sine", name: "Sine", w: "sine", a: 0.005, d: 0.2, s: 0.7, r: 0.15 },
+          { id: "square", name: "Chip", w: "square", a: 0.002, d: 0.1, s: 0.5, r: 0.05, g: 0.35 },
+          {
+            id: "saw",
+            name: "Saw lead",
+            w: "sawtooth",
+            a: 0.005,
+            d: 0.2,
+            s: 0.6,
+            r: 0.1,
+            f: 3000,
+            g: 0.4,
+          },
+          { id: "tri", name: "Flute", w: "triangle", a: 0.06, d: 0.1, s: 0.8, r: 0.2, vib: 5 },
+          {
+            id: "bass",
+            name: "Bass",
+            w: "sawtooth",
+            a: 0.003,
+            d: 0.25,
+            s: 0.4,
+            r: 0.08,
+            f: 600,
+            q: 6,
+            g: 0.6,
+          },
+          { id: "sub", name: "Sub bass", w: "sine", a: 0.005, d: 0.3, s: 0.8, r: 0.1, g: 0.9 },
+          {
+            id: "pluck",
+            name: "Pluck",
+            w: "sawtooth",
+            a: 0.001,
+            d: 0.35,
+            s: 0,
+            r: 0.1,
+            f: 2500,
+            fenv: 1,
+          },
+          { id: "bell", name: "Bell", fm: 3.5, idx: 4, a: 0.001, d: 1.2, s: 0, r: 0.6 },
+          { id: "epiano", name: "E-piano", fm: 1, idx: 2.2, a: 0.002, d: 0.9, s: 0.15, r: 0.3 },
+          { id: "mbox", name: "Music box", fm: 5, idx: 1.5, a: 0.001, d: 0.6, s: 0, r: 0.4, oct: 1 },
+          { id: "marimba", name: "Marimba", fm: 4, idx: 1.2, a: 0.001, d: 0.3, s: 0, r: 0.15 },
+          {
+            id: "strings",
+            name: "Strings",
+            w: "sawtooth",
+            a: 0.25,
+            d: 0.3,
+            s: 0.8,
+            r: 0.5,
+            f: 2200,
+            det: 9,
+            g: 0.35,
+          },
+          { id: "organ", name: "Organ", organ: 1, a: 0.01, d: 0.1, s: 0.9, r: 0.08 },
+          {
+            id: "brass",
+            name: "Brass",
+            w: "sawtooth",
+            a: 0.04,
+            d: 0.2,
+            s: 0.7,
+            r: 0.15,
+            f: 1400,
+            fenv: 1,
+            g: 0.45,
+          },
+          {
+            id: "choir",
+            name: "Choir",
+            w: "sawtooth",
+            a: 0.3,
+            d: 0.3,
+            s: 0.8,
+            r: 0.6,
+            f: 900,
+            q: 8,
+            det: 12,
+            g: 0.35,
+            vib: 4,
+          },
+          {
+            id: "dungeon",
+            name: "Dungeon pad",
+            w: "triangle",
+            a: 0.6,
+            d: 0.5,
+            s: 0.8,
+            r: 1.2,
+            det: 14,
+            f: 1200,
+            g: 0.5,
+            vib: 3,
+          },
+          { id: "drums", name: "Drum kit", drum: 1 },
+        ];
+
+        const KITS = ["Classic", "Electro", "8-bit", "Silly", "Band", "World", "Game Boy", "War drums"];
+
+        const DRUMS = [
+          "Kick",
+          "Snare",
+          "Clap",
+          "Hat",
+          "Open hat",
+          "Tom lo",
+          "Tom hi",
+          "Rim",
+          "Crash",
+          "Cowbell",
+          "Shaker",
+          "Zap",
+        ];
+
+        const DRUM_I = INST.findIndex((x) => x.drum);
+
+        // Extra instruments (own recipes in the spirit of Music Forge's families). They live at index 1000+ so the numbers of old songs
+        // (basic instruments, drums, samples S1..S16 at INST.length+) never move.
+        // h = partial amplitudes, lay = [ratio, wave, gain] extra oscillators, nz = [Hz, level] filtered noise, trem/td = tremolo rate/depth.
+        const EXT_BASE = 1000;
+
+        const P25 = [0.707, 0.5, 0.236, 0, -0.141, -0.167, -0.1, 0],
+          P125 = [0.38, 0.35, 0.3, 0.22, 0.13, 0.05, -0.05, -0.1];
+
+        const WT = {
+          sine: Array.from({ length: 32 }, (_, k) => Math.round(7.5 + 7.5 * Math.sin((2 * Math.PI * k) / 32))),
+          saw: Array.from({ length: 32 }, (_, k) => k >> 1),
+          // the classic chunky handheld bass: a fast rise, a long sag, then a flat floor
+          bass: [0, 2, 5, 9, 12, 14, 15, 15, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+          // two square-ish humps: hollow and reedy
+          hollow: [15, 15, 15, 15, 12, 8, 4, 0, 0, 0, 4, 8, 12, 15, 15, 15, 8, 8, 8, 8, 5, 3, 1, 0, 0, 0, 1, 3, 5, 8, 8, 8],
+        };
+
+        const EXT = [
+          [
+            "Keys",
+            "Piano",
+            { fm: 1, idx: 1.6, a: 0.002, d: 1.1, s: 0.05, r: 0.35, lay: [[2, "sine", 0.15]] },
+          ],
+          ["Keys", "Bright piano", { fm: 2, idx: 2.4, a: 0.001, d: 0.8, s: 0.05, r: 0.25 }],
+          [
+            "Keys",
+            "Honky-tonk",
+            { fm: 1, idx: 1.8, a: 0.002, d: 0.9, s: 0.05, r: 0.3, lay: [[1.008, "sine", 0.5]] },
+          ],
+          [
+            "Keys",
+            "Rhodes",
+            { fm: 1, idx: 1.2, a: 0.002, d: 1.3, s: 0.2, r: 0.4, trem: 4.5, td: 0.25 },
+          ],
+          [
+            "Keys",
+            "Wurly",
+            { fm: 1, idx: 2.8, a: 0.002, d: 0.7, s: 0.25, r: 0.2, trem: 5.5, td: 0.3 },
+          ],
+          [
+            "Keys",
+            "Clavinet",
+            { w: "square", a: 0.001, d: 0.18, s: 0.1, r: 0.06, f: 3500, q: 4, fenv: 1, g: 0.4 },
+          ],
+          [
+            "Keys",
+            "Harpsichord",
+            {
+              w: "sawtooth",
+              a: 0.001,
+              d: 0.4,
+              s: 0,
+              r: 0.08,
+              f: 5000,
+              q: 2,
+              g: 0.35,
+              lay: [[2, "square", 0.25]],
+            },
+          ],
+          ["Keys", "Celesta", { fm: 4, idx: 0.8, a: 0.001, d: 1, s: 0, r: 0.5, oct: 1 }],
+          [
+            "Keys",
+            "Toy piano",
+            { w: "square", a: 0.001, d: 0.35, s: 0, r: 0.1, f: 6000, oct: 1, g: 0.3 },
+          ],
+          [
+            "Keys",
+            "Church organ",
+            { h: [1, 0.8, 0.6, 0.5, 0.3, 0.25, 0.2, 0.1], a: 0.06, d: 0.1, s: 0.95, r: 0.25, g: 0.4 },
+          ],
+          [
+            "Keys",
+            "Reed organ",
+            { h: [1, 0.2, 0.7, 0.1, 0.5, 0.05, 0.3], a: 0.03, d: 0.1, s: 0.9, r: 0.12, g: 0.4 },
+          ],
+          [
+            "Keys",
+            "Jazz organ",
+            {
+              h: [1, 1, 0.3, 0.1, 0.05],
+              a: 0.005,
+              d: 0.05,
+              s: 0.95,
+              r: 0.05,
+              trem: 6,
+              td: 0.15,
+              g: 0.4,
+            },
+          ],
+          [
+            "Keys",
+            "Accordion",
+            {
+              w: "sawtooth",
+              a: 0.05,
+              d: 0.1,
+              s: 0.85,
+              r: 0.1,
+              f: 2500,
+              det: 12,
+              g: 0.35,
+              trem: 6,
+              td: 0.18,
+            },
+          ],
+          [
+            "Keys",
+            "Harmonica",
+            {
+              w: "square",
+              a: 0.04,
+              d: 0.1,
+              s: 0.8,
+              r: 0.1,
+              f: 2200,
+              q: 3,
+              vib: 5.5,
+              g: 0.3,
+              nz: [3000, 0.05],
+            },
+          ],
+          [
+            "Mallets",
+            "Vibraphone",
+            { fm: 4, idx: 0.7, a: 0.002, d: 1.8, s: 0, r: 0.8, trem: 5.5, td: 0.4 },
+          ],
+          ["Mallets", "Xylophone", { fm: 3, idx: 1.4, a: 0.001, d: 0.25, s: 0, r: 0.1 }],
+          ["Mallets", "Glockenspiel", { fm: 5.2, idx: 2, a: 0.001, d: 0.9, s: 0, r: 0.5, oct: 1 }],
+          ["Mallets", "Tubular bell", { fm: 3.5, idx: 3.5, a: 0.001, d: 2.5, s: 0, r: 1.2 }],
+          ["Mallets", "Steel drum", { fm: 2.5, idx: 2.2, a: 0.001, d: 0.6, s: 0.05, r: 0.3 }],
+          ["Mallets", "Kalimba", { fm: 4, idx: 1, a: 0.001, d: 0.5, s: 0, r: 0.25 }],
+          ["Mallets", "Gong", { fm: 1.47, idx: 5, a: 0.005, d: 3, s: 0.1, r: 1.5, g: 0.4 }],
+          [
+            "Plucked",
+            "Harp",
+            {
+              w: "triangle",
+              a: 0.002,
+              d: 0.9,
+              s: 0,
+              r: 0.3,
+              f: 4000,
+              g: 0.5,
+              lay: [[2, "sine", 0.3]],
+            },
+          ],
+          [
+            "Plucked",
+            "Nylon guitar",
+            {
+              w: "sawtooth",
+              a: 0.001,
+              d: 0.6,
+              s: 0,
+              r: 0.2,
+              f: 2200,
+              fenv: 1,
+              g: 0.4,
+              lay: [[2, "sine", 0.2]],
+            },
+          ],
+          [
+            "Plucked",
+            "Steel guitar",
+            {
+              w: "sawtooth",
+              a: 0.001,
+              d: 0.7,
+              s: 0,
+              r: 0.2,
+              f: 3500,
+              fenv: 1,
+              g: 0.4,
+              lay: [[1.005, "sawtooth", 0.4]],
+            },
+          ],
+          [
+            "Plucked",
+            "Banjo",
+            { w: "sawtooth", a: 0.001, d: 0.25, s: 0, r: 0.08, f: 3800, q: 5, fenv: 1, g: 0.4 },
+          ],
+          [
+            "Plucked",
+            "Sitar",
+            {
+              w: "sawtooth",
+              a: 0.001,
+              d: 1,
+              s: 0.1,
+              r: 0.3,
+              f: 2800,
+              q: 8,
+              fenv: 1,
+              g: 0.35,
+              lay: [[2.01, "sawtooth", 0.3]],
+              vib: 6,
+            },
+          ],
+          [
+            "Plucked",
+            "Koto",
+            { w: "triangle", a: 0.001, d: 0.5, s: 0, r: 0.15, f: 3000, q: 4, fenv: 1, g: 0.5 },
+          ],
+          [
+            "Plucked",
+            "Mandolin",
+            {
+              w: "square",
+              a: 0.001,
+              d: 0.4,
+              s: 0.2,
+              r: 0.1,
+              f: 3500,
+              fenv: 1,
+              g: 0.3,
+              trem: 12,
+              td: 0.5,
+            },
+          ],
+          [
+            "Plucked",
+            "Lute",
+            {
+              w: "triangle",
+              a: 0.001,
+              d: 0.7,
+              s: 0,
+              r: 0.2,
+              f: 2200,
+              fenv: 1,
+              g: 0.55,
+              lay: [[2, "sine", 0.2]],
+            },
+          ],
+          [
+            "Plucked",
+            "Pizzicato",
+            { w: "sawtooth", a: 0.001, d: 0.12, s: 0, r: 0.05, f: 2500, g: 0.4 },
+          ],
+          [
+            "Strings",
+            "Violin",
+            {
+              w: "sawtooth",
+              a: 0.12,
+              d: 0.2,
+              s: 0.85,
+              r: 0.2,
+              f: 3500,
+              q: 2,
+              vib: 5.5,
+              g: 0.35,
+              nz: [4000, 0.03],
+            },
+          ],
+          [
+            "Strings",
+            "Cello",
+            { w: "sawtooth", a: 0.15, d: 0.2, s: 0.85, r: 0.3, f: 1800, vib: 5, g: 0.45 },
+          ],
+          [
+            "Strings",
+            "Slow strings",
+            { w: "sawtooth", a: 0.7, d: 0.5, s: 0.85, r: 1, f: 2000, det: 10, g: 0.3 },
+          ],
+          [
+            "Strings",
+            "Synth strings",
+            {
+              w: "sawtooth",
+              a: 0.3,
+              d: 0.2,
+              s: 0.9,
+              r: 0.5,
+              f: 3000,
+              det: 14,
+              g: 0.3,
+              lay: [[0.5, "sawtooth", 0.3]],
+            },
+          ],
+          [
+            "Strings",
+            "Dark strings",
+            { w: "sawtooth", a: 0.5, d: 0.4, s: 0.8, r: 1, f: 900, det: 12, g: 0.35 },
+          ],
+          [
+            "Pads",
+            "Warm pad",
+            { w: "sawtooth", a: 0.9, d: 0.5, s: 0.8, r: 1.4, f: 900, det: 10, g: 0.35 },
+          ],
+          [
+            "Pads",
+            "Glass pad",
+            { fm: 2, idx: 0.6, a: 0.7, d: 0.6, s: 0.8, r: 1.3, trem: 3, td: 0.15 },
+          ],
+          [
+            "Pads",
+            "Sweep pad",
+            { w: "sawtooth", a: 1.1, d: 0.6, s: 0.8, r: 1.5, f: 600, fenv: 1, det: 12, g: 0.35 },
+          ],
+          [
+            "Pads",
+            "Sine pad",
+            {
+              w: "sine",
+              a: 0.4,
+              d: 0.3,
+              s: 0.9,
+              r: 0.8,
+              lay: [
+                [2, "sine", 0.3],
+                [3, "sine", 0.1],
+              ],
+            },
+          ],
+          ["Pads", "Wind", { w: "sine", a: 1, d: 0.5, s: 0.8, r: 1.5, g: 0.05, nz: [600, 0.7] }],
+          [
+            "Voices",
+            "Voice ooh",
+            {
+              h: [1, 0.55, 0.25, 0.1, 0.05],
+              a: 0.18,
+              d: 0.2,
+              s: 0.85,
+              r: 0.4,
+              vib: 5,
+              nz: [800, 0.04],
+              g: 0.5,
+            },
+          ],
+          [
+            "Voices",
+            "Voice aah",
+            {
+              h: [1, 0.9, 0.7, 0.4, 0.3, 0.15, 0.1],
+              a: 0.2,
+              d: 0.2,
+              s: 0.85,
+              r: 0.4,
+              vib: 5,
+              g: 0.4,
+            },
+          ],
+          [
+            "Voices",
+            "Whistle",
+            { w: "sine", a: 0.05, d: 0.1, s: 0.8, r: 0.15, vib: 6, nz: [3500, 0.06], g: 0.5, oct: 1 },
+          ],
+          [
+            "Voices",
+            "Pan flute",
+            { w: "sine", a: 0.05, d: 0.1, s: 0.8, r: 0.15, nz: [2500, 0.12], vib: 4, g: 0.55 },
+          ],
+          [
+            "Voices",
+            "Ocarina",
+            {
+              w: "sine",
+              a: 0.04,
+              d: 0.1,
+              s: 0.9,
+              r: 0.1,
+              lay: [[2, "sine", 0.1]],
+              vib: 4.5,
+              g: 0.55,
+            },
+          ],
+          [
+            "Reeds",
+            "Clarinet",
+            { h: [1, 0, 0.5, 0, 0.3, 0, 0.15], a: 0.04, d: 0.1, s: 0.85, r: 0.1, f: 3000, g: 0.45 },
+          ],
+          [
+            "Reeds",
+            "Oboe",
+            {
+              h: [0.8, 1, 0.7, 0.5, 0.3, 0.2, 0.1],
+              a: 0.05,
+              d: 0.1,
+              s: 0.85,
+              r: 0.1,
+              vib: 5,
+              g: 0.4,
+            },
+          ],
+          [
+            "Reeds",
+            "Bassoon",
+            { w: "sawtooth", a: 0.05, d: 0.1, s: 0.85, r: 0.12, f: 900, q: 3, g: 0.5 },
+          ],
+          [
+            "Reeds",
+            "Sax",
+            {
+              w: "sawtooth",
+              a: 0.05,
+              d: 0.15,
+              s: 0.8,
+              r: 0.12,
+              f: 1800,
+              q: 3,
+              vib: 5,
+              nz: [2500, 0.05],
+              g: 0.4,
+            },
+          ],
+          [
+            "Brass",
+            "Trumpet",
+            { w: "sawtooth", a: 0.03, d: 0.1, s: 0.8, r: 0.1, f: 2800, fenv: 1, q: 2, g: 0.4 },
+          ],
+          [
+            "Brass",
+            "Trombone",
+            { w: "sawtooth", a: 0.06, d: 0.15, s: 0.8, r: 0.12, f: 1200, fenv: 1, g: 0.45 },
+          ],
+          [
+            "Brass",
+            "French horn",
+            { w: "sawtooth", a: 0.1, d: 0.2, s: 0.8, r: 0.2, f: 1000, fenv: 1, g: 0.45 },
+          ],
+          [
+            "Brass",
+            "Synth brass",
+            { w: "sawtooth", a: 0.05, d: 0.2, s: 0.7, r: 0.15, f: 2000, fenv: 1, det: 10, g: 0.4 },
+          ],
+          ["Brass", "Tuba", { w: "sawtooth", a: 0.06, d: 0.15, s: 0.85, r: 0.12, f: 500, g: 0.6 }],
+          [
+            "Leads",
+            "Saw lead 2",
+            { w: "sawtooth", det: 12, a: 0.005, d: 0.2, s: 0.7, r: 0.1, f: 4500, g: 0.35 },
+          ],
+          [
+            "Leads",
+            "Square lead",
+            { w: "square", a: 0.005, d: 0.1, s: 0.7, r: 0.08, f: 3500, g: 0.3, vib: 5.5 },
+          ],
+          ["Leads", "Pulse 25%", { h: P25, a: 0.003, d: 0.1, s: 0.7, r: 0.05, g: 0.4 }],
+          ["Leads", "Pulse 12%", { h: P125, a: 0.003, d: 0.1, s: 0.7, r: 0.05, g: 0.4 }],
+          [
+            "Leads",
+            "Sync lead",
+            {
+              w: "sawtooth",
+              lay: [[1.5, "square", 0.3]],
+              a: 0.005,
+              d: 0.15,
+              s: 0.7,
+              r: 0.1,
+              f: 5000,
+              g: 0.3,
+            },
+          ],
+          [
+            "Leads",
+            "Soft lead",
+            {
+              w: "triangle",
+              a: 0.03,
+              d: 0.1,
+              s: 0.8,
+              r: 0.15,
+              lay: [[2, "sine", 0.2]],
+              vib: 5.5,
+              g: 0.55,
+            },
+          ],
+          ["Leads", "FM lead", { fm: 2, idx: 3, a: 0.005, d: 0.5, s: 0.5, r: 0.1 }],
+          [
+            "Leads",
+            "Pluck lead",
+            { w: "square", a: 0.001, d: 0.2, s: 0.1, r: 0.1, f: 4000, fenv: 1, g: 0.3 },
+          ],
+          [
+            "Leads",
+            "Hoover",
+            {
+              w: "sawtooth",
+              det: 25,
+              lay: [[0.5, "sawtooth", 0.5]],
+              a: 0.02,
+              d: 0.2,
+              s: 0.8,
+              r: 0.2,
+              f: 2500,
+              g: 0.3,
+            },
+          ],
+          [
+            "Basses",
+            "Synth bass 2",
+            { w: "square", a: 0.003, d: 0.2, s: 0.5, r: 0.06, f: 700, q: 5, fenv: 1, g: 0.5 },
+          ],
+          [
+            "Basses",
+            "Acid bass",
+            { w: "sawtooth", a: 0.002, d: 0.2, s: 0.2, r: 0.05, f: 900, q: 14, fenv: 1, g: 0.45 },
+          ],
+          ["Basses", "FM bass", { fm: 1, idx: 2.5, a: 0.002, d: 0.3, s: 0.3, r: 0.1, g: 0.7 }],
+          [
+            "Basses",
+            "Moog bass",
+            { w: "sawtooth", a: 0.003, d: 0.3, s: 0.5, r: 0.08, f: 500, q: 8, det: 6, g: 0.5 },
+          ],
+          [
+            "Basses",
+            "Slap bass",
+            { w: "sawtooth", a: 0.001, d: 0.12, s: 0.2, r: 0.05, f: 1500, q: 3, fenv: 1, g: 0.6 },
+          ],
+          [
+            "Basses",
+            "Upright bass",
+            { w: "triangle", a: 0.003, d: 0.5, s: 0, r: 0.15, f: 800, g: 0.8 },
+          ],
+          [
+            "Basses",
+            "Wobble sub",
+            {
+              w: "sine",
+              a: 0.01,
+              d: 0.2,
+              s: 0.9,
+              r: 0.1,
+              trem: 3,
+              td: 0.6,
+              g: 0.9,
+              lay: [[2, "triangle", 0.3]],
+            },
+          ],
+          [
+            "Dungeon",
+            "Dungeon choir",
+            {
+              w: "sawtooth",
+              a: 0.8,
+              d: 0.5,
+              s: 0.85,
+              r: 1.6,
+              f: 700,
+              q: 5,
+              det: 16,
+              vib: 3,
+              g: 0.35,
+            },
+          ],
+          [
+            "Dungeon",
+            "Crypt organ",
+            {
+              h: [1, 0.5, 0.8, 0.2, 0.5, 0.1],
+              a: 0.15,
+              d: 0.2,
+              s: 0.95,
+              r: 0.6,
+              trem: 2.5,
+              td: 0.2,
+              g: 0.4,
+            },
+          ],
+          ["Dungeon", "Haunted bell", { fm: 2.76, idx: 3, a: 0.001, d: 3, s: 0, r: 1.5 }],
+          [
+            "Dungeon",
+            "Cave drone",
+            {
+              w: "sawtooth",
+              a: 1.5,
+              d: 1,
+              s: 0.9,
+              r: 2,
+              f: 300,
+              det: 8,
+              lay: [[0.5, "sine", 0.6]],
+              g: 0.45,
+            },
+          ],
+          [
+            "Dungeon",
+            "Ghost flute",
+            { w: "sine", a: 0.3, d: 0.2, s: 0.8, r: 0.8, nz: [2000, 0.1], vib: 4, g: 0.5 },
+          ],
+          [
+            "Dungeon",
+            "Doom horn",
+            {
+              w: "sawtooth",
+              a: 0.2,
+              d: 0.3,
+              s: 0.85,
+              r: 0.6,
+              f: 500,
+              det: 8,
+              lay: [[0.5, "sawtooth", 0.5]],
+              g: 0.45,
+            },
+          ],
+          ["Retro", "NES triangle", { w: "triangle", a: 0.001, d: 0.05, s: 0.9, r: 0.03, g: 0.7 }],
+          ["Retro", "Chip pulse 12%", { h: P125, a: 0.001, d: 0.1, s: 0.5, r: 0.04, g: 0.4 }],
+          [
+            "Retro",
+            "SID buzz",
+            { w: "sawtooth", a: 0.001, d: 0.05, s: 0.7, r: 0.03, f: 2000, q: 6, g: 0.3, vib: 7 },
+          ],
+          [
+            "Retro",
+            "Noise hit",
+            { w: "sine", a: 0.001, d: 0.15, s: 0, r: 0.05, g: 0.05, nz: [3000, 0.7] },
+          ],
+          // ---- more dungeon: drones, tape keyboards and a pitched timpani
+          [
+            "Dungeon",
+            "Hurdy-gurdy",
+            {
+              w: "sawtooth",
+              a: 0.06,
+              d: 0.2,
+              s: 0.9,
+              r: 0.25,
+              f: 1800,
+              q: 3,
+              det: 6,
+              trem: 13,
+              td: 0.25,
+              lay: [
+                [0.5, "sawtooth", 0.35],
+                [1.5, "square", 0.1],
+              ],
+              g: 0.32,
+            },
+          ],
+          [
+            "Dungeon",
+            "Tape flute",
+            {
+              w: "triangle",
+              a: 0.08,
+              d: 0.2,
+              s: 0.85,
+              r: 0.5,
+              f: 2400,
+              vib: 0.8,
+              nz: [1500, 0.06],
+              lay: [[2, "sine", 0.15]],
+              g: 0.55,
+            },
+          ],
+          [
+            "Dungeon",
+            "Tape choir",
+            {
+              w: "sawtooth",
+              a: 0.3,
+              d: 0.3,
+              s: 0.8,
+              r: 1,
+              f: 1000,
+              q: 2,
+              det: 11,
+              vib: 0.7,
+              trem: 5,
+              td: 0.08,
+              g: 0.48,
+            },
+          ],
+          [
+            "Dungeon",
+            "Timpani",
+            { fm: 1.5, idx: 1.2, a: 0.002, d: 1.6, s: 0, r: 0.8, f: 900, lay: [[0.5, "sine", 0.45]], g: 0.42 },
+          ],
+          // ---- Game Boy: two pulse channels (one with pitch sweep), a 4-bit wave channel and LFSR noise
+          ["Game Boy", "GB pulse 50%", { w: "square", a: 0.001, d: 0.25, s: 0.6, r: 0.02, g: 0.3 }],
+          ["Game Boy", "GB pulse 25%", { h: P25, a: 0.001, d: 0.25, s: 0.6, r: 0.02, g: 0.4 }],
+          ["Game Boy", "GB vibrato lead", { h: P25, a: 0.001, d: 0.4, s: 0.7, r: 0.05, vib: 6, g: 0.4 }],
+          ["Game Boy", "GB sweep up", { w: "square", sw: [0.5, 0.08], a: 0.001, d: 0.15, s: 0.3, r: 0.03, g: 0.3 }],
+          ["Game Boy", "GB laser", { h: P125, sw: [4, 0.18], a: 0.001, d: 0.2, s: 0, r: 0.02, g: 0.45 }],
+          ["Game Boy", "GB wave bass", { wt: WT.bass, a: 0.001, d: 0.1, s: 1, r: 0.02, g: 0.6 }],
+          ["Game Boy", "GB wave soft", { wt: WT.sine, a: 0.001, d: 0.1, s: 1, r: 0.03, vib: 5, g: 0.55 }],
+          ["Game Boy", "GB wave saw", { wt: WT.saw, a: 0.001, d: 0.1, s: 1, r: 0.02, g: 0.4 }],
+          ["Game Boy", "GB wave hollow", { wt: WT.hollow, a: 0.001, d: 0.1, s: 1, r: 0.02, g: 0.45 }],
+          ["Game Boy", "GB metal noise", { w: "none", lf: [1, 1], a: 0.001, d: 0.08, s: 0, r: 0.02, g: 0.45 }],
+          ["Game Boy", "GB noise", { w: "none", lf: [0, 1], a: 0.001, d: 0.3, s: 0.2, r: 0.05, g: 0.35 }],
+          // ---- General MIDI gaps (so every GM program has a sound of its own on MIDI import)
+          ["Mallets", "Dulcimer", { fm: 3.01, idx: 1.6, a: 0.001, d: 1.2, s: 0, r: 0.6, g: 0.45 }],
+          ["Keys", "Rock organ", { organ: 1, a: 0.005, d: 0.1, s: 1, r: 0.08, trem: 6.5, td: 0.25, ds: 2, g: 0.3 }],
+          ["Guitars", "Jazz guitar", { w: "triangle", a: 0.002, d: 0.8, s: 0.15, r: 0.2, f: 1400, lay: [[2, "sine", 0.2]], g: 0.6 }],
+          ["Guitars", "Clean guitar", { w: "sawtooth", a: 0.001, d: 0.7, s: 0.1, r: 0.2, f: 2600, fenv: 1, lay: [[2, "triangle", 0.2]], g: 0.4 }],
+          ["Guitars", "Muted guitar", { w: "sawtooth", a: 0.001, d: 0.12, s: 0, r: 0.05, f: 1200, fenv: 1, g: 0.5 }],
+          ["Guitars", "Overdrive guitar", { w: "sawtooth", det: 8, a: 0.002, d: 0.5, s: 0.6, r: 0.15, f: 2400, ds: 4, g: 0.25 }],
+          ["Guitars", "Distortion guitar", { w: "sawtooth", det: 14, a: 0.002, d: 0.4, s: 0.75, r: 0.15, f: 3000, ds: 12, lay: [[0.5, "square", 0.4]], g: 0.22 }],
+          ["Guitars", "Guitar harmonics", { w: "sine", oct: 1, a: 0.001, d: 1.2, s: 0, r: 0.5, lay: [[2, "sine", 0.3]], g: 0.5 }],
+          ["Basses", "Fingered bass", { w: "triangle", a: 0.003, d: 0.6, s: 0.35, r: 0.1, f: 900, lay: [[1, "sawtooth", 0.25]], g: 0.8 }],
+          ["Basses", "Picked bass", { w: "sawtooth", a: 0.001, d: 0.4, s: 0.3, r: 0.08, f: 1500, fenv: 1, g: 0.55 }],
+          ["Basses", "Fretless bass", { w: "sine", a: 0.03, d: 0.5, s: 0.6, r: 0.15, vib: 4.5, lay: [[2, "triangle", 0.25]], g: 0.85 }],
+          ["Strings", "Viola", { w: "sawtooth", a: 0.12, d: 0.3, s: 0.85, r: 0.3, f: 1800, q: 1.5, vib: 5.5, g: 0.36 }],
+          ["Strings", "Contrabass", { w: "sawtooth", a: 0.1, d: 0.3, s: 0.85, r: 0.3, f: 700, vib: 4.5, lay: [[0.5, "sine", 0.4]], g: 0.5 }],
+          ["Strings", "Tremolo strings", { w: "sawtooth", det: 9, a: 0.08, d: 0.3, s: 0.85, r: 0.4, f: 2200, trem: 11, td: 0.6, g: 0.45 }],
+          ["Brass", "Orchestra hit", { w: "sawtooth", det: 16, a: 0.001, d: 0.35, s: 0, r: 0.25, f: 3500, fenv: 1, nz: [1200, 0.3], lay: [[0.5, "sawtooth", 0.6], [2, "square", 0.3]], g: 0.45 }],
+          ["Brass", "Muted trumpet", { w: "square", a: 0.03, d: 0.2, s: 0.7, r: 0.12, f: 1500, q: 4, vib: 5, g: 0.35 }],
+          ["Reeds", "Soprano sax", { h: [1, 0.6, 0.45, 0.3, 0.2, 0.12], a: 0.04, d: 0.2, s: 0.8, r: 0.12, f: 3500, vib: 5.5, g: 0.35 }],
+          ["Reeds", "Baritone sax", { w: "sawtooth", a: 0.04, d: 0.2, s: 0.8, r: 0.12, f: 900, q: 2, vib: 4.5, nz: [700, 0.05], g: 0.45 }],
+          ["Reeds", "English horn", { h: [1, 0.8, 0.6, 0.3, 0.25, 0.1], a: 0.06, d: 0.2, s: 0.85, r: 0.15, f: 1800, vib: 4.5, g: 0.4 }],
+          ["Pipes", "Piccolo", { w: "sine", oct: 1, a: 0.04, d: 0.1, s: 0.85, r: 0.1, vib: 6, nz: [5000, 0.05], g: 0.45 }],
+          ["Pipes", "Recorder", { w: "triangle", a: 0.03, d: 0.1, s: 0.85, r: 0.08, nz: [2500, 0.04], g: 0.5 }],
+          ["Pipes", "Blown bottle", { w: "sine", a: 0.15, d: 0.2, s: 0.8, r: 0.25, nz: [900, 0.25], g: 0.5 }],
+          ["Pipes", "Shakuhachi", { w: "triangle", a: 0.12, d: 0.2, s: 0.75, r: 0.3, vib: 4, nz: [1800, 0.15], g: 0.5 }],
+          ["Leads", "Calliope", { w: "square", a: 0.01, d: 0.1, s: 0.9, r: 0.06, f: 3000, vib: 5, lay: [[2, "triangle", 0.3]], g: 0.3 }],
+          ["Leads", "Chiff lead", { w: "sine", a: 0.002, d: 0.15, s: 0.7, r: 0.1, nz: [3000, 0.3], lay: [[2, "triangle", 0.2]], g: 0.5 }],
+          ["Leads", "Charang", { w: "sawtooth", a: 0.002, d: 0.3, s: 0.6, r: 0.1, f: 2500, ds: 5, g: 0.25 }],
+          ["Leads", "Voice lead", { w: "sawtooth", a: 0.05, d: 0.2, s: 0.8, r: 0.2, f: 1200, q: 6, vib: 5, g: 0.32 }],
+          ["Leads", "Fifths lead", { w: "sawtooth", a: 0.005, d: 0.2, s: 0.7, r: 0.1, f: 3000, lay: [[1.5, "sawtooth", 0.7]], g: 0.28 }],
+          ["Leads", "Bass + lead", { w: "sawtooth", a: 0.003, d: 0.25, s: 0.65, r: 0.1, f: 2200, lay: [[0.5, "square", 0.6]], g: 0.3 }],
+          ["Pads", "New age pad", { fm: 2, idx: 1.2, a: 0.4, d: 1.5, s: 0.6, r: 1.2, lay: [[1, "triangle", 0.3]], g: 0.45 }],
+          ["Pads", "Polysynth", { w: "sawtooth", det: 10, a: 0.02, d: 0.5, s: 0.6, r: 0.4, f: 2000, fenv: 1, g: 0.42 }],
+          ["Pads", "Choir pad", { w: "sawtooth", det: 12, a: 0.6, d: 0.5, s: 0.85, r: 1.2, f: 900, q: 4, vib: 2.5, g: 0.33 }],
+          ["Pads", "Bowed pad", { w: "sawtooth", det: 6, a: 0.8, d: 0.5, s: 0.8, r: 1, f: 1200, trem: 0.5, td: 0.3, g: 0.6 }],
+          ["Pads", "Metallic pad", { fm: 3.5, idx: 2, a: 0.5, d: 2, s: 0.5, r: 1.2, g: 0.35 }],
+          ["Pads", "Halo pad", { w: "triangle", det: 14, a: 0.9, d: 0.6, s: 0.8, r: 1.5, vib: 3, lay: [[2, "sine", 0.3]], g: 0.4 }],
+          ["FX", "Rain", { w: "none", a: 0.3, d: 0.5, s: 0.8, r: 0.8, nz: [4000, 1], trem: 9, td: 0.5, lay: [[2, "sine", 0.2]], g: 0.35 }],
+          ["FX", "Soundtrack", { w: "sawtooth", det: 10, a: 1, d: 1, s: 0.8, r: 1.5, f: 700, lay: [[1.5, "sine", 0.3]], g: 0.38 }],
+          ["FX", "Crystal", { fm: 3.9, idx: 2.5, oct: 1, a: 0.001, d: 1.5, s: 0.2, r: 1, lay: [[2, "sine", 0.15]], g: 0.4 }],
+          ["FX", "Atmosphere", { w: "triangle", det: 8, a: 0.4, d: 1, s: 0.6, r: 1.2, nz: [2500, 0.08], g: 0.45 }],
+          ["FX", "Brightness", { w: "sawtooth", oct: 1, det: 9, a: 0.3, d: 0.6, s: 0.7, r: 1, f: 5000, g: 0.38 }],
+          ["FX", "Goblins", { w: "sawtooth", a: 0.6, d: 1, s: 0.7, r: 1, f: 600, q: 8, vib: 1.5, trem: 3, td: 0.5, g: 0.35 }],
+          ["FX", "Echoes", { w: "square", a: 0.01, d: 0.8, s: 0.3, r: 1.2, f: 1800, trem: 4, td: 0.7, g: 0.3 }],
+          ["FX", "Sci-fi", { w: "sine", sw: [2, 0.6], a: 0.05, d: 0.8, s: 0.5, r: 0.8, vib: 8, trem: 7, td: 0.4, g: 0.45 }],
+          ["World", "Shamisen", { w: "sawtooth", a: 0.001, d: 0.35, s: 0, r: 0.1, f: 3000, q: 3, fenv: 1, g: 0.45 }],
+          ["World", "Bagpipe", { w: "sawtooth", a: 0.05, d: 0.2, s: 0.95, r: 0.1, f: 2200, q: 3, ds: 1.5, lay: [[0.5, "sawtooth", 0.4]], g: 0.25 }],
+          ["World", "Fiddle", { w: "sawtooth", a: 0.06, d: 0.2, s: 0.85, r: 0.2, f: 2600, q: 2, vib: 6, g: 0.32 }],
+          ["World", "Shanai", { h: [1, 0.9, 0.7, 0.6, 0.4, 0.3, 0.2], a: 0.04, d: 0.2, s: 0.85, r: 0.12, f: 3000, vib: 6, g: 0.33 }],
+          ["Percussion", "Tinkle bell", { fm: 4.2, idx: 2, oct: 1, a: 0.001, d: 0.6, s: 0, r: 0.4, g: 0.4 }],
+          ["Percussion", "Agogo", { fm: 2.4, idx: 1.5, oct: 1, a: 0.001, d: 0.35, s: 0, r: 0.2, g: 0.45 }],
+          ["Percussion", "Woodblock", { w: "sine", oct: 1, a: 0.001, d: 0.06, s: 0, r: 0.03, nz: [1800, 0.3], g: 0.7 }],
+          ["Percussion", "Taiko", { w: "sine", sw: [1.6, 0.12], a: 0.001, d: 0.6, s: 0, r: 0.3, nz: [300, 0.5], g: 0.9 }],
+          ["Percussion", "Melodic tom", { w: "sine", sw: [1.5, 0.15], a: 0.001, d: 0.4, s: 0, r: 0.2, g: 0.8 }],
+          ["Percussion", "Synth drum", { w: "triangle", sw: [2.5, 0.1], a: 0.001, d: 0.3, s: 0, r: 0.15, g: 0.8 }],
+          ["Percussion", "Reverse cymbal", { w: "none", a: 1.2, d: 0.1, s: 1, r: 0.05, nz: [7000, 1], g: 0.35 }],
+          ["SFX", "Fret noise", { w: "none", a: 0.01, d: 0.08, s: 0, r: 0.05, nz: [2500, 1], g: 0.7 }],
+          ["SFX", "Breath noise", { w: "none", a: 0.1, d: 0.3, s: 0.4, r: 0.3, nz: [1200, 1], g: 0.7 }],
+          ["SFX", "Seashore", { w: "none", a: 1, d: 1, s: 0.8, r: 1.5, nz: [600, 1], trem: 0.15, td: 0.8, g: 0.8 }],
+          ["SFX", "Bird tweet", { w: "sine", oct: 1, sw: [0.7, 0.06], a: 0.005, d: 0.15, s: 0.4, r: 0.1, trem: 20, td: 0.6, g: 0.4 }],
+          ["SFX", "Telephone", { w: "square", a: 0.001, d: 0.1, s: 1, r: 0.02, f: 3000, trem: 20, td: 1, lay: [[1.25, "square", 0.8]], g: 0.2 }],
+          ["SFX", "Helicopter", { w: "none", a: 0.2, d: 0.2, s: 1, r: 0.5, nz: [300, 1], trem: 11, td: 0.95, g: 0.9 }],
+          ["SFX", "Applause", { w: "none", a: 0.3, d: 0.5, s: 0.8, r: 1, nz: [2200, 1], trem: 17, td: 0.5, g: 0.6 }],
+          ["SFX", "Gunshot", { w: "none", a: 0.001, d: 0.3, s: 0, r: 0.2, nz: [900, 1], f: 2000, ds: 6, g: 0.9 }],
+        ].map(([fam, name, o]) => ({ fam, name, ...o }));
+
+        const instObj = (i) => (i >= EXT_BASE ? EXT[i - EXT_BASE] : INST[i]);
+
+        const pwCache = new WeakMap();
+
+        function wtwave(c, wt) {
+          let m = pwCache.get(c);
+          if (!m) pwCache.set(c, (m = new Map()));
+          const k = "wt" + wt.join();
+          let w = m.get(k);
+          if (!w) {
+            const N = wt.length,
+              H = 96,
+              re = new Float32Array(H + 1),
+              im = new Float32Array(H + 1);
+            for (let n = 1; n <= H; n++)
+              for (let j = 0; j < N; j++) {
+                const v = wt[j] / 7.5 - 1,
+                  x0 = (2 * Math.PI * n * j) / N,
+                  x1 = (2 * Math.PI * n * (j + 1)) / N;
+                re[n] += (v * (Math.sin(x1) - Math.sin(x0))) / (Math.PI * n);
+                im[n] += (v * (Math.cos(x0) - Math.cos(x1))) / (Math.PI * n);
+              }
+            w = c.createPeriodicWave(re, im);
+            m.set(k, w);
+          }
+          return w;
+        }
+
+        // Game Boy noise: a 15-bit LFSR, or its 7-bit "metallic" mode that repeats every 127 steps and sounds pitched.
+        const lfsrBufs = {};
+
+        function lfsr(c, short) {
+          const key = (short ? "s" : "l") + c.sampleRate;
+          if (!lfsrBufs[key]) {
+            const n = short ? 127 * 8 : 32767,
+              b = c.createBuffer(1, n, c.sampleRate),
+              d = b.getChannelData(0);
+            let r = 0x7fff;
+            const step = () => {
+              const x = (r ^ (r >> 1)) & 1;
+              r = (r >> 1) | (x << 14);
+              if (short) r = (r & ~0x40) | (x << 6);
+            };
+            for (let i = 0; i < 127; i++) step(); // settle into the cycle so the loop point is seamless
+            for (let i = 0; i < n; i++) {
+              step();
+              d[i] = r & 1 ? -0.8 : 0.8;
+            }
+            lfsrBufs[key] = b;
+          }
+          return lfsrBufs[key];
+        }
+
+        // playback rate that clocks the LFSR one step per sample at `steps` per second
+        const lfsrRate = (c, steps) => Math.min(64, Math.max(0.01, steps / c.sampleRate));
+
+        function pwave(c, h) {
+          let m = pwCache.get(c);
+          if (!m) pwCache.set(c, (m = new Map()));
+          const k = h.join();
+          let w = m.get(k);
+          if (!w) {
+            const re = new Float32Array(h.length + 1),
+              im = new Float32Array(h.length + 1);
+            h.forEach((a, n) => {
+              im[n + 1] = a;
+            });
+            w = c.createPeriodicWave(re, im);
+            m.set(k, w);
+          }
+          return w;
+        }
+
+        function makeImpulse(c, sec = 2.2) {
+          const len = Math.floor(c.sampleRate * sec),
+            b = c.createBuffer(2, len, c.sampleRate);
+          for (let ch = 0; ch < 2; ch++) {
+            const d = b.getChannelData(ch);
+            for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+          }
+          return b;
+        }
+
+        const curveCache = {};
+
+        function driveCurve(d) {
+          const k = Math.round(d * 40);
+          if (!curveCache["d" + k]) {
+            const n = 2048,
+              a = new Float32Array(n),
+              K = k * 2.5;
+            for (let i = 0; i < n; i++) {
+              const x = (i / (n - 1)) * 2 - 1;
+              a[i] = K ? ((1 + K) * x) / (1 + K * Math.abs(x)) / (1 + K * 0.08) : x;
+            }
+            curveCache["d" + k] = a;
+          }
+          return curveCache["d" + k];
+        }
+
+        function crushCurve(c) {
+          const bits = Math.round(16 - c * 13);
+          if (!curveCache["c" + bits]) {
+            const n = 4096,
+              a = new Float32Array(n),
+              q = Math.pow(2, bits - 1);
+            for (let i = 0; i < n; i++) {
+              const x = (i / (n - 1)) * 2 - 1;
+              a[i] = bits >= 16 ? x : Math.round(x * q) / q;
+            }
+            curveCache["c" + bits] = a;
+          }
+          return curveCache["c" + bits];
+        }
+
+        const distCurves = {};
+
+        function distCurve(k) {
+          if (!distCurves[k]) {
+            const n = 1024,
+              cu = new Float32Array(n),
+              norm = Math.tanh(k);
+            for (let i = 0; i < n; i++) cu[i] = Math.tanh(((i / (n - 1)) * 2 - 1) * k) / norm;
+            distCurves[k] = cu;
+          }
+          return distCurves[k];
+        }
+
+        let noiseBuf = null;
+
+        function noise(c) {
+          if (!noiseBuf || noiseBuf.sampleRate !== c.sampleRate) {
+            const n = c.sampleRate;
+            noiseBuf = c.createBuffer(1, n, n);
+            const d = noiseBuf.getChannelData(0);
+            for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+          }
+          return noiseBuf;
+        }
+
+        function env(gn, t, dur, a, d, s, r, peak) {
+          const p = gn.gain;
+          p.setValueAtTime(0, t);
+          p.linearRampToValueAtTime(peak, t + a);
+          p.setTargetAtTime(peak * s, t + a, d / 3 + 0.001);
+          const off = t + Math.max(dur, a + 0.01);
+          p.cancelScheduledValues(off);
+          p.setTargetAtTime(0, off, r / 3 + 0.001);
+          return off + r * 1.5;
+        }
+
+        // Play one note. out = destination node; returns end time.
+        function voice(c, out, inst, midi, t, dur, vol, arp) {
+          if (inst >= INST.length && inst < EXT_BASE)
+            return t; // samples live in TRACK.Pocket only
+          const I = instObj(inst);
+          if (!I) return t;
+          if (I.drum) return drum(c, out, midi, t, vol);
+          const f = hz(midi + (I.oct ? 12 : 0)),
+            gn = c.createGain(),
+            peak = vol * (I.g || 0.5);
+          let src = gn;
+          const stops = [],
+            pitched = [];
+          if (I.f) {
+            const flt = c.createBiquadFilter();
+            flt.type = "lowpass";
+            flt.Q.value = I.q || 1;
+            flt.frequency.setValueAtTime(I.fenv ? I.f * 2 : I.f, t);
+            if (I.fenv) flt.frequency.exponentialRampToValueAtTime(Math.max(200, I.f * 0.3), t + 0.4);
+            flt.connect(gn);
+            src = flt;
+          }
+          if (I.ds) {
+            // ds: drive amount; a soft clip in front of the filter, so the filter tames the fizz
+            const sh = c.createWaveShaper();
+            sh.curve = distCurve(I.ds);
+            sh.oversample = "2x";
+            sh.connect(src);
+            src = sh;
+          }
+          if (I.fm) {
+            const car = c.createOscillator(),
+              mod = c.createOscillator(),
+              mg = c.createGain();
+            car.frequency.value = f;
+            mod.frequency.value = f * I.fm;
+            mg.gain.setValueAtTime(f * I.idx, t);
+            mg.gain.exponentialRampToValueAtTime(f * 0.05 + 1, t + I.d);
+            mod.connect(mg).connect(car.frequency);
+            car.connect(src);
+            stops.push(car, mod);
+            pitched.push(car, mod);
+          } else if (I.organ) {
+            [1, 2, 3, 4].forEach((h, k) => {
+              const o = c.createOscillator(),
+                og = c.createGain();
+              o.frequency.value = f * h;
+              og.gain.value = [0.5, 0.3, 0.15, 0.1][k];
+              o.connect(og).connect(src);
+              stops.push(o);
+              pitched.push(o);
+            });
+          } else if (I.w !== "none") {
+            const dets = I.det ? [-I.det, 0, I.det] : [0];
+            dets.forEach((dt) => {
+              const o = c.createOscillator();
+              if (I.wt) o.setPeriodicWave(wtwave(c, I.wt));
+              else if (I.h) o.setPeriodicWave(pwave(c, I.h));
+              else o.type = I.w;
+              o.frequency.value = f;
+              o.detune.value = dt;
+              const og = c.createGain();
+              og.gain.value = 1 / dets.length;
+              o.connect(og).connect(src);
+              stops.push(o);
+              pitched.push(o);
+            });
+          }
+          (I.lay || []).forEach(([ra, w, lg]) => {
+            const o = c.createOscillator(),
+              og = c.createGain();
+            o.type = w;
+            o.frequency.value = f * ra;
+            og.gain.value = lg;
+            o.connect(og).connect(src);
+            stops.push(o);
+            pitched.push(o);
+          });
+          if (I.nz) {
+            const ns = c.createBufferSource(),
+              nf = c.createBiquadFilter(),
+              ng = c.createGain();
+            ns.buffer = noise(c);
+            ns.loop = true;
+            nf.type = "bandpass";
+            nf.frequency.value = I.nz[0];
+            nf.Q.value = 0.8;
+            ng.gain.value = I.nz[1];
+            ns.connect(nf).connect(ng).connect(src);
+            stops.push(ns);
+          }
+          const rates = []; // playback rates that follow the note (LFSR noise), for the sweep and the arpeggio
+          if (I.lf) {
+            // lf: [metallic?, level]. Metallic mode is tuned to the note; long mode gets brighter as the note goes up.
+            const ns = c.createBufferSource(),
+              ng = c.createGain();
+            ns.buffer = lfsr(c, I.lf[0]);
+            ns.loop = true;
+            ns.playbackRate.value = lfsrRate(c, I.lf[0] ? f * 127 : f * 48);
+            ng.gain.value = I.lf[1];
+            ns.connect(ng).connect(src);
+            stops.push(ns);
+            rates.push(ns.playbackRate);
+          }
+          if (I.sw) {
+            // sw: [start ratio, seconds]: glide from note * ratio to the note, like the pulse channel's sweep
+            pitched
+              .map((o) => o.frequency)
+              .concat(rates)
+              .forEach((p) => {
+                const b = p.value;
+                p.setValueAtTime(b * I.sw[0], t);
+                p.exponentialRampToValueAtTime(b, t + I.sw[1]);
+              });
+          }
+          if (I.vib) {
+            const l = c.createOscillator(),
+              lg = c.createGain();
+            l.frequency.value = I.vib;
+            lg.gain.value = 6;
+            l.connect(lg);
+            stops.forEach((o) => o.detune && lg.connect(o.detune));
+            stops.push(l);
+          }
+          if (I.trem) {
+            const tg = c.createGain(),
+              tl = c.createOscillator(),
+              tdg = c.createGain();
+            tg.gain.value = 1 - I.td / 2;
+            tl.frequency.value = I.trem;
+            tdg.gain.value = I.td / 2;
+            tl.connect(tdg).connect(tg.gain);
+            gn.connect(tg).connect(out);
+            stops.push(tl);
+          } else gn.connect(out);
+          const end = env(gn, t, dur, I.a, I.d, I.s, I.r, peak);
+          if (arp)
+            arpSchedule(
+              pitched.map((o) => o.frequency).concat(rates),
+              t,
+              end,
+              arp,
+            );
+          stops.forEach((o) => {
+            o.start(t);
+            o.stop(end + 0.05);
+          });
+          return end;
+        }
+
+        // Step the pitch through arp.seq (semitones) every arp.rate seconds, like a ProTracker 0xy effect.
+        function arpSchedule(params, t, end, arp) {
+          const base = params.map((p) => p.value);
+          for (let k = 0, tt = t; tt < end && k < 3000; k++, tt += arp.rate) {
+            const r = Math.pow(2, arp.seq[k % arp.seq.length] / 12);
+            params.forEach((p, i) => p.setValueAtTime(base[i] * r, tt));
+          }
+        }
+
+        function drum(c, out, midi, t, vol) {
+          const k = ((midi % 12) + 12) % 12,
+            kit = song.kit || 0,
+            g = c.createGain();
+          g.connect(out);
+          const tone = (type, f0, f1, dec, lv) => {
+            const o = c.createOscillator(),
+              og = c.createGain();
+            o.type = type;
+            o.frequency.setValueAtTime(f0, t);
+            o.frequency.exponentialRampToValueAtTime(f1, t + dec);
+            og.gain.setValueAtTime(lv * vol, t);
+            og.gain.exponentialRampToValueAtTime(0.001, t + dec);
+            o.connect(og).connect(g);
+            o.start(t);
+            o.stop(t + dec + 0.02);
+          };
+          const nz = (ft, ff, dec, lv, q) => {
+            const s = c.createBufferSource();
+            s.buffer = noise(c);
+            const fl = c.createBiquadFilter();
+            fl.type = ft;
+            fl.frequency.value = ff;
+            fl.Q.value = q || 1;
+            const ng = c.createGain();
+            ng.gain.setValueAtTime(lv * vol, t);
+            ng.gain.exponentialRampToValueAtTime(0.001, t + dec);
+            s.connect(fl).connect(ng).connect(g);
+            s.start(t);
+            s.stop(t + dec + 0.02);
+          };
+          // LFSR noise hit for the Game Boy kit: no filters on that machine, brightness comes from the clock
+          const lnz = (short, steps, dec, lv, steps1) => {
+            const s = c.createBufferSource(),
+              ng = c.createGain();
+            s.buffer = lfsr(c, short);
+            s.loop = true;
+            s.playbackRate.setValueAtTime(lfsrRate(c, steps), t);
+            if (steps1) s.playbackRate.exponentialRampToValueAtTime(lfsrRate(c, steps1), t + dec);
+            ng.gain.setValueAtTime(lv * vol, t);
+            ng.gain.exponentialRampToValueAtTime(0.001, t + dec);
+            s.connect(ng).connect(g);
+            s.start(t);
+            s.stop(t + dec + 0.02);
+          };
+          // run a hit a little later (claps, rattles): the helpers above start at t
+          const later = (d, fn) => {
+            const t0 = t;
+            t += d;
+            fn();
+            t = t0;
+          };
+          if (kit === 6) {
+            // Game Boy: pulse sweeps for the drums, LFSR noise for snares and metal
+            switch (k) {
+              case 0:
+                tone("square", 220, 40, 0.18, 0.7);
+                break;
+              case 1:
+                tone("square", 190, 90, 0.08, 0.35);
+                lnz(0, 60000, 0.16, 0.6);
+                break;
+              case 2:
+                [0, 0.014, 0.028].forEach((d) => later(d, () => lnz(0, 45000, 0.1, 0.55)));
+                break;
+              case 3:
+                lnz(1, 260000, 0.035, 0.4);
+                break;
+              case 4:
+                lnz(0, 300000, 0.3, 0.35);
+                break;
+              case 5:
+                tone("square", 160, 70, 0.22, 0.55);
+                break;
+              case 6:
+                tone("square", 300, 140, 0.16, 0.5);
+                break;
+              case 7:
+                lnz(1, 90000, 0.025, 0.45);
+                break;
+              case 8:
+                lnz(0, 200000, 1.1, 0.45, 20000);
+                break;
+              case 9:
+                tone("square", 780, 780, 0.12, 0.22);
+                tone("square", 1170, 1170, 0.12, 0.18);
+                break;
+              case 10:
+                lnz(0, 400000, 0.07, 0.3);
+                break;
+              case 11:
+                tone("square", 2400, 90, 0.22, 0.3);
+                break;
+            }
+            return t + 1.3;
+          }
+          if (kit === 7) {
+            // War drums: big skins, timpani, a tam-tam and distant thunder, for dungeon and battle music
+            const boom = (f0, f1, dec, lv) => {
+              tone("sine", f0, f1, dec, lv);
+              tone("triangle", f0 * 1.5, f1 * 1.5, dec * 0.4, lv * 0.25);
+            };
+            switch (k) {
+              case 0:
+                boom(95, 42, 1.1, 1);
+                nz("lowpass", 600, 0.08, 0.6);
+                break;
+              case 1:
+                tone("triangle", 210, 160, 0.2, 0.45);
+                nz("bandpass", 1600, 0.35, 0.8, 0.7);
+                break;
+              case 2:
+                boom(170, 120, 0.4, 0.7);
+                nz("bandpass", 900, 0.06, 0.4);
+                break;
+              case 3:
+                nz("bandpass", 5200, 0.06, 0.85, 6);
+                break;
+              case 4:
+                nz("bandpass", 4200, 0.6, 0.75, 3);
+                break;
+              case 5:
+                boom(98, 92, 1.6, 0.85);
+                break;
+              case 6:
+                boom(147, 139, 1.3, 0.8);
+                break;
+              case 7:
+                tone("square", 1100, 900, 0.025, 0.3);
+                nz("bandpass", 2200, 0.03, 0.4, 4);
+                break;
+              case 8:
+                [1, 1.41, 1.93, 2.62, 3.17].forEach((r, i) => tone("sine", 110 * r, 105 * r, 3 - i * 0.4, 0.22));
+                nz("bandpass", 1800, 2.4, 0.25, 1.5);
+                break;
+              case 9:
+                tone("sine", 520, 520, 2.2, 0.35);
+                tone("sine", 520 * 2.76, 520 * 2.76, 1.2, 0.18);
+                tone("sine", 520 * 5.4, 520 * 5.4, 0.5, 0.08);
+                break;
+              case 10:
+                [0, 0.03, 0.055, 0.09].forEach((d) => later(d, () => nz("bandpass", 3200, 0.05, 0.7, 3)));
+                break;
+              case 11:
+                nz("lowpass", 260, 2.8, 0.9);
+                tone("sine", 55, 30, 2.2, 0.5);
+                break;
+            }
+            return t + 3.2;
+          }
+          if (kit === 4 || kit === 5) {
+            // Band (acoustic-ish) and World (percussion)
+            const band = kit === 4;
+            switch (k) {
+              case 0:
+                band
+                  ? (tone("sine", 110, 48, 0.3, 1), nz("lowpass", 1200, 0.015, 0.5))
+                  : tone("sine", 200, 150, 0.3, 0.9);
+                break;
+              case 1:
+                band
+                  ? (tone("triangle", 200, 140, 0.1, 0.5), nz("highpass", 2500, 0.2, 0.9))
+                  : tone("sine", 330, 260, 0.22, 0.8);
+                break;
+              case 2:
+                band
+                  ? (tone("square", 1700, 1500, 0.02, 0.35), nz("bandpass", 3000, 0.03, 0.6))
+                  : nz("bandpass", 1500, 0.1, 0.7, 2);
+                break;
+              case 3:
+                band ? nz("highpass", 9000, 0.04, 0.4) : tone("sine", 2500, 2500, 0.05, 0.6);
+                break;
+              case 4:
+                band ? nz("highpass", 8000, 0.4, 0.4) : nz("bandpass", 4000, 0.3, 0.6, 4);
+                break;
+              case 5:
+                band ? tone("sine", 110, 70, 0.45, 0.8) : tone("sine", 260, 200, 0.2, 0.8);
+                break;
+              case 6:
+                band ? tone("sine", 180, 110, 0.35, 0.8) : tone("sine", 400, 320, 0.15, 0.8);
+                break;
+              case 7:
+                band ? tone("square", 800, 700, 0.03, 0.35) : tone("square", 1200, 1000, 0.04, 0.35);
+                break;
+              case 8:
+                nz("highpass", band ? 3500 : 5000, band ? 1.6 : 1, 0.5);
+                break;
+              case 9:
+                band
+                  ? (tone("square", 560, 560, 0.25, 0.25), tone("square", 845, 845, 0.25, 0.2))
+                  : (tone("triangle", 700, 700, 0.3, 0.4), tone("triangle", 1050, 1050, 0.3, 0.35));
+                break;
+              case 10:
+                nz("bandpass", band ? 7000 : 6500, 0.08, 0.45, 2);
+                break;
+              case 11:
+                band
+                  ? (nz("highpass", 6500, 0.9, 0.25), tone("square", 5000, 5000, 0.5, 0.08))
+                  : tone("sine", 1200, 2400, 0.2, 0.4);
+                break;
+            }
+            return t + 1.7;
+          }
+          const chip = kit === 2,
+            el = kit === 1,
+            silly = kit === 3,
+            wv = chip ? "square" : "sine";
+          switch (k) {
+            case 0:
+              tone(wv, el ? 120 : 150, el ? 30 : 45, el ? 0.6 : 0.35, 1);
+              if (!chip) nz("lowpass", 3000, 0.02, 0.3);
+              if (silly) tone("triangle", 400, 1200, 0.2, 0.3);
+              break;
+            case 1:
+              tone(chip ? "square" : "triangle", 220, 120, 0.12, 0.5);
+              nz(chip ? "highpass" : "bandpass", el ? 3000 : 1800, el ? 0.25 : 0.18, 0.8);
+              break;
+            case 2:
+              for (let i = 0; i < 3; i++) {
+                const tt = t + i * 0.012;
+                const s = c.createBufferSource();
+                s.buffer = noise(c);
+                const fl = c.createBiquadFilter();
+                fl.type = "bandpass";
+                fl.frequency.value = 1500;
+                const ng = c.createGain();
+                ng.gain.setValueAtTime(0.7 * vol, tt);
+                ng.gain.exponentialRampToValueAtTime(0.001, tt + 0.15);
+                s.connect(fl).connect(ng).connect(g);
+                s.start(tt);
+                s.stop(tt + 0.2);
+              }
+              break;
+            case 3:
+              nz("highpass", chip ? 6000 : 8000, 0.05, 0.5);
+              break;
+            case 4:
+              nz("highpass", 7000, 0.35, 0.45);
+              break;
+            case 5:
+              tone(wv, 140, 70, 0.4, 0.8);
+              break;
+            case 6:
+              tone(wv, 240, 120, 0.3, 0.8);
+              break;
+            case 7:
+              tone("square", 900, 600, 0.03, 0.4);
+              nz("bandpass", 2500, 0.03, 0.3, 3);
+              break;
+            case 8:
+              nz("highpass", 4000, 1.2, 0.5);
+              break;
+            case 9:
+              tone("square", 560, 560, 0.25, 0.25);
+              tone("square", 845, 845, 0.25, 0.2);
+              break;
+            case 10:
+              nz("bandpass", 6000, 0.09, 0.45, 2);
+              break;
+            case 11:
+              tone(silly ? "sawtooth" : "square", 1600, 80, 0.25, 0.35);
+              break;
+          }
+          return t + 1.3;
+        }
+
+        function buildFxChain(c) {
+          const f = { key: "", gd: 0, lfo: null };
+          f.in = c.createGain();
+          f.out = c.createGain();
+          f.lp = c.createBiquadFilter();
+          f.lp.type = "lowpass";
+          f.lp.frequency.value = 20000;
+          f.lp.Q.value = 0.7;
+          f.hp = c.createBiquadFilter();
+          f.hp.type = "highpass";
+          f.hp.frequency.value = 10;
+          f.hp.Q.value = 0.7;
+          // an insert is dry + wet in parallel; set(x) crossfades between them (dryMin = dry level kept at x = 1)
+          const ins = (dryMin, setup) => {
+            const i = c.createGain(),
+              o = c.createGain(),
+              d = c.createGain(),
+              w = c.createGain();
+            w.gain.value = 0;
+            i.connect(d);
+            d.connect(o);
+            setup(i, w);
+            w.connect(o);
+            return {
+              i,
+              o,
+              set(x) {
+                const t = c.currentTime;
+                d.gain.setTargetAtTime(1 - x * (1 - dryMin), t, 0.02);
+                w.gain.setTargetAtTime(x, t, 0.02);
+              },
+            };
+          };
+          f.drive = ins(0, (i, w) => {
+            const sh = c.createWaveShaper(),
+              pg = c.createGain();
+            sh.curve = driveCurve(0.85);
+            sh.oversample = "2x";
+            pg.gain.value = 0.55;
+            i.connect(sh);
+            sh.connect(pg);
+            pg.connect(w);
+          });
+          f.crush = ins(0, (i, w) => {
+            const sh = c.createWaveShaper(),
+              lp = c.createBiquadFilter();
+            sh.curve = crushCurve(0.85);
+            lp.type = "lowpass";
+            lp.frequency.value = 5500;
+            i.connect(sh);
+            sh.connect(lp);
+            lp.connect(w);
+          });
+          f.flange = ins(0.55, (i, w) => {
+            const dl = c.createDelay(0.03),
+              fb = c.createGain(),
+              lfo = c.createOscillator(),
+              lg = c.createGain();
+            dl.delayTime.value = 0.004;
+            fb.gain.value = 0.6;
+            lfo.frequency.value = 0.3;
+            lg.gain.value = 0.003;
+            lfo.connect(lg);
+            lg.connect(dl.delayTime);
+            lfo.start();
+            i.connect(dl);
+            dl.connect(fb);
+            fb.connect(dl);
+            dl.connect(w);
+          });
+          f.gate = c.createGain();
+          f.dry = c.createGain();
+          f.in.connect(f.lp);
+          f.lp.connect(f.hp);
+          f.hp.connect(f.drive.i);
+          f.drive.o.connect(f.crush.i);
+          f.crush.o.connect(f.flange.i);
+          f.flange.o.connect(f.gate);
+          f.gate.connect(f.dry);
+          f.dry.connect(f.out);
+          // echo throw: send into a tempo delay, the send closes when the pad is let go so the echoes die away
+          f.es = c.createGain();
+          f.es.gain.value = 0;
+          f.dl = c.createDelay(3);
+          f.dl.delayTime.value = 0.375;
+          const dlf = c.createBiquadFilter(),
+            fb = c.createGain();
+          dlf.type = "lowpass";
+          dlf.frequency.value = 3200;
+          fb.gain.value = 0.6;
+          f.gate.connect(f.es);
+          f.es.connect(f.dl);
+          f.dl.connect(dlf);
+          dlf.connect(fb);
+          fb.connect(f.dl);
+          dlf.connect(f.out);
+          // reverb wash
+          f.rs = c.createGain();
+          f.rs.gain.value = 0;
+          const conv = c.createConvolver();
+          conv.buffer = makeImpulse(c, 3.5);
+          f.gate.connect(f.rs);
+          f.rs.connect(conv);
+          conv.connect(f.out);
+          return f;
+        }
+
+        return { song, hz, INST, EXT, EXT_BASE, KITS, DRUMS, instObj, voice, drum, buildFxChain, makeImpulse };
+      })();
+
+      // ======================================================================
       // scales
       // ======================================================================
-      function scaleNotes() {
-        const ri = NOTE_NAMES.indexOf(S.scl.root);
-        return SCALES[S.scl.type][0].map((i) => NOTE_NAMES[(ri + i) % 12]);
+      // The scale is drawn on the tuner's instrument: a vertical neck for fretted instruments (and a fretless one for
+      // the violin), a keyboard for the piano, fingering charts for the recorder and the tin whistle. ▶ / SCALE play
+      // the notes one at a time and light each one as it sounds; PRACTICE listens and moves on when you play it.
+      const KIND = (i) => ({ guitar: "fret", bass: "fret", guitalele: "fret", ukulele: "fret", violin: "fretless", piano: "piano" })[i] || "wind";
+      const sclIvs = () => SCALES[S.scl.type][0];
+      const rootPc = () => NOTE_NAMES.indexOf(S.scl.root);
+      const inScale = (m) => sclIvs().includes((((m - rootPc()) % 12) + 12) % 12);
+      // PASSING: notes outside the scale that lead from one scale note to the next (the bebop and blue notes)
+      const PASS = {
+        Major: [8],
+        "Natural Minor": [11],
+        "Pentatonic Major": [3],
+        "Pentatonic Minor": [6],
+        "Blues Scale": [4],
+        Dorian: [4],
+        Mixolydian: [11],
+        Lydian: [5],
+        Phrygian: [2],
+        "Phrygian Dominant": [3],
+        "Harmonic Minor": [10],
+        "Whole Tone": [7],
+        "Diminished (HW)": [11],
+        "Hungarian Minor": [5],
+        "Arabic (Hijaz)": [3],
+      };
+      const passIvs = () => (S.scl.pass ? PASS[S.scl.type] || [] : []);
+      const allIvs = () => [...sclIvs(), ...passIvs()].sort((a, b) => a - b);
+      const ivOf = (m) => (((Math.round(m) - rootPc()) % 12) + 12) % 12;
+      const isPass = (m) => passIvs().includes(ivOf(m));
+      const inSet = (m) => allIvs().includes(ivOf(m));
+      // the note shown by the single recorder / whistle (null: the first note of the scale)
+      let windM = null;
+      // the chord tones (1, 3, 5) of the scale, for ARPEGGIO
+      function chordPcs() {
+        const iv = sclIvs(),
+          third = iv.includes(4) && !iv.includes(3) ? 4 : iv.includes(3) ? 3 : iv.includes(4) ? 4 : null,
+          fifth = iv.includes(7) ? 7 : iv.includes(6) ? 6 : null;
+        return [0, third, fifth].filter((x) => x != null).map((x) => (rootPc() + x) % 12);
       }
+      const pcOf = (m) => ((Math.round(m) % 12) + 12) % 12;
+      const stringMidis = () => curStrings().map((s) => Math.round(hzToMidi(s.hz)));
+
+      // ---- fretted: positions (boxes) along the neck
+      // Position n starts where the n-th note of the scale (from the root) sits on the lowest string. The box covers
+      // a fret below that to three above. On each string it takes the notes that are higher than the last one taken
+      // and lower than the first note available on the next string, so every pitch is played once: the classic boxes.
+      function positions() {
+        const low = stringMidis()[0],
+          out = [];
+        for (const iv of sclIvs()) {
+          const f = (((rootPc() + iv - low) % 12) + 12) % 12;
+          if (!out.includes(f)) out.push(f);
+        }
+        return out;
+      }
+      function boxNotes() {
+        const ss = stringMidis(),
+          pos = positions(),
+          s0 = pos[(S.scl.pos || 0) % pos.length],
+          lo = s0 ? s0 - 1 : 0,
+          hi = s0 ? s0 + 3 : 3,
+          rising = ss.every((m, i) => !i || m > ss[i - 1]),
+          notes = [];
+        let last = -Infinity;
+        ss.forEach((open, i) => {
+          let next = Infinity;
+          if (rising && i + 1 < ss.length)
+            for (let f = lo; f <= hi; f++)
+              if (inSet(ss[i + 1] + f)) {
+                next = ss[i + 1] + f;
+                break;
+              }
+          for (let f = lo; f <= hi; f++) {
+            const m = open + f;
+            if (!inSet(m)) continue;
+            if (rising && (m <= last || m >= next)) continue;
+            notes.push({ s: i, f, m, pass: isPass(m) });
+            last = Math.max(last, m);
+          }
+        });
+        const used = notes.filter((n) => n.f > 0 && !n.pass).map((n) => n.f), // passing tones do not move the hand
+          fmin = used.length ? Math.min(...used) : 1;
+        notes.forEach((n) => ((n.k = n.s + "-" + n.f), (n.fing = n.f ? String(clamp(n.f - fmin + 1, 1, 4)) : "0")));
+        return { notes, lo, hi, s0, n: pos.length };
+      }
+      const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+      // ---- wind instruments: fingerings by semitones above the lowest note.
+      // Each letter is a hole from the top: 1 closed, 0 open, h half. Recorder (baroque): thumb (back), then 7 front
+      // holes, the last two double. Tin whistle: 6 holes; "+" means blow harder (second octave).
+      const FING = {
+        recorder: [
+          "11111111", "1111111h", "11111110", "111111h0", "11111100", "11111011", "11110110", "11110000", "111011h0",
+          "11100000", "11011000", "11000000", "10100000", "01100000", "00100000", "00111110", "h1111100", "h1111010",
+          "h1110100", "h1110000", "h1101000", "h1100000", "h1101110", "h1101100", "h1001100",
+        ],
+        whistle: ["111111", "11111h", "111110", "1111h0", "111100", "111000", "11h000", "110000", "1h0000", "100000", "011000", "000000"],
+      };
+      function fingering(inst, off) {
+        if (inst === "recorder") return FING.recorder[off] ? { holes: FING.recorder[off], over: 0 } : null;
+        if (off < 0 || off > 23) return null;
+        return { holes: FING.whistle[off % 12], over: off >= 12 ? 1 : 0 };
+      }
+
+      // ---- the notes of one pass, low to high: { m, k (element key), lab }
+      function scaleUp() {
+        const kind = KIND(S.inst),
+          ivs = allIvs();
+        if (kind === "fret" || kind === "fretless") return boxNotes().notes.slice().sort((a, b) => a.s - b.s || a.f - b.f);
+        let base;
+        if (kind === "piano") base = (S.scl.oct + 1) * 12 + rootPc();
+        else {
+          const low = stringMidis()[0];
+          base = low + ((((rootPc() - low) % 12) + 12) % 12) + 12 * (S.scl.reg || 0);
+        }
+        const ms = [...ivs.map((i) => base + i), base + 12],
+          low = kind === "wind" ? stringMidis()[0] : 0;
+        return ms
+          .map((m, i) => ({ m, k: kind === "piano" ? "p" + m : "w" + i, ok: kind !== "wind" || !!fingering(S.inst, m - low) }))
+          .filter((n) => n.ok);
+      }
+      function scaleSeq(arp) {
+        let up = scaleUp();
+        if (arp) {
+          const cp = chordPcs();
+          up = up.filter((n) => cp.includes(pcOf(n.m)));
+        }
+        return [...up, ...up.slice(0, -1).reverse()];
+      }
+
+      // ---- drawing
       function renderScaleSelects() {
         $("#root").innerHTML = NOTE_NAMES.map((n) => `<option value="${n}">${plain(n)}</option>`).join("");
         $("#stype").innerHTML = Object.keys(SCALES)
@@ -1667,81 +3907,337 @@
         $("#stype").value = S.scl.type;
         $("#rootTxt").innerHTML = `<i>ROOT</i>${plain(S.scl.root)}`;
         $("#typeTxt").innerHTML = `<i>SCALE</i>${S.scl.type}`;
-        const notes = scaleNotes(),
-          ivs = SCALES[S.scl.type][0],
-          DEG = ["1", "♭2", "2", "♭3", "3", "4", "♭5", "5", "♭6", "6", "♭7", "7"];
-        const nb = $("#sclNotes");
-        nb.style.setProperty("--n", notes.length);
-        nb.innerHTML = notes
-          .map(
-            (n, i) =>
-              `<div class="sq has${i ? "" : " sel"}" data-n="${i}" style="--ccrgb:${PC(i ? 2 : 0)};--v:${i ? 0.2 : 0.6}"><span class="nt">${pretty(n)}</span><span class="in">${DEG[ivs[i]]}</span></div>`,
-          )
+        const ivs = allIvs(),
+          pv = passIvs(),
+          DEG = ["1", "♭2", "2", "♭3", "3", "4", "♭5", "5", "♭6", "6", "♭7", "7"],
+          nb = $("#sclNotes");
+        windM = null;
+        nb.style.setProperty("--n", ivs.length);
+        nb.innerHTML = ivs
+          .map((iv, i) => {
+            const ps = pv.includes(iv);
+            return `<div class="sq has${i ? "" : " sel"}${ps ? " pass" : ""}" data-n="${i}" data-pc="${(rootPc() + iv) % 12}" style="--ccrgb:${PC(i ? (ps ? 4 : 2) : 0)};--v:${i ? (ps ? 0.08 : 0.2) : 0.6}"><span class="nt">${pretty(NOTE_NAMES[(rootPc() + iv) % 12])}</span><span class="in">${DEG[iv]}</span></div>`;
+          })
           .join("");
-        $("#sclDesc").textContent = SCALES[S.scl.type][1];
-        $("#sOct").innerHTML = `<b>${S.scl.oct}</b><i>OCTAVE</i>`;
-        // fretboard of the tuner's instrument and tuning, highest string on top
-        const ss = curStrings().slice().reverse(),
-          fb = $("#fb"),
-          MK = [3, 5, 7, 9, 12];
-        fb.style.setProperty("--n", ss.length);
-        let h = "";
-        ss.forEach((s, r) => {
-          h += `<div class="lab">${plain(s.note)}</div>`;
-          const base = Math.round(hzToMidi(s.hz)),
-            sw = 1 + (r / Math.max(1, ss.length - 1)) * 1.5;
-          for (let f = 0; f <= 12; f++) {
-            const m = base + f,
-              nm = NOTE_NAMES[((m % 12) + 12) % 12],
-              inS = notes.includes(nm);
-            h += `<div class="fc${f ? "" : " nut"}" style="--sw:${sw.toFixed(1)}px">${inS ? `<span class="dot${nm === S.scl.root ? " root" : ""}" data-m="${m}">${plain(nm)}</span>` : ""}</div>`;
+        drawDia();
+        ribFace();
+      }
+      function drawDia() {
+        const box = $("#dia");
+        if (!box || !box.clientWidth) return;
+        const kind = KIND(S.inst);
+        box.dataset.kind = kind;
+        if (kind === "fret" || kind === "fretless") box.innerHTML = neckSvg(box.clientWidth, box.clientHeight, kind === "fretless");
+        else if (kind === "piano") box.innerHTML = keysHtml();
+        else if (windOneOn()) box.innerHTML = `<div class="wone">${windOne(box.clientWidth, box.clientHeight)}</div>`;
+        else box.innerHTML = windHtml(box.clientWidth, box.clientHeight);
+        box.insertAdjacentHTML("beforeend", '<div class="msg" id="diaMsg"></div>');
+        practiceFace();
+      }
+      // a vertical neck showing only the frets around the box (the nut when the box is near it): low string on the
+      // left, the usual inlays at 3, 5, 7, 9, 12 (double)... and the number of every fret on the left
+      function neckSvg(W, H, fretless) {
+        const ss = stringMidis(),
+          n = ss.length,
+          bx = boxNotes(),
+          A = Math.max(1, bx.lo - 1),
+          Z = Math.max(bx.hi + 1, A + 4),
+          nut = A === 1,
+          L = 28,
+          R = 8,
+          T = 28,
+          B = 10,
+          openH = nut ? 30 : 8,
+          top = T + openH,
+          bw = W - L - R,
+          bh = H - top - B,
+          colW = bw / n,
+          span = Z - A + 1,
+          X = (i) => L + (i + 0.5) * colW,
+          Yf = (f) => top + ((f - A + 1) / span) * bh,
+          Yn = (f) => (f ? (Yf(f - 1) + Yf(f)) / 2 : T + openH / 2 - 3),
+          inBox = new Map(bx.notes.map((x) => [x.k, x])),
+          rootP = rootPc(),
+          MK = [3, 5, 7, 9, 12, 15, 17, 19, 21, 24];
+        let g = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+          <defs><linearGradient id="wood" x1="0" x2="1"><stop offset="0" stop-color="#3a2214"/><stop offset=".5" stop-color="#4a2c1a"/><stop offset="1" stop-color="#341e11"/></linearGradient>
+          <linearGradient id="fade" x1="0" x2="0" y1="0" y2="1"><stop offset="0" style="stop-color:var(--panel)"/><stop offset="1" style="stop-color:var(--panel);stop-opacity:0"/></linearGradient></defs>
+          <rect x="${L}" y="${nut ? top : top - openH}" width="${bw}" height="${bh + (nut ? 0 : openH)}" rx="3" fill="url(#wood)"/>`;
+        if (!nut) g += `<rect x="${L}" y="${top - openH}" width="${bw}" height="${openH + 10}" fill="url(#fade)"/>`;
+        // inlays and fret numbers
+        for (let f = A; f <= Z; f++) {
+          const y = Yn(f),
+            r = Math.min(7, colW * 0.18, (bh / span) * 0.14);
+          if (MK.includes(f)) {
+            if (f % 12 === 0) [0.25, 0.75].forEach((p) => (g += `<circle cx="${L + bw * p}" cy="${y}" r="${r}" fill="#e9e2cf" opacity=".3"/>`));
+            else g += `<circle cx="${L + bw / 2}" cy="${y}" r="${r}" fill="#e9e2cf" opacity=".3"/>`;
+          }
+          g += `<text x="${L - 7}" y="${y + 4}" text-anchor="end" class="fno${MK.includes(f) ? " mk" : ""}">${f}</text>`;
+        }
+        // frets (faint guides on a fretless neck) and the nut
+        for (let f = A - 1; f <= Z; f++) {
+          if (f === 0) continue;
+          g += fretless
+            ? `<line x1="${L}" x2="${L + bw}" y1="${Yf(f)}" y2="${Yf(f)}" stroke="#e9e2cf" stroke-width="1" opacity=".14" stroke-dasharray="3 5"/>`
+            : `<line x1="${L}" x2="${L + bw}" y1="${Yf(f)}" y2="${Yf(f)}" stroke="#b9b9b9" stroke-width="2"/>`;
+        }
+        if (nut) g += `<rect x="${L - 1}" y="${top - 4}" width="${bw + 2}" height="5" rx="1" fill="#efe6cf"/>`;
+        // strings, thicker and wound (gold) on the low side
+        ss.forEach((m, i) => {
+          const w = 0.8 + ((n - 1 - i) / Math.max(1, n - 1)) * 2,
+            wound = n >= 4 && i < n / 2 && S.inst !== "violin";
+          g += `<line x1="${X(i)}" x2="${X(i)}" y1="${nut ? top - 4 : top - openH}" y2="${top + bh}" stroke="${wound ? "#c9a868" : "#dcd6c8"}" stroke-width="${w}"/>`;
+          g += `<text x="${X(i)}" y="${T - 12}" text-anchor="middle" class="sno">${plain(NOTE_NAMES[pcOf(m)])}</text>`;
+        });
+        // the scale notes in view: the box big, with the finger to use; any others small
+        const r = Math.max(7, Math.min(17, colW * 0.34, (bh / span) * 0.36));
+        ss.forEach((open, i) => {
+          for (let f = nut ? 0 : A; f <= Z; f++) {
+            const m = open + f;
+            if (!inSet(m)) continue;
+            const b = inBox.get(i + "-" + f),
+              root = pcOf(m) === rootP,
+              ps = isPass(m) ? " pass" : "",
+              x = X(i),
+              y = Yn(f);
+            if (!b) {
+              g += `<circle cx="${x}" cy="${y}" r="${r * 0.4}" class="nd${root ? " root" : ""}${ps}" data-m="${m}" data-k="${i}-${f}"/>`;
+              continue;
+            }
+            g += `<g class="nb${root ? " root" : ""}${ps}" data-k="${b.k}" data-m="${m}"><circle cx="${x}" cy="${y}" r="${r}"/><text x="${x}" y="${y + r * 0.36}" text-anchor="middle" style="font-size:${r}px">${b.fing}</text><text class="nm" x="${x}" y="${y + r * 0.36}" text-anchor="middle" style="font-size:${r * 0.8}px">${plain(NOTE_NAMES[pcOf(m)])}</text></g>`;
           }
         });
-        h += `<div></div>` + Array.from({ length: 13 }, (_, f) => `<div class="fn">${MK.includes(f) ? f : f ? "" : "0"}</div>`).join("");
-        fb.innerHTML = h;
+        return g + "</svg>";
       }
-      $("#root").onchange = (e) => {
-        S.scl.root = e.target.value;
-        renderScale();
-        saveState();
-      };
-      $("#stype").onchange = (e) => {
-        S.scl.type = e.target.value;
-        renderScale();
-        saveState();
-      };
-      const sclHz = (i) => {
-        const ivs = SCALES[S.scl.type][0];
-        return midiToHz((S.scl.oct + 1) * 12 + NOTE_NAMES.indexOf(S.scl.root) + (i < ivs.length ? ivs[i] : 12));
-      };
+      // the octave that is played, sideways (low notes at the bottom): from the root (or the white key under it) to the
+      // root above; scale keys marked, the root in the accent colour
+      function keysHtml() {
+        const base = (S.scl.oct + 1) * 12 + rootPc(),
+          top = base + 12,
+          black = (m) => [1, 3, 6, 8, 10].includes(pcOf(m)),
+          whites = [],
+          blacks = [];
+        let lo = base,
+          hi = top;
+        while (black(lo)) lo--;
+        while (black(hi)) hi++;
+        for (let m = lo; m <= hi; m++) (black(m) ? blacks : whites).push(m);
+        const wpos = new Map(whites.map((m, i) => [m, i])),
+          W = 100 / whites.length,
+          mark = (m) =>
+            m >= base && m <= top && inSet(m) ? `<b class="${pcOf(m) === rootPc() ? "root" : ""}${isPass(m) ? " pass" : ""}">${plain(NOTE_NAMES[pcOf(m)])}</b>` : "";
+        let h = `<div class="kb">`;
+        whites.forEach((m, i) => (h += `<div class="wk" data-k="p${m}" data-m="${m}" style="bottom:${i * W}%;height:${W}%">${mark(m)}</div>`));
+        blacks.forEach((m) => (h += `<div class="bk" data-k="p${m}" data-m="${m}" style="bottom:${(wpos.get(m - 1) + 1) * W - W * 0.32}%;height:${W * 0.64}%">${mark(m)}</div>`));
+        return h + `</div><div class="kbl">${noteName(base)} – ${noteName(top)} · low notes at the bottom</div>`;
+      }
+      // one big recorder or whistle, its holes lit for one note (the one playing, the practice target or the last tapped)
+      const windOneOn = () => KIND(S.inst) === "wind" && S.scl.wv !== "all";
+      function windRedraw() {
+        const w = $("#dia .wone");
+        if (w) w.innerHTML = windOne(w.clientWidth, w.clientHeight);
+      }
+      function windOne(W, H) {
+        const up = scaleUp(),
+          low = stringMidis()[0],
+          rec = S.inst === "recorder";
+        if (!up.length) return `<div class="msg show">This scale is out of this instrument's range: try REGISTER</div>`;
+        if (windM == null || !inSet(windM) || !fingering(S.inst, windM - low)) windM = up[0].m;
+        const m = windM,
+          fg = fingering(S.inst, m - low),
+          bw = Math.min(88, W * 0.2),
+          y0 = 14,
+          IH = H - y0 - 14 - bw * 0.12,
+          cx = Math.min(W * 0.34, W / 2 - 40),
+          headH = IH * 0.16,
+          hy0 = y0 + headH + IH * 0.1,
+          hy1 = y0 + IH * 0.95,
+          front = rec ? 7 : 6,
+          sp = (hy1 - hy0) / (front - 1 + 0.6),
+          yOf = (j) => hy0 + sp * (j + (j >= 3 ? 0.6 : 0)),
+          r = Math.min(bw * 0.3, sp * 0.36),
+          holes = [...fg.holes],
+          NAMES = rec ? ["thumb", "L1", "L2", "L3", "R1", "R2", "R3", "R4"] : ["L1", "L2", "L3", "R1", "R2", "R3"],
+          a = bw * 0.42,
+          q = bw * 0.12;
+        let g = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><g data-m="${m}" data-k="one" style="cursor:pointer">`;
+        g += `<path d="M${cx - a} ${y0} h${2 * a} l${bw / 2 - a} ${headH} v${IH - headH} q0 ${q} -${q} ${q} h-${bw - 2 * q} q-${q} 0 -${q} -${q} v-${IH - headH} z" class="body ${rec ? "rec" : "whi"}"/>`;
+        if (!rec) g += `<path d="M${cx - a} ${y0} h${2 * a} l${bw / 2 - a} ${headH} h-${bw} z" class="head"/>`;
+        g += `<rect x="${cx - bw * 0.18}" y="${y0 + headH * 0.62}" width="${bw * 0.36}" height="${headH * 0.22}" rx="2" class="lab"/>`;
+        const hole = (x, y, rad, st) =>
+          st === "h"
+            ? `<circle cx="${x}" cy="${y}" r="${rad}" class="hof"/><path d="M${x} ${y - rad}A${rad} ${rad} 0 0 0 ${x} ${y + rad}Z" class="hon"/>`
+            : `<circle cx="${x}" cy="${y}" r="${rad}" class="${st === "1" ? "hon" : "hof"}"/>`;
+        holes.forEach((st, i) => {
+          const thumb = rec && i === 0,
+            y = thumb ? hy0 - sp * 0.85 : yOf(rec ? i - 1 : i),
+            rr = thumb ? r * 0.85 : r;
+          if (thumb) g += `<circle cx="${cx}" cy="${y}" r="${rr}" class="back"/>` + (st === "0" ? "" : hole(cx, y, rr * 0.8, st));
+          else if (rec && i >= 6) g += hole(cx - rr * 0.42, y, rr * 0.55, st === "0" ? "0" : "1") + hole(cx + rr * 0.55, y, rr * 0.4, st === "1" ? "1" : "0");
+          else g += hole(cx, y, rr, st);
+          g += `<text x="${cx - bw / 2 - 10}" y="${y + 4}" text-anchor="end" class="wl${st === "0" ? "" : " on"}">${NAMES[i]}</text>`;
+          if (thumb) g += `<text x="${cx - bw / 2 - 10}" y="${y + 18}" text-anchor="end" class="ws">at the back</text>`;
+        });
+        const tx = cx + bw / 2 + (W - cx - bw / 2) / 2,
+          closed = holes.filter((x) => x !== "0").length,
+          half = holes.includes("h");
+        g += `<text x="${tx}" y="${H * 0.38}" text-anchor="middle" class="wn${pcOf(m) === rootPc() ? " root" : ""}">${noteName(m)}</text>`;
+        g += `<text x="${tx}" y="${H * 0.38 + 26}" text-anchor="middle" class="ws">${closed} OF ${holes.length} COVERED</text>`;
+        if (half) g += `<text x="${tx}" y="${H * 0.38 + 44}" text-anchor="middle" class="ws">${rec && holes[0] === "h" ? "PINCH THE THUMB HOLE" : "◐ HALF COVER"}</text>`;
+        g += `<text x="${tx}" y="${H * 0.38 + (half ? 62 : 44)}" text-anchor="middle" class="ws${fg.over ? " hot" : ""}">${fg.over ? "＋ BLOW HARDER" : "NORMAL BREATH"}</text>`;
+        return g + "</g></svg>";
+      }
+      const noteName = (m) => plain(NOTE_NAMES[pcOf(m)]) + (Math.floor(Math.round(m) / 12) - 1);
+      // one fingering chart per note of the scale, side by side
+      function windHtml(W, H) {
+        const up = scaleUp(),
+          low = stringMidis()[0],
+          rec = S.inst === "recorder",
+          cw = Math.min(64, (W - 10) / Math.max(1, up.length) - 2),
+          holes = rec ? 8 : 6;
+        if (!up.length) return `<div class="msg show">This scale is out of this instrument's range: try OCTAVE</div>`;
+        let h = `<div class="wind">`;
+        up.forEach((n) => {
+          const fg = fingering(S.inst, n.m - low),
+            hh = Math.min(40, (H - 90) / (holes + 1.5)),
+            r = Math.min(cw * 0.2, hh * 0.36);
+          let svg = `<svg viewBox="0 0 ${cw} ${hh * (holes + 1.4)}" width="${cw}" height="${hh * (holes + 1.4)}">`;
+          // the body of the instrument, mouthpiece at the top
+          svg += `<rect x="${cw / 2 - r * 1.6}" y="0" width="${r * 3.2}" height="${hh * (holes + 1.4)}" rx="${r * 1.2}" class="${rec ? "body rec" : "body whi"}"/>`;
+          [...fg.holes].forEach((st, i) => {
+            const thumb = rec && i === 0,
+              y = hh * (i + 0.9) + (rec && i > 3 ? hh * 0.3 : 0) + (!rec && i > 2 ? hh * 0.3 : 0),
+              x = thumb ? cw / 2 - r * 1.35 : cw / 2,
+              rr = thumb ? r * 0.75 : r,
+              dbl = rec && i >= 6;
+            const hole = (cx, rad, s) =>
+              s === "h"
+                ? `<circle cx="${cx}" cy="${y}" r="${rad}" class="ho"/><path d="M${cx} ${y - rad}A${rad} ${rad} 0 0 0 ${cx} ${y + rad}Z" class="hc"/>`
+                : `<circle cx="${cx}" cy="${y}" r="${rad}" class="${s === "1" ? "hc" : "ho"}"/>`;
+            if (dbl) {
+              // a double hole: half-closing it means covering the bigger of the pair
+              svg += hole(x - rr * 0.45, rr * 0.55, st === "0" ? "0" : "1") + hole(x + rr * 0.55, rr * 0.4, st === "1" ? "1" : "0");
+            } else svg += hole(x, rr, st) + (thumb ? `<text x="${x}" y="${y - rr - 2}" text-anchor="middle" class="tl">T</text>` : "");
+          });
+          svg += `</svg>`;
+          h += `<div class="wch${pcOf(n.m) === rootPc() ? " root" : ""}${isPass(n.m) ? " pass" : ""}" data-k="${n.k}" data-m="${n.m}"><b>${noteName(n.m)}</b>${svg}<i>${fg.over ? "＋ blow" : "&nbsp;"}</i></div>`;
+        });
+        return h + `</div><div class="kbl">${rec ? "T = thumb hole at the back · ◐ = half covered" : "◐ = half covered · ＋ = blow harder"}</div>`;
+      }
+
+      // ---- lighting and playing
+      const SP = { timers: [], on: false };
+      function light(k, m, len, cls = "lit") {
+        if (windOneOn() && (cls === "lit" || cls === "tgt") && windM !== m) {
+          windM = m;
+          windRedraw();
+        }
+        const els = $$(`#dia [data-k="${k}"]`),
+          pad = $(`#sclNotes [data-pc="${pcOf(m)}"]`);
+        [...els, pad].filter(Boolean).forEach((e) => e.classList.add(cls));
+        if (len) SP.timers.push(setTimeout(() => [...els, pad].filter(Boolean).forEach((e) => e.classList.remove(cls)), len * 1000));
+      }
+      const unlight = (cls = "lit") => $$("#scl ." + cls).forEach((x) => x.classList.remove(cls));
+      function scaleStop() {
+        SP.timers.forEach(clearTimeout);
+        SP.timers = [];
+        SP.on = false;
+        unlight();
+        playFace();
+      }
+      // instrument voice for the piano and the winds (TRACK's recipes); plucked / bowed for the strings
+      function playScaleNote(m, t, len) {
+        const kind = KIND(S.inst);
+        if (kind === "fret" || kind === "fretless") return playInst(midiToHz(m), t, len);
+        return getCtx().then((c) => TK.voice(c, sclOut(c), tkIndex(S.inst === "piano" ? "Piano" : "Recorder"), m, c.currentTime + t + 0.01, len, 0.8));
+      }
+      let sclBus = null;
+      const sclOut = (c) => sclBus || ((sclBus = c.createGain()), (sclBus.gain.value = 0.9), sclBus.connect(c.destination), sclBus);
+      const tkIndex = (name) => TK.EXT_BASE + TK.EXT.findIndex((x) => x.name === name);
+      async function playScale(arp) {
+        practiceStop();
+        scaleStop();
+        await getCtx();
+        const seq = scaleSeq(arp),
+          step = 60 / (S.scl.spd || 140);
+        if (!seq.length) return toast("Nothing to play in this range");
+        SP.on = true;
+        playFace();
+        // each note starts from its own timer, so STOP silences the rest of the scale at once
+        seq.forEach((n, i) => {
+          SP.timers.push(
+            setTimeout(() => {
+              playScaleNote(n.m, 0, step * 0.95);
+              light(n.k, n.m, step * 0.9);
+            }, i * step * 1000),
+          );
+        });
+        SP.timers.push(setTimeout(scaleStop, seq.length * step * 1000 + 150));
+      }
       $("#sclNotes").onclick = (e) => {
-        const p = e.target.closest("[data-n]");
-        if (p) playTone(sclHz(+p.dataset.n), 0.7);
+        const p = e.target.closest("[data-pc]");
+        if (!p) return;
+        const n = scaleUp().find((x) => pcOf(x.m) === +p.dataset.pc);
+        if (n) (playScaleNote(n.m, 0, 0.8), light(n.k, n.m, 0.6));
       };
-      $("#fb").onclick = (e) => {
+      $("#dia").onclick = (e) => {
         const p = e.target.closest("[data-m]");
         if (!p) return;
-        playTone(midiToHz(+p.dataset.m), 0.9);
-        p.classList.add("hit");
-        setTimeout(() => p.classList.remove("hit"), 180);
+        playScaleNote(+p.dataset.m, 0, 0.9);
+        light(p.dataset.k, +p.dataset.m, 0.6);
       };
-      function flashNote(i, t) {
-        const q = $$("#sclNotes .sq")[i % SCALES[S.scl.type][0].length];
-        setTimeout(() => {
-          if (!q) return;
-          q.classList.add("ok");
-          setTimeout(() => q.classList.remove("ok"), 170);
-        }, t * 1000);
+
+      // ---- PRACTICE: the next note glows; play it (into the microphone) and it moves on
+      const PR = { on: false, seq: [], i: 0, hold: 0, t0: 0 };
+      async function practiceStart() {
+        scaleStop();
+        PR.seq = scaleSeq(false);
+        if (!PR.seq.length) return;
+        Object.assign(PR, { on: true, i: 0, hold: 0, t0: performance.now() });
+        await micStart();
+        if (!MIC.on) return practiceStop();
+        practiceFace();
       }
-      async function playScale(arp) {
-        await getCtx();
-        const n = SCALES[S.scl.type][0].length,
-          seq = arp ? [0, 2, 4, 7 % n, 4, 2, 0].filter((x) => x < n) : [...Array(n + 1).keys(), ...Array.from({ length: n }, (_, i) => n - 1 - i)];
-        seq.forEach((i, k) => {
-          setTimeout(() => playTone(sclHz(i), 0.35, "triangle", 0.2), k * 190);
-          flashNote(i, k * 0.19);
-        });
+      function practiceStop() {
+        if (!PR.on) return;
+        PR.on = false;
+        unlight("tgt");
+        unlight("done");
+        practiceFace();
+        if (S.view === "scl") micStop();
       }
+      function practiceFace() {
+        unlight("tgt");
+        const m = $("#diaMsg");
+        if (PR.on && PR.seq[PR.i]) {
+          const n = PR.seq[PR.i];
+          light(n.k, n.m, 0, "tgt");
+          if (m) {
+            m.textContent = `Play ${noteName(n.m)}${n.s != null ? ` · string ${stringMidis().length - n.s}, fret ${n.f}` : ""} · ${PR.i + 1}/${PR.seq.length}`;
+            m.classList.add("show");
+          }
+        } else if (m) m.classList.remove("show");
+        ribFace();
+      }
+      // called by the microphone loop while the Scales view is open
+      function sclFrame(hz) {
+        if (!PR.on) return;
+        const n = PR.seq[PR.i];
+        if (hz > 0 && Math.abs(1200 * Math.log2(hz / midiToHz(n.m))) < 40) PR.hold++;
+        else PR.hold = Math.max(0, PR.hold - 1);
+        if (PR.hold < 5) return;
+        PR.hold = 0;
+        light(n.k, n.m, 0.5, "done");
+        PR.i++;
+        if (PR.i >= PR.seq.length) {
+          const sec = ((performance.now() - PR.t0) / 1000).toFixed(1);
+          practiceStop();
+          toast(`Scale played in ${sec} s. Again, a bit faster?`, 2600);
+          return;
+        }
+        practiceFace();
+      }
+
       let drone = null;
       function droneToggle() {
         if (drone) {
@@ -1752,7 +4248,7 @@
         } else
           getCtx().then((c) => {
             const g = c.createGain(),
-              f = midiToHz((S.scl.oct) * 12 + NOTE_NAMES.indexOf(S.scl.root));
+              f = midiToHz(S.scl.oct * 12 + NOTE_NAMES.indexOf(S.scl.root));
             g.gain.value = 0;
             g.connect(c.destination);
             g.gain.setTargetAtTime(0.12, c.currentTime, 0.2);
@@ -1771,19 +4267,103 @@
           });
         ribFace();
       }
-      $("#sUp").onclick = () => playScale(false);
-      $("#sArp").onclick = () => playScale(true);
-      $("#sDrone").onclick = droneToggle;
-      $("#sOct").onclick = () => {
-        S.scl.oct = S.scl.oct >= 5 ? 2 : S.scl.oct + 1;
+      $("#root").onchange = (e) => {
+        S.scl.root = e.target.value;
+        S.scl.pos = 0;
+        practiceStop();
         renderScale();
         saveState();
       };
+      $("#stype").onchange = (e) => {
+        S.scl.type = e.target.value;
+        S.scl.pos = 0;
+        practiceStop();
+        renderScale();
+        saveState();
+      };
+      $("#sUp").onclick = () => (SP.on ? scaleStop() : playScale(false));
+      $("#sArp").onclick = () => playScale(true);
+      $("#sPrac").onclick = () => (PR.on ? practiceStop() : practiceStart());
+      $("#sDrone").onclick = droneToggle;
+      // POSITION on a neck (the next box up), OCTAVE on the piano, REGISTER on a recorder or whistle
+      $("#sOct").onclick = () => {
+        const kind = KIND(S.inst);
+        practiceStop();
+        if (kind === "fret" || kind === "fretless") S.scl.pos = ((S.scl.pos || 0) + 1) % positions().length;
+        else if (kind === "piano") S.scl.oct = S.scl.oct >= 5 ? 2 : S.scl.oct + 1;
+        else S.scl.reg = S.scl.reg ? 0 : 1;
+        renderScale();
+        saveState();
+      };
+      $("#sPass").onclick = () => {
+        S.scl.pass = !S.scl.pass;
+        practiceStop();
+        scaleStop();
+        renderScale();
+        saveState();
+        toast(S.scl.pass ? "Passing tones on: the dashed notes lead from one scale note to the next" : "Passing tones off");
+      };
+      const SPEEDS = [60, 80, 100, 120, 140, 180];
+      $("#sSpd").onclick = () => {
+        S.scl.spd = SPEEDS[(SPEEDS.indexOf(S.scl.spd) + 1) % SPEEDS.length];
+        ribFace();
+        saveState();
+        toast(S.scl.spd + " notes a minute");
+      };
+      $("#sWv").onclick = () => {
+        S.scl.wv = windOneOn() ? "all" : "one";
+        drawDia();
+        ribFace();
+        saveState();
+      };
+      addEventListener("resize", () => S.view === "scl" && drawDia());
 
       // ======================================================================
       // jam
       // ======================================================================
-      const J = { on: false, step: 0, next: 0, timer: 0, g: null };
+      // The band plays TRACK.Pocket's instruments (TK): a drum kit, a bass and a chord instrument, each one chosen in
+      // SOUNDS (a style pad picks a fitting set). Everything goes through TRACK's live FX chain (FX) to a compressor.
+      const J = { on: false, step: 0, next: 0, timer: 0, g: null, fx: null, gd: 0, lfo: null, fkey: "" };
+      const tkByName = (n) => {
+        const i = TK.EXT.findIndex((x) => x.name === n);
+        return i < 0 ? 0 : TK.EXT_BASE + i;
+      };
+      // style -> [drum kit, bass, chords]
+      const GENRE_SND = {
+        rock: [4, "Picked bass", "Overdrive guitar"],
+        blues: [4, "Fingered bass", "Jazz organ"],
+        funk: [1, "Slap bass", "Clavinet"],
+        reggae: [4, "Fingered bass", "Muted guitar"],
+        metal: [4, "Picked bass", "Distortion guitar"],
+        jazz: [4, "Upright bass", "Rhodes"],
+        bossa: [5, "Upright bass", "Nylon guitar"],
+        hiphop: [0, "Moog bass", "Rhodes"],
+      };
+      function genreSnd(g) {
+        const [kit, b, c] = GENRE_SND[g] || GENRE_SND.rock;
+        return { kit, bass: tkByName(b), chord: tkByName(c) };
+      }
+      if (!S.jam.snd || TK.instObj(S.jam.snd.bass) == null) S.jam.snd = genreSnd(S.jam.genre);
+      const JFX = [
+        ["flo", "Filter ↓", "darker"],
+        ["fhi", "Filter ↑", "thinner"],
+        ["lofi", "Lo-fi", "crunch"],
+        ["drv", "Drive", "distort"],
+        ["fln", "Flanger", "whoosh"],
+        ["ech", "Echo", "dotted 8th"],
+        ["rvb", "Reverb", "big room"],
+        ["rad", "Radio", "tiny speaker"],
+        ["g8", "Gate 1/8", "chop"],
+        ["g16", "Gate 1/16", "chop fast"],
+      ];
+      // every TRACK instrument except the drum kit, grouped by family
+      function instOptions() {
+        const groups = new Map(),
+          add = (fam, v, n) => (groups.get(fam) || groups.set(fam, []).get(fam)).push([v, n]);
+        TK.INST.forEach((x, i) => !x.drum && add("Basic", i, x.name));
+        TK.EXT.forEach((x, i) => add(x.fam, TK.EXT_BASE + i, x.name));
+        return [...groups].map(([fam, xs]) => `<optgroup label="${esc(fam)}">${xs.map(([v, n]) => `<option value="${v}">${esc(n)}</option>`).join("")}</optgroup>`).join("");
+      }
       function renderJam() {
         $("#genres").innerHTML = GENRES.map(
           ([id, n, d], i) =>
@@ -1810,6 +4390,23 @@
               `<div class="sq${i % 4 ? "" : " beat"}" data-st="${i}">${k ? '<b class="k"></b>' : "<b></b>"}${s ? '<b class="s"></b>' : "<b></b>"}${oh ? '<b class="o"></b>' : hh ? '<b class="h"></b>' : "<b></b>"}</div>`,
           )
           .join("");
+        // sounds
+        if (!$("#jBassI").options.length) $("#jBassI").innerHTML = $("#jChordI").innerHTML = instOptions();
+        $("#jKit").innerHTML = TK.KITS.map((k, i) => `<option value="${i}">${k}</option>`).join("");
+        $("#jKit").value = S.jam.snd.kit;
+        $("#jBassI").value = S.jam.snd.bass;
+        $("#jChordI").value = S.jam.snd.chord;
+        $("#kitTxt").innerHTML = `<i>DRUM KIT</i>${TK.KITS[S.jam.snd.kit]}`;
+        $("#jbTxt").innerHTML = `<i>BASS</i>${esc(TK.instObj(+S.jam.snd.bass).name)}`;
+        $("#jcTxt").innerHTML = `<i>CHORDS</i>${esc(TK.instObj(+S.jam.snd.chord).name)}`;
+        // effects
+        $("#jFx").innerHTML = JFX.map(
+          ([id, n, h], i) =>
+            `<div class="sq has${S.jam.fx.includes(id) ? " ok" : ""}" data-fx="${id}" style="--ccrgb:${PC(Math.floor(i / 2))};--v:.25"><span class="nt sm">${n}</span><span class="in">${h}</span></div>`,
+        ).join("");
+        $("#jLatch").classList.toggle("on", S.jam.latch !== false);
+        jamProgFace(J.on ? jamBar(Math.floor(J.step / 16)) : null);
+        jamPanelFace();
       }
       function jamMix() {
         if (!J.g) return;
@@ -1820,15 +4417,20 @@
       async function jamStart() {
         const c = await getCtx();
         if (!J.g) {
-          const bus = c.createDynamicsCompressor();
-          bus.connect(c.destination);
+          const comp = c.createDynamicsCompressor();
+          comp.threshold.value = -10;
+          comp.ratio.value = 4;
+          comp.connect(c.destination);
           J.an = c.createAnalyser(); // read by the backdrop
           J.an.fftSize = 2048;
-          bus.connect(J.an);
+          comp.connect(J.an);
+          J.fx = TK.buildFxChain(c);
+          J.fx.out.connect(comp);
           J.g = { drums: c.createGain(), bass: c.createGain(), chord: c.createGain() };
-          Object.values(J.g).forEach((g) => g.connect(bus));
+          Object.values(J.g).forEach((g) => g.connect(J.fx.in));
         }
         jamMix();
+        jamFx();
         J.on = true;
         J.step = 0;
         J.next = c.currentTime + 0.06;
@@ -1839,118 +4441,271 @@
         J.on = false;
         clearTimeout(J.timer);
         $$("#steps .sq").forEach((q) => q.classList.remove("now"));
+        jamProgFace();
         jamFace();
       }
       const jamToggle = () => (J.on ? jamStop() : jamStart());
-      function jamFace() {
-        $("#play").classList.toggle("on", J.on);
-        $("#play").textContent = J.on ? "■" : "▶";
+      const jamFace = () => playFace();
+      // ▶ in the tuner: every string from the lowest, then a strum of all of them
+      const TP = { timers: [], on: false };
+      function stringsStop() {
+        TP.timers.forEach(clearTimeout);
+        TP.timers = [];
+        TP.on = false;
+        $$("#strings .lit").forEach((x) => x.classList.remove("lit"));
+        playFace();
+      }
+      function playStrings() {
+        stringsStop();
+        const ss = curStrings(),
+          gap = S.inst === "violin" ? 1.1 : 0.75,
+          pads = () => $$("#strings .sq"),
+          light = (i, t, len) =>
+            TP.timers.push(
+              setTimeout(() => {
+                const q = pads()[i];
+                if (!q) return;
+                q.classList.add("lit");
+                setTimeout(() => q.classList.remove("lit"), len * 1000);
+              }, t * 1000),
+            );
+        TP.on = true;
+        playFace();
+        // every note starts from a timer, so STOP cuts the rest at once
+        ss.forEach((s, i) => {
+          TP.timers.push(setTimeout(() => playInst(s.hz, 0, S.inst === "violin" ? 1 : gap + 0.3), i * gap * 1000));
+          light(i, i * gap, gap * 0.9);
+        });
+        const strum = ss.length * gap + 0.3,
+          each = S.inst === "violin" ? 0 : 0.035;
+        if (KIND(S.inst) !== "wind") {
+          TP.timers.push(setTimeout(() => ss.forEach((s, i) => playInst(s.hz, i * each, S.inst === "violin" ? 1.6 : undefined)), strum * 1000));
+          ss.forEach((s, i) => light(i, strum + i * each, 1.2));
+        }
+        TP.timers.push(setTimeout(stringsStop, (strum + 1.6) * 1000));
+      }
+      // the header ▶ does what fits the view; it is hidden where nothing plays
+      const PLAYS = { tun: true, scl: true, jam: true };
+      function playOn() {
+        return S.view === "tun" ? TP.on : S.view === "scl" ? SP.on : J.on;
+      }
+      function playFace() {
+        const b = $("#play"),
+          on = playOn();
+        b.style.visibility = PLAYS[S.view] ? "" : "hidden";
+        b.classList.toggle("on", on);
+        b.textContent = on ? "■" : "▶";
+        b.title = { tun: "Play the strings, then strum", scl: "Play the scale", jam: "Play / stop the band" }[S.view] || "";
         ribFace();
       }
-      let noiseBuf = null;
-      function noise(c) {
-        if (!noiseBuf) {
-          noiseBuf = c.createBuffer(1, c.sampleRate * 0.5, c.sampleRate);
-          const d = noiseBuf.getChannelData(0);
-          for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      function playToggle() {
+        if (S.view === "tun") return TP.on ? stringsStop() : playStrings();
+        if (S.view === "scl") return SP.on ? scaleStop() : playScale(false);
+        if (S.view === "jam") return jamToggle();
+      }
+      // ---- live effects on the band (the same chain and settings as TRACK.Pocket's FX)
+      const jStep = () => 60 / S.jam.bpm / 4;
+      function jfxRamp(p, to, sec) {
+        const t = ctx.currentTime;
+        p.cancelScheduledValues(t);
+        p.setValueAtTime(Math.max(1, p.value), t);
+        if (sec) p.exponentialRampToValueAtTime(to, t + sec);
+        else p.setTargetAtTime(to, t, 0.06);
+      }
+      function jamFx() {
+        const f = J.fx;
+        if (!f) return;
+        const c = ctx,
+          t = c.currentTime,
+          on = (id) => S.jam.fx.includes(id),
+          key = ["flo", "fhi", "rad"].filter(on).join();
+        if (key !== J.fkey) {
+          J.fkey = key;
+          jfxRamp(f.lp.frequency, on("flo") ? 220 : on("rad") ? 3400 : 20000, on("flo") ? 1.3 : 0);
+          jfxRamp(f.hp.frequency, on("fhi") ? 3200 : on("rad") ? 700 : 10, on("fhi") ? 1.3 : 0);
+          f.lp.Q.setTargetAtTime(on("flo") ? 6 : 0.7, t, 0.05);
+          f.hp.Q.setTargetAtTime(on("fhi") ? 6 : 0.7, t, 0.05);
         }
-        const s = c.createBufferSource();
-        s.buffer = noiseBuf;
-        return s;
-      }
-      function drum(c, type, t, vol) {
-        const out = J.g.drums,
-          g = c.createGain();
-        g.connect(out);
-        if (type === "kick") {
-          const o = c.createOscillator();
-          o.frequency.setValueAtTime(150, t);
-          o.frequency.exponentialRampToValueAtTime(32, t + 0.12);
-          g.gain.setValueAtTime(vol, t);
-          g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
-          o.connect(g);
-          o.start(t);
-          o.stop(t + 0.25);
-        } else if (type === "snare") {
-          const n = noise(c),
-            f = c.createBiquadFilter();
-          f.type = "highpass";
-          f.frequency.value = 1200;
-          n.connect(f).connect(g);
-          g.gain.setValueAtTime(vol * 0.6, t);
-          g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-          n.start(t, Math.random() * 0.3, 0.16);
-          const o = c.createOscillator(),
-            og = c.createGain();
-          o.type = "triangle";
-          o.frequency.value = 185;
-          og.gain.setValueAtTime(vol * 0.3, t);
-          og.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-          o.connect(og).connect(out);
-          o.start(t);
-          o.stop(t + 0.1);
-        } else {
-          const open = type === "openhat",
-            len = open ? 0.2 : 0.04,
-            n = noise(c),
-            f = c.createBiquadFilter();
-          f.type = "highpass";
-          f.frequency.value = 7500;
-          n.connect(f).connect(g);
-          g.gain.setValueAtTime(vol * (open ? 0.3 : 0.2), t);
-          g.gain.exponentialRampToValueAtTime(0.001, t + len);
-          n.start(t, Math.random() * 0.3, len + 0.01);
+        f.drive.set(on("drv") ? 1 : 0);
+        f.crush.set(on("lofi") ? 1 : 0);
+        f.flange.set(on("fln") ? 1 : 0);
+        f.es.gain.setTargetAtTime(on("ech") ? 1 : 0, t, 0.01);
+        f.dl.delayTime.setTargetAtTime((60 / S.jam.bpm) * 0.75, t, 0.01);
+        f.rs.gain.setTargetAtTime(on("rvb") ? 1.2 : 0, t, 0.02);
+        f.dry.gain.setTargetAtTime(on("rvb") ? 0.55 : 1, t, 0.05);
+        const gd = on("g16") ? 2 : on("g8") ? 4 : 0;
+        if (gd !== J.gd) {
+          J.gd = gd;
+          if (J.lfo) {
+            try {
+              J.lfo.o.stop(t + 0.01);
+            } catch {}
+            J.lfo.ag.disconnect();
+            J.lfo = null;
+          }
+          f.gate.gain.cancelScheduledValues(t);
+          if (gd) {
+            const o = c.createOscillator(),
+              ag = c.createGain();
+            o.type = "square";
+            ag.gain.value = 0.5;
+            o.connect(ag);
+            ag.connect(f.gate.gain);
+            f.gate.gain.setValueAtTime(0.5, t);
+            o.start(t);
+            J.lfo = { o, ag };
+          } else f.gate.gain.setTargetAtTime(1, t, 0.01);
         }
+        if (J.lfo) J.lfo.o.frequency.setValueAtTime(1 / (jStep() * J.gd), t);
       }
-      function bassNote(c, hz, t, vol) {
-        const o = c.createOscillator(),
-          f = c.createBiquadFilter(),
-          g = c.createGain();
-        o.type = "sawtooth";
-        f.type = "lowpass";
-        f.frequency.setValueAtTime(900, t);
-        f.frequency.exponentialRampToValueAtTime(220, t + 0.18);
-        o.frequency.value = hz;
-        g.gain.setValueAtTime(vol, t);
-        g.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
-        o.connect(f).connect(g).connect(J.g.bass);
-        o.start(t);
-        o.stop(t + 0.26);
+      function jamFxSet(id, on) {
+        S.jam.fx = S.jam.fx.filter((x) => x !== id);
+        if (on) S.jam.fx.push(id);
+        $$(`#jFx [data-fx="${id}"]`).forEach((e) => e.classList.toggle("ok", on));
+        jamFx();
+        saveState();
       }
-      function chord(c, freqs, t, vol, len) {
-        freqs.forEach((hz) => {
-          const o = c.createOscillator(),
-            g = c.createGain();
-          o.type = "triangle";
-          o.frequency.value = hz;
-          g.gain.setValueAtTime(0.0001, t);
-          g.gain.exponentialRampToValueAtTime(vol / freqs.length, t + 0.01);
-          g.gain.exponentialRampToValueAtTime(0.001, t + len);
-          o.connect(g).connect(J.g.chord);
-          o.start(t);
-          o.stop(t + len + 0.02);
-        });
+      // LATCH on: a tap turns an effect on or off. Off: the effect plays while the pad is held.
+      const jHeld = new Map();
+      $("#jFx").addEventListener("pointerdown", (e) => {
+        const p = e.target.closest("[data-fx]");
+        if (!p) return;
+        e.preventDefault();
+        getCtx();
+        const id = p.dataset.fx;
+        if (S.jam.latch !== false) jamFxSet(id, !S.jam.fx.includes(id));
+        else (jHeld.set(e.pointerId, id), jamFxSet(id, true));
+      });
+      const jUp = (e) => {
+        const id = jHeld.get(e.pointerId);
+        if (!id) return;
+        jHeld.delete(e.pointerId);
+        if (![...jHeld.values()].includes(id)) jamFxSet(id, false);
+      };
+      addEventListener("pointerup", jUp);
+      addEventListener("pointercancel", jUp);
+      $("#jLatch").onclick = () => {
+        S.jam.latch = S.jam.latch === false;
+        $("#jLatch").classList.toggle("on", S.jam.latch);
+        saveState();
+        toast(S.jam.latch ? "Latch on: tap an effect to turn it on or off" : "Latch off: effects play while you hold them");
+      };
+      $("#jFxOff").onclick = () => [...S.jam.fx].forEach((id) => jamFxSet(id, false));
+      // SOUNDS
+      $("#jKit").onchange = (e) => ((S.jam.snd.kit = +e.target.value), renderJam(), saveState());
+      $("#jBassI").onchange = (e) => ((S.jam.snd.bass = +e.target.value), renderJam(), saveState());
+      $("#jChordI").onchange = (e) => ((S.jam.snd.chord = +e.target.value), renderJam(), saveState());
+      // the bottom bar swaps the middle of the view: MIX (levels and the bar), SOUNDS, FX
+      let jPanel = "mix";
+      function jamPanelFace() {
+        $$("#jam [data-jp]").forEach((p) => (p.hidden = p.dataset.jp !== jPanel));
       }
       // minor key: lower the 3rds and 6ths/7ths of the chords (major intervals 4, 9, 11, 16 -> 3, 8, 10, 15)
       const minorIv = (iv) => (S.jam.minor ? ({ 4: 3, 9: 8, 11: 10, 16: 15 }[iv] ?? iv) : iv);
+      // Each style plays a chord progression, one chord a bar, in two versions: A (verse) and B (chorus), in major and
+      // in minor. Roman numerals are degrees of the key (of the natural minor scale in minor); upper case is a major
+      // chord, lower case minor; 7, maj7, ø7 (half diminished) and 5 (power chord) change the chord.
+      const PROGS = {
+        rock: { maj: ["I V vi IV", "IV IV I V"], min: ["i VI III VII", "iv iv i v"] },
+        blues: { maj: ["I7 I7 I7 I7 IV7 IV7 I7 I7 V7 IV7 I7 V7", "I7 IV7 I7 I7 IV7 IV7 I7 I7 V7 IV7 I7 V7"], min: ["i7 i7 i7 i7 iv7 iv7 i7 i7 VI7 V7 i7 V7", "i7 iv7 i7 i7 iv7 iv7 i7 i7 VI7 V7 i7 V7"] },
+        funk: { maj: ["I7 I7 IV7 I7", "IV7 IV7 V7 V7"], min: ["i7 i7 iv7 i7", "VI7 VI7 v7 v7"] },
+        reggae: { maj: ["I IV I V", "vi IV I V"], min: ["i iv i v", "VI VII i i"] },
+        metal: { maj: ["I5 bVI5 bVII5 I5", "bVI5 bVII5 I5 I5"], min: ["i5 VI5 VII5 i5", "VI5 VII5 i5 i5"] },
+        jazz: { maj: ["ii7 V7 Imaj7 Imaj7", "Imaj7 vi7 ii7 V7"], min: ["iiø7 V7 i7 i7", "i7 iv7 VImaj7 V7"] },
+        bossa: { maj: ["Imaj7 Imaj7 ii7 V7", "ii7 V7 Imaj7 VI7"], min: ["i7 i7 iv7 iv7", "iiø7 V7 i7 i7"] },
+        hiphop: { maj: ["Imaj7 Imaj7 vi7 vi7", "IVmaj7 IVmaj7 V7 V7"], min: ["i7 i7 iv7 iv7", "VImaj7 VImaj7 v7 v7"] },
+      };
+      function chordOf(sym, minor) {
+        const x = /^([b#]?)(VII|VI|V|IV|III|II|I|vii|vi|v|iv|iii|ii|i)(maj7|ø7|7|5)?$/.exec(sym),
+          deg = ["i", "ii", "iii", "iv", "v", "vi", "vii"].indexOf(x[2].toLowerCase()),
+          up = x[2] === x[2].toUpperCase(),
+          q = x[3] || "",
+          root = ((minor ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11])[deg] + (x[1] === "b" ? -1 : x[1] === "#" ? 1 : 0) + 12) % 12,
+          ivs = q === "5" ? [0, 7, 12] : q === "ø7" ? [0, 3, 6, 10] : [0, up ? 4 : 3, 7, ...(q === "7" ? [10] : q === "maj7" ? [11] : [])],
+          name = q === "5" ? "5" : q === "ø7" ? "ø" : (up ? "" : "m") + (q === "maj7" ? "maj7" : q);
+        return { root, ivs, name };
+      }
+      // SONG: the parts change every few bars: verse, chorus, verse, chorus, break, chorus. The last bar of a part
+      // is a drum fill and a crash opens the next one. Off: the verse progression loops.
+      const ORDER = ["A", "B", "A", "B", "X", "B"],
+        SEC_NAME = { A: "VERSE", B: "CHORUS", X: "BREAK" };
+      function jamBar(b) {
+        const P = PROGS[S.jam.genre] || PROGS.rock,
+          ps = (S.jam.minor ? P.min : P.maj).map((x) => x.split(" ")),
+          len = ps[0].length;
+        if (!S.jam.song) return { sec: "A", prog: ps[0], bi: b % len, fill: false, first: false };
+        const L = Math.ceil(S.jam.song / len) * len,
+          sec = ORDER[Math.floor(b / L) % ORDER.length],
+          bb = b % L,
+          prog = ps[sec === "B" ? 1 : 0];
+        return { sec, prog, bi: bb % prog.length, fill: bb === L - 1, first: bb === 0 && b > 0 };
+      }
+      function jamProgFace(bar) {
+        const el = $("#jProg");
+        if (!el) return;
+        const ri = NOTE_NAMES.indexOf(S.jam.key);
+        bar = bar || jamBar(0);
+        el.innerHTML =
+          `<b class="sec">${S.jam.song ? SEC_NAME[bar.sec] : "LOOP"}</b>` +
+          bar.prog
+            .map((sym, i) => {
+              const c = chordOf(sym, S.jam.minor);
+              return `<span class="${J.on && i === bar.bi ? "now" : ""}">${plain(NOTE_NAMES[(ri + c.root) % 12])}${c.name}</span>`;
+            })
+            .join("");
+      }
+      $("#jSong").onclick = () => {
+        const o = [0, 4, 8, 16];
+        S.jam.song = o[(o.indexOf(S.jam.song) + 1) % o.length];
+        ribFace();
+        jamProgFace(J.on ? jamBar(Math.floor(J.step / 16)) : null);
+        saveState();
+        toast(S.jam.song ? `Song: the part changes every ${S.jam.song} bars (verse, chorus, break)` : "Song off: the verse loops");
+      };
       function jamTick() {
         if (!J.on) return;
         const c = ctx,
-          sd = 60 / S.jam.bpm / 4,
+          sd = jStep(),
           ri = NOTE_NAMES.indexOf(S.jam.key),
+          snd = S.jam.snd,
           swing = S.jam.pattern === "swing" || S.jam.pattern === "shuffle" ? sd * 0.33 : 0;
+        TK.song.kit = snd.kit;
+        TK.song.bpm = S.jam.bpm;
         while (J.next < c.currentTime + 0.12) {
           const s = J.step % 16,
             t = J.next + (s % 2 ? swing : 0),
-            [k, sn, h, oh] = PATTERNS[S.jam.pattern][s];
-          if (k) drum(c, "kick", t, 1);
-          if (sn) drum(c, "snare", t, 0.9);
-          if (oh) drum(c, "openhat", t, 0.7);
-          else if (h) drum(c, "hihat", t, s % 4 ? 0.4 : 0.6);
-          const bi = BASS_PATTERNS[S.jam.pattern][s];
-          if (bi != null) bassNote(c, midiToHz(36 + ri + minorIv(bi)), t, 0.7);
-          const cd = CHORD_PATTERNS[S.jam.pattern].find(([cs]) => cs === s);
-          if (cd) chord(c, cd[1].map((iv) => midiToHz(48 + ri + minorIv(iv))), t, 0.45, sd * 3.5);
+            bar = jamBar(Math.floor(J.step / 16)),
+            ch = chordOf(bar.prog[bar.bi], S.jam.minor),
+            cr = (ri + ch.root) % 12;
+          let [k, sn, h, oh] = PATTERNS[S.jam.pattern][s];
+          if (bar.sec === "B" && s % 4 === 2) [h, oh] = [0, 1]; // chorus: open hats on the off-beats
+          if (bar.sec === "X") [k, sn, h, oh] = [s === 0 ? 1 : 0, 0, s % 4 ? 0 : 1, 0]; // break: almost only the pulse
+          // TRACK drum notes: 0 kick, 1 snare, 3 hat, 4 open hat, 5 tom lo, 6 tom hi, 8 crash
+          if (bar.fill && s >= 12) {
+            TK.drum(c, J.g.drums, [1, 6, 6, 5][s - 12], t, 0.75 + (s - 12) * 0.07);
+            if (s === 15) TK.drum(c, J.g.drums, 0, t, 0.9);
+          } else {
+            if (k) TK.drum(c, J.g.drums, 0, t, 1);
+            if (sn) TK.drum(c, J.g.drums, 1, t, 0.9);
+            if (oh) TK.drum(c, J.g.drums, 4, t, 0.6);
+            else if (h) TK.drum(c, J.g.drums, 3, t, s % 4 ? 0.45 : 0.65);
+          }
+          if (bar.first && s === 0) TK.drum(c, J.g.drums, 8, t, 0.7);
+          const bi = BASS_PATTERNS[S.jam.pattern][s],
+            hits = CHORD_PATTERNS[S.jam.pattern].map(([cs]) => cs);
+          if (bar.sec === "X") {
+            if (s === 0) {
+              TK.voice(c, J.g.bass, +snd.bass, 36 + cr, t, sd * 15, 0.8);
+              ch.ivs.forEach((iv) => TK.voice(c, J.g.chord, +snd.chord, 48 + cr + iv, t, sd * 15, 0.4));
+            }
+          } else {
+            if (bi != null) TK.voice(c, J.g.bass, +snd.bass, 36 + cr + bi, t, sd * 1.7, 0.9);
+            if (hits.includes(s)) {
+              const nx = hits.find((x) => x > s) ?? 16 + hits[0];
+              ch.ivs.forEach((iv) => TK.voice(c, J.g.chord, +snd.chord, 48 + cr + iv, t, Math.min(sd * 3.5, (nx - s) * sd * 0.95), 0.55));
+            }
+          }
+          if (s === 0) setTimeout(() => J.on && jamProgFace(bar), Math.max(0, (t - c.currentTime) * 1000));
           setTimeout(
             () => J.on && $$("#steps .sq").forEach((q, i) => q.classList.toggle("now", i === s)),
             Math.max(0, (t - c.currentTime) * 1000),
@@ -1964,8 +4719,9 @@
         const p = e.target.closest("[data-g]");
         if (!p) return;
         const g = GENRES.find((x) => x[0] === p.dataset.g);
-        Object.assign(S.jam, { genre: g[0], bpm: g[3], pattern: g[4] });
+        Object.assign(S.jam, { genre: g[0], bpm: g[3], pattern: g[4], snd: genreSnd(g[0]) });
         renderJam();
+        jamFx();
         saveState();
         if (!J.on) jamStart();
       };
@@ -1982,6 +4738,7 @@
       $("#jBpm").oninput = (e) => {
         S.jam.bpm = +e.target.value;
         $("#bpmTxt").textContent = S.jam.bpm;
+        jamFx();
         saveState();
       };
       for (const k of ["drums", "bass", "chord"]) {
@@ -2001,11 +4758,14 @@
         if (taps.length >= 3) {
           const bpm = Math.round((60000 * (taps.length - 1)) / (now - taps[0]));
           S.jam.bpm = Math.max(40, Math.min(220, bpm));
+          jamFx();
           $("#jBpm").value = S.jam.bpm;
           $("#bpmTxt").textContent = S.jam.bpm;
           saveState();
         }
       };
+      $("#jSnd").onclick = () => ((jPanel = jPanel === "snd" ? "mix" : "snd"), jamPanelFace(), ribFace());
+      $("#jFxB").onclick = () => ((jPanel = jPanel === "fx" ? "mix" : "fx"), jamPanelFace(), ribFace());
       $("#jMinor").onclick = () => {
         S.jam.minor = !S.jam.minor;
         renderJam();
@@ -2099,7 +4859,7 @@
             .join("");
         $("#savedList").innerHTML =
           `<div class="grp">YOUR TUNINGS</div>` +
-          (mine || '<div class="hint" style="padding:6px 0 10px">None yet: tap NEW below, or COPY one of the built-in tunings to change it.</div>') +
+          (mine || '<div class="hint" style="padding:6px 0 10px">None yet: tap TUNINGS below, or COPY one of the built-in tunings to change it.</div>') +
           `<div class="grp" style="margin-top:10px">BUILT IN · ${esc(inst.toUpperCase())}</div>` +
           built;
       }
@@ -2150,12 +4910,18 @@
       function showView(v) {
         if (!WM[v]) v = "tun";
         S.view = v;
+        document.body.dataset.view = v;
         $$("main > section").forEach((s) => s.classList.toggle("show", s.id === v));
         $$("#hViews button, #hSet").forEach((b) => b.classList.toggle("on", b.dataset.v === v));
         $("#wm").textContent = WM[v];
         $("#rec").style.visibility = v === "tun" || v === "det" ? "" : "hidden";
+        if (TP.on && v !== "tun") stringsStop();
+        if (SP.on && v !== "scl") scaleStop();
+        playFace();
         if (v === "scl") renderScale();
-        if (v !== "tun" && v !== "det" && MIC.on) micStop(); // the mic only runs where it is shown
+        if (v !== "scl") practiceStop();
+        if (v === "scl") requestAnimationFrame(drawDia);
+        if (v !== "tun" && v !== "det" && v !== "scl" && MIC.on) micStop(); // the mic only runs where it is shown
         saveState();
       }
       $$("#hViews button, #hSet").forEach((b) => (b.onclick = () => showView(b.dataset.v)));
@@ -2173,6 +4939,8 @@
         stop: IC('<rect x="6" y="6" width="12" height="12" rx="1"/>'),
         tap: IC('<path d="M9 11V5a2 2 0 0 1 4 0v6M13 9a2 2 0 0 1 4 0v4a6 6 0 0 1-12 0v-2a2 2 0 0 1 4 0"/>'),
         minor: IC('<path d="M9 18V6l9-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="15.5" cy="16" r="2.5"/>'),
+        snd: IC('<path d="M4 14h4v6H4zM10 9h4v11h-4zM16 4h4v16h-4z"/>'),
+        fx: IC('<path d="M5 12a7 7 0 0 1 14 0M8 12a4 4 0 0 1 8 0"/><circle cx="12" cy="12" r="1.5"/><path d="M12 14v6"/>'),
       };
       function rib(id, icon, cap, on) {
         const b = $("#" + id);
@@ -2183,19 +4951,48 @@
         rib("tMic", "mic", "LISTEN", MIC.on);
         rib("dMic", "mic", "LISTEN", MIC.on);
         rib("tAuto", "auto", S.auto ? "AUTO" : "LOCKED", S.auto);
+        const a2 = $("#tAuto2");
+        if (a2) {
+          a2.textContent = S.auto ? "AUTO STRING: ON" : "LOCKED ON STRING " + (S.sel + 1);
+          a2.classList.toggle("on", S.auto);
+        }
         rib("tTone", "tone", "TONE");
         rib("tPrev", "prev", "STRING");
         rib("tNext", "next", "STRING");
         rib("dTone", "tone", "PLAY NOTE");
-        rib("sUp", "up", "SCALE");
+        rib("sUp", SP.on ? "stop" : "up", SP.on ? "STOP" : "SCALE", SP.on);
         rib("sArp", "arp", "ARPEGGIO");
+        rib("sPrac", "mic", PR.on ? PR.i + 1 + "/" + PR.seq.length : "PRACTICE", PR.on);
         rib("sDrone", "drone", "DRONE", !!drone);
+        {
+          const k = KIND(S.inst),
+            b = $("#sOct");
+          b.innerHTML =
+            k === "fret" || k === "fretless"
+              ? `${((S.scl.pos || 0) % positions().length) + 1}<i>POSITION</i>`
+              : k === "piano"
+                ? `${S.scl.oct}<i>OCTAVE</i>`
+                : `${S.scl.reg ? 2 : 1}<i>REGISTER</i>`;
+          $("#sPass").innerHTML = `${S.scl.pass ? "ON" : "OFF"}<i>PASSING</i>`;
+          $("#sPass").classList.toggle("on", !!S.scl.pass);
+          $("#sSpd").innerHTML = `<b>${S.scl.spd || 140}</b><i>SPEED</i>`;
+          const wv = $("#sWv");
+          wv.hidden = k !== "wind";
+          wv.innerHTML = windOneOn() ? "ONE INSTRUMENT<i>TAP FOR THE CHART OF EVERY NOTE</i>" : "EVERY NOTE<i>TAP FOR ONE BIG INSTRUMENT</i>";
+          $("#jSong").innerHTML = `${S.jam.song ? S.jam.song + " BARS" : "OFF"}<i>SONG</i>`;
+          $("#jSong").classList.toggle("on", !!S.jam.song);
+        }
+        rib("jSnd", "snd", "SOUNDS", jPanel === "snd");
+        rib("jFxB", "fx", "FX" + (S.jam.fx.length ? " · " + S.jam.fx.length : ""), jPanel === "fx");
         rib("jPlay", J.on ? "stop" : "play", J.on ? "STOP" : "PLAY", J.on);
         rib("jTap", "tap", "TAP TEMPO");
         rib("jMinor", "minor", S.jam.minor ? "MINOR" : "MAJOR", S.jam.minor);
       }
       $("#tMic").onclick = $("#dMic").onclick = $("#rec").onclick = micToggle;
-      $("#play").onclick = $("#jPlay").onclick = jamToggle;
+      $("#play").onclick = playToggle;
+      $("#jPlay").onclick = jamToggle;
+      $$(".bigMic").forEach((b) => (b.onclick = micStart));
+      $("#tAuto2").onclick = () => $("#tAuto").click();
       $("#tAuto").onclick = () => {
         S.auto = !S.auto;
         if (S.auto) S.sel = -1;
@@ -2210,7 +5007,7 @@
         S.auto = false;
         renderStrings();
         ribFace();
-        playTone(curStrings()[S.sel].hz);
+        playInst(curStrings()[S.sel].hz);
         saveState();
       };
       $("#tPrev").onclick = () => pickString(-1);
@@ -2218,7 +5015,7 @@
       $("#tTone").onclick = () => {
         const ss = curStrings(),
           i = S.sel >= 0 ? S.sel : 0;
-        if (ss[i]) playTone(ss[i].hz);
+        if (ss[i]) playInst(ss[i].hz);
       };
       $("#dTone").onclick = () => {
         if (detLastHz > 0) playTone(midiToHz(Math.round(hzToMidi(detLastHz))));
@@ -2233,7 +5030,7 @@
         saveState();
         toast("A4 = " + v + " Hz");
       };
-      // tunings view: NEW / THEME open their panel (tap again to close), HELP opens the manual
+      // tunings view: TUNINGS / THEME open their panel (tap again to close), HELP opens the manual
       let fpOpen = null;
       function filePanel(k, keep) {
         fpOpen = fpOpen === k && !keep ? null : k;
@@ -2611,9 +5408,9 @@
               "## The header",
               "- **TUNE.** opens this manual.",
               "- **A4 Hz** is the reference pitch (440 by default, 415 to 466). Every note, string and scale follows it.",
-              "- The view buttons: **Tuner**, **Detect**, **Scales**, **Jam**, and **Tunings** at the far right.",
+              "- The view buttons: **Tuner**, **Detect**, **Scales**, **Jam**, and **Tunings** (the disk) at the far right.",
               "- **●** turns the microphone on and off (Tuner and Detect only). It is lit while the app listens.",
-              "- **▶** starts and stops the jam band from any view.",
+              "- **▶** plays what the view has to play: the strings and a strum in the Tuner, the scale in Scales, the band in Jam. It is hidden in Detect and Tunings.",
               "## Microphone",
               "The first time you tap **●** the phone asks for permission to use the microphone. In the Android app, if you refused it, allow it in *Settings → Apps → TUNE.Pocket → Permissions → Microphone*. The microphone turns off when you leave the Tuner or Detect views or switch apps.",
             ],
@@ -2622,9 +5419,9 @@
               "## La cabecera",
               "- **TUNE.** abre este manual.",
               "- **A4 Hz** es el tono de referencia (440 por defecto, de 415 a 466). Todas las notas, cuerdas y escalas lo siguen.",
-              "- Los botones de vista: **Afinador**, **Detectar**, **Escalas**, **Jam**, y **Afinaciones** a la derecha del todo.",
+              "- Los botones de vista: **Afinador**, **Detectar**, **Escalas**, **Jam**, y **Afinaciones** (el disco) a la derecha del todo.",
               "- **●** enciende y apaga el micrófono (solo en Afinador y Detectar). Se ilumina mientras la app escucha.",
-              "- **▶** arranca y para la banda desde cualquier vista.",
+              "- **▶** toca lo que corresponde a la vista: las cuerdas y un rasgueo en el Afinador, la escala en Escalas, la banda en Jam. Se oculta en Detectar y Afinaciones.",
               "## Micrófono",
               "La primera vez que tocas **●** el teléfono pide permiso para usar el micrófono. En la app de Android, si lo rechazaste, actívalo en *Ajustes → Aplicaciones → TUNE.Pocket → Permisos → Micrófono*. El micrófono se apaga al salir de Afinador o Detectar, o al cambiar de app.",
             ],
@@ -2635,7 +5432,8 @@
           t: { en: "Tuner", es: "Afinador" },
           b: {
             en: [
-              "Pick the **instrument** and the **tuning** at the top, tap **●** and play one string at a time, letting it ring.",
+              "The **INSTRUMENT** bar under the header is on every screen: it sets the tuner's strings, the diagram in Scales and the tunings listed. Pick the **tuning** under it, tap the big **microphone** in the middle (or **●**) and play one string at a time, letting it ring. The chip under the microphone switches **AUTO** string detection.",
+              "Tap **▶** to hear every string in turn, then a strum, played by a synthesized version of the instrument (a plucked guitar, bass, ukulele or guitalele, a bowed violin, a piano, a recorder or whistle). The pads light up as they sound.",
               "- The big letter is the string's note. The bar below shows how far off you are, from −50 to +50 cents (a cent is 1/100 of a semitone).",
               "- **Orange, ▼ FLAT**: tighten the string. **Red, ▲ SHARP**: loosen it. **Green, ✓ IN TUNE**: within 4 cents.",
               "- The faint line behind the meter is the last few seconds of readings: a straight green line is a steady, tuned string.",
@@ -2648,7 +5446,8 @@
               "- **‹ STRING ›**: select the previous or next string and hear it.",
             ],
             es: [
-              "Elige el **instrumento** y la **afinación** arriba, toca **●** y toca una cuerda cada vez, dejándola sonar.",
+              "La barra **INSTRUMENT** bajo la cabecera está en todas las pantallas: decide las cuerdas del afinador, el diagrama de Escalas y las afinaciones de la lista. Elige la **afinación** debajo, toca el **micrófono** grande del centro (o **●**) y toca una cuerda cada vez, dejándola sonar. La ficha bajo el micrófono activa la detección **AUTO** de cuerda.",
+              "Toca **▶** para oír cada cuerda por turno y luego un rasgueo, con una versión sintetizada del instrumento (guitarra, bajo, ukelele o guitalele punteados, violín con arco, piano, flauta dulce o whistle). Los pads se iluminan al sonar.",
               "- La letra grande es la nota de la cuerda. La barra de debajo muestra cuánto te desvías, de −50 a +50 cents (un cent es 1/100 de semitono).",
               "- **Naranja, ▼ FLAT** (baja): tensa la cuerda. **Rojo, ▲ SHARP** (alta): aflójala. **Verde, ✓ IN TUNE**: a menos de 4 cents.",
               "- La línea tenue detrás del medidor son las lecturas de los últimos segundos: una línea verde y recta es una cuerda estable y afinada.",
@@ -2689,20 +5488,38 @@
           t: { en: "Scales", es: "Escalas" },
           b: {
             en: [
-              "Pick a **root** and a **scale**. The pads show its notes and their degree (1, ♭3, 5…); tap one to hear it.",
-              "The **fretboard** follows the instrument and tuning chosen in the Tuner, with the highest string on top: green dots are the root, blue dots the other notes. Tap a dot to hear it.",
-              "- **SCALE**: plays the scale up and down.",
-              "- **ARPEGGIO**: plays 1-3-5 of the scale up and down.",
-              "- **DRONE**: holds the root under your playing, to hear how each note sounds against it. Tap again to stop.",
-              "- **OCTAVE**: the octave the pads and buttons play in (2 to 5).",
+              "Pick a **root** and a **scale**. The pads show its notes and their degree (1, ♭3, 5…); tap one to hear it. The diagram follows the INSTRUMENT bar.",
+              "- **POSITION** (next to ROOT) moves the box up the neck; on the piano it is the **OCTAVE**, on a recorder or whistle the **REGISTER**.",
+              "- **PASSING** adds passing tones, drawn dashed: notes outside the scale that lead from one scale note to the next (the ♭5 blue note of the minor pentatonic, the ♭6 of the bebop major scale…). They are played and practised too.",
+              "## Guitar, bass, ukulele, violin",
+              "The neck stands upright like a chord chart: nut at the top, lowest string on the left. Big numbered dots are one **box** (a position you can play without moving the hand); the number is the finger (1 index … 4 little). Only the frets around the box are drawn, numbered on the left, with the usual inlays at 3, 5, 7, 9 and 12; green is the root.",
+              "## Piano",
+              "Two octaves of keys, sideways: low notes at the bottom, the scale marked on each key.",
+              "## Recorder and tin whistle",
+              "One big instrument with the holes to cover lit for the note playing, tapped or to practise (L1–L3 left hand, R1–R4 right hand). The button above the bottom bar switches to one chart per note and back. In the charts, **black** holes are covered, **white** are open, **◐** half covered. On the recorder **T** is the thumb hole at the back; on the whistle **＋ blow** means the second octave (blow harder). **REGISTER** switches between the low and high notes. The Tuner's tuning picks the model (soprano or alto recorder, D or C whistle).",
+              "## Buttons",
+              "- **SCALE** (or **▶**): plays the box note by note, up and down, lighting each note as it sounds.",
+              "- **ARPEGGIO**: the same with 1-3-5 only.",
+              "- **PRACTICE**: an exercise. The microphone listens and the next note is ringed in red: play it in tune and it lights green and moves on, up and down the box. Tap again to stop.",
+              "- **DRONE**: holds the root under your playing, to hear how each note sounds against it.",
+              "- **SPEED**: how fast SCALE and ARPEGGIO play, in notes a minute (60 to 180).",
             ],
             es: [
-              "Elige una **raíz** y una **escala**. Los pads muestran sus notas y su grado (1, ♭3, 5…); toca uno para oírlo.",
-              "El **mástil** sigue el instrumento y la afinación elegidos en el Afinador, con la cuerda más aguda arriba: los puntos verdes son la raíz, los azules el resto de notas. Toca un punto para oírlo.",
-              "- **SCALE**: toca la escala subiendo y bajando.",
-              "- **ARPEGGIO**: toca 1-3-5 de la escala subiendo y bajando.",
-              "- **DRONE**: mantiene la raíz sonando mientras tocas, para oír cómo suena cada nota contra ella. Toca otra vez para parar.",
-              "- **OCTAVE**: la octava en la que suenan los pads y los botones (2 a 5).",
+              "Elige una **raíz** y una **escala**. Los pads muestran sus notas y su grado (1, ♭3, 5…); toca uno para oírlo. El diagrama sigue la barra INSTRUMENT.",
+              "- **POSITION** (junto a ROOT) sube la caja por el mástil; en el piano es la **OCTAVE**, en flauta dulce o whistle el **REGISTER**.",
+              "- **PASSING** añade notas de paso, con borde discontinuo: notas fuera de la escala que llevan de una nota a la siguiente (la ♭5 de blues en la pentatónica menor, la ♭6 de la escala bebop mayor…). También se tocan y se practican.",
+              "## Guitarra, bajo, ukelele, violín",
+              "El mástil está de pie como en un diagrama de acordes: cejuela arriba, cuerda más grave a la izquierda. Los puntos grandes con número son una **caja** (una posición que se toca sin mover la mano); el número es el dedo (1 índice … 4 meñique). Solo se dibujan los trastes de la caja, numerados a la izquierda, con las marcas de siempre en el 3, 5, 7, 9 y 12; el verde es la tónica.",
+              "## Piano",
+              "Dos octavas de teclas, de lado: graves abajo, con la escala marcada en cada tecla.",
+              "## Flauta dulce y tin whistle",
+              "Un instrumento grande con los agujeros que hay que tapar iluminados para la nota que suena, que tocas o que practicas (L1–L3 mano izquierda, R1–R4 derecha). El botón sobre la barra de abajo cambia a un diagrama por nota y vuelve. En los diagramas, agujeros **negros** tapados, **blancos** abiertos, **◐** medio tapados. En la flauta dulce **T** es el agujero del pulgar, detrás; en el whistle **＋ blow** es la segunda octava (sopla más fuerte). **REGISTER** cambia entre las notas graves y agudas. La afinación del Afinador elige el modelo (flauta soprano o alto, whistle en D o en C).",
+              "## Botones",
+              "- **SCALE** (o **▶**): toca la caja nota a nota, subiendo y bajando, iluminando cada nota al sonar.",
+              "- **ARPEGGIO**: lo mismo solo con 1-3-5.",
+              "- **PRACTICE**: un ejercicio. El micrófono escucha y la siguiente nota se marca en rojo: tócala afinada, se pone verde y pasa a la siguiente, subiendo y bajando la caja. Toca otra vez para parar.",
+              "- **DRONE**: mantiene la raíz sonando mientras tocas, para oír cómo suena cada nota contra ella.",
+              "- **SPEED**: lo rápido que suenan SCALE y ARPEGGIO, en notas por minuto (de 60 a 180).",
             ],
           },
         },
@@ -2711,20 +5528,32 @@
           t: { en: "Jam", es: "Jam" },
           b: {
             en: [
-              "A drum, bass and chord band to practise over. Tap a **style** pad to start it; tap **▶** or **STOP** to stop.",
+              "A drum, bass and chord band to practise over, played with TRACK.Pocket's instruments. Tap a **style** pad to start it; tap **▶** or **STOP** to stop.",
               "- **KEY** and **MAJOR / MINOR** set the key the bass and chords play in.",
               "- **PATTERN** changes the groove without changing the style's tempo.",
               "- **BPM** is the tempo; **TAP TEMPO** sets it from three or more taps.",
               "- **DRUMS / BASS / CHORDS** are the mixer.",
               "- The 16 squares are the bar: orange is the kick, red the snare, blue the hi-hat. The lit square is the step playing now.",
+              "## Song",
+              "Each style plays a chord progression, one chord a bar (a 12-bar blues for Blues); the strip above the bar shows the chords and the one playing. **SONG** changes the part every 4, 8 or 16 bars: verse, chorus (another progression, open hi-hats), verse, chorus, break, chorus… with a drum fill before each change. OFF loops the verse.",
+              "## Sounds",
+              "**SOUNDS** picks the drum kit, the bass and the chord instrument from TRACK.Pocket's whole list. Each style pad loads a fitting set; change it after.",
+              "## FX",
+              "**FX** is a live effects board on the whole band: filters, lo-fi, drive, flanger, echo, reverb, radio and rhythmic gates. With **LATCH** on, a tap turns an effect on or off; with it off, an effect plays only while you hold its pad. **ALL OFF** clears them. Tap SOUNDS or FX again to go back to the mixer.",
             ],
             es: [
-              "Una banda de batería, bajo y acordes para practicar encima. Toca un pad de **estilo** para arrancarla; toca **▶** o **STOP** para pararla.",
+              "Una banda de batería, bajo y acordes para practicar encima, con los instrumentos de TRACK.Pocket. Toca un pad de **estilo** para arrancarla; toca **▶** o **STOP** para pararla.",
               "- **KEY** y **MAJOR / MINOR** fijan la tonalidad del bajo y los acordes.",
               "- **PATTERN** cambia el ritmo sin cambiar el tempo del estilo.",
               "- **BPM** es el tempo; **TAP TEMPO** lo fija con tres o más toques.",
               "- **DRUMS / BASS / CHORDS** son el mezclador.",
               "- Los 16 cuadros son el compás: naranja es el bombo, rojo la caja, azul el charles. El cuadro iluminado es el paso que suena.",
+              "## Canción",
+              "Cada estilo toca una progresión de acordes, un acorde por compás (un blues de 12 compases en Blues); la tira sobre el compás muestra los acordes y el que suena. **SONG** cambia de parte cada 4, 8 o 16 compases: estrofa, estribillo (otra progresión, charles abiertos), estrofa, estribillo, break, estribillo… con un redoble antes de cada cambio. OFF repite la estrofa.",
+              "## Sonidos",
+              "**SOUNDS** elige la batería, el bajo y el instrumento de acordes de toda la lista de TRACK.Pocket. Cada estilo carga un conjunto adecuado; cámbialo después.",
+              "## FX",
+              "**FX** es una mesa de efectos en directo sobre toda la banda: filtros, lo-fi, saturación, flanger, eco, reverb, radio y puertas rítmicas. Con **LATCH** activo, un toque enciende o apaga un efecto; sin él, el efecto suena solo mientras mantienes el pad. **ALL OFF** los quita. Toca SOUNDS o FX otra vez para volver al mezclador.",
             ],
           },
         },
@@ -2735,7 +5564,7 @@
             en: [
               "The last view lists **your tunings** and the **built-in** ones of the tuner's instrument. **USE** sends one to the tuner; the current one is shown in green.",
               "## Your own tunings",
-              "- **NEW** (bottom bar) opens the editor. Give the tuning a name and an instrument, and write each string, lowest first, as a note with its octave (*E2*, *F#3*, *Bb1*) or a frequency in Hz (*82.41*). A ✓ or ✕ shows whether each string can be read.",
+              "- **TUNINGS** (bottom bar) opens the editor for a new tuning. Give the tuning a name and an instrument, and write each string, lowest first, as a note with its octave (*E2*, *F#3*, *Bb1*) or a frequency in Hz (*82.41*). A ✓ or ✕ shows whether each string can be read.",
               "- **COPY** in the editor fills it with the tuner's current tuning; **COPY** on a built-in tuning does the same for that one. Change it and **SAVE**.",
               "- **EDIT** changes one of yours; saving with the same name replaces it. **✕** deletes it after a second tap.",
               "## Theme",
@@ -2745,7 +5574,7 @@
             es: [
               "La última vista lista **tus afinaciones** y las **incluidas** para el instrumento del afinador. **USE** la manda al afinador; la actual sale en verde.",
               "## Tus afinaciones",
-              "- **NEW** (barra de abajo) abre el editor. Dale un nombre y un instrumento, y escribe cada cuerda, de la más grave a la más aguda, como nota con su octava (*E2*, *F#3*, *Bb1*) o una frecuencia en Hz (*82.41*). Un ✓ o ✕ indica si se puede leer cada cuerda.",
+              "- **TUNINGS** (barra de abajo) abre el editor de una afinación nueva. Dale un nombre y un instrumento, y escribe cada cuerda, de la más grave a la más aguda, como nota con su octava (*E2*, *F#3*, *Bb1*) o una frecuencia en Hz (*82.41*). Un ✓ o ✕ indica si se puede leer cada cuerda.",
               "- **COPY** en el editor lo rellena con la afinación actual del afinador; **COPY** en una afinación incluida hace lo mismo con esa. Cámbiala y pulsa **SAVE**.",
               "- **EDIT** cambia una de las tuyas; guardar con el mismo nombre la sustituye. **✕** la borra tras un segundo toque.",
               "## Tema",
