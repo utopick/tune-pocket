@@ -1234,6 +1234,12 @@
         grid-template-columns: repeat(3, 1fr);
         gap: 4px;
       }
+      #nnBar {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+        margin-bottom: 6px;
+      }
       /* last view, laid out like TRACK.Pocket's Files: the list takes the screen, the bottom bar opens one panel */
       #set {
         gap: 0;
@@ -1474,9 +1480,15 @@
             ><button data-th="term">TERM</button><button data-th="dungeon">DUNGEON</button><button data-th="dmg">DMG</button>
           </div>
         </div>
+        <div class="card fpanel" data-fp="opts" hidden>
+          <h3>Note names</h3>
+          <div id="nnBar"><button data-nn="abc">A B C</button><button data-nn="sol">DO RE MI</button></div>
+          <div class="hint">Letters or solfège, for every app: TRACK, TUNE and SING.Pocket.</div>
+        </div>
         <div class="prow" id="setTabs">
           <button data-fpb="edit"><i>NEW · EDIT</i>TUNINGS</button>
           <button data-fpb="theme"><i>LOOK</i>THEME</button>
+          <button data-fpb="opts"><i>SETTINGS</i>OPTIONS</button>
           <button id="helpBtn"><i>MANUAL</i>HELP</button>
         </div>
       </section>
@@ -1545,8 +1557,19 @@
         return { note: NOTE_NAMES[((r % 12) + 12) % 12], octave: Math.floor(r / 12) - 1, cents: (n - r) * 100, midi: r, freq };
       }
       // "C#" -> "C<sup>♯</sup>" for the big readouts
-      const pretty = (n) => (n.length > 1 ? n[0] + "<sup>♯</sup>" : n);
-      const plain = (n) => n.replace("#", "♯");
+      // Note names on screen: letters (C D E...) or solfège (Do Re Mi...). One setting, "pocket.notes", shared by the
+      // three Pocket apps (TRACK, TUNE, SING) when they are served from the same site. Inside, notes stay letters.
+      const SOLF = { C: "Do", D: "Re", E: "Mi", F: "Fa", G: "Sol", A: "La", B: "Si" };
+      let NOTES_SOL = false;
+      try {
+        NOTES_SOL = localStorage.getItem("pocket.notes") === "sol";
+      } catch {}
+      const nl = (n) => (NOTES_SOL ? SOLF[n[0]] + n.slice(1) : n);
+      const pretty = (n) => {
+        const x = nl(n);
+        return x.endsWith("#") ? x.slice(0, -1) + "<sup>♯</sup>" : x;
+      };
+      const plain = (n) => nl(n).replace("#", "♯");
       function parseNoteString(str) {
         str = str.trim().replace("♭", "b").replace("♯", "#");
         const num = parseFloat(str);
@@ -2167,7 +2190,7 @@
           if (!black) {
             g.fillStyle = css("--dim");
             g.globalAlpha = 0.6;
-            g.fillText(NOTE_NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1), 4 * d, y(m));
+            g.fillText(plain(NOTE_NAMES[((m % 12) + 12) % 12]) + (Math.floor(m / 12) - 1), 4 * d, y(m));
             g.globalAlpha = 1;
           }
         }
@@ -5043,6 +5066,24 @@
         if (b.dataset.fpb === "edit" && fpOpen !== "edit") return editPanel(null, "New tuning");
         filePanel(b.dataset.fpb);
       });
+      function notesFace() {
+        $$("#nnBar [data-nn]").forEach((b) => b.classList.toggle("on", (b.dataset.nn === "sol") === NOTES_SOL));
+        document.body.classList.toggle("sol", NOTES_SOL);
+      }
+      $("#nnBar").onclick = (e) => {
+        const b = e.target.closest("[data-nn]");
+        if (!b) return;
+        NOTES_SOL = b.dataset.nn === "sol";
+        try {
+          localStorage.setItem("pocket.notes", NOTES_SOL ? "sol" : "abc");
+        } catch {}
+        notesFace();
+        renderInst();
+        renderJam();
+        ribFace();
+        toast(NOTES_SOL ? "Notes: Do Re Mi" : "Notes: A B C");
+      };
+      notesFace();
       function setTheme(t, save) {
         if (!["dark", "light", "demo", "term", "dungeon", "dmg"].includes(t)) t = "dark";
         document.documentElement.dataset.theme = t;
@@ -5569,6 +5610,8 @@
               "- **EDIT** changes one of yours; saving with the same name replaces it. **✕** deletes it after a second tap.",
               "## Theme",
               "**THEME** has the six looks shared with TRACK.Pocket. On a wide screen the background is animated and moves with the band or the microphone.",
+              "## Options",
+              "**OPTIONS** → **Note names**: letters (**A B C**) or solfège (**Do Re Mi**). The choice is shared with TRACK.Pocket and SING.Pocket.",
               "Tunings and settings are kept on this device. Tunings saved by the old LFTuner app are loaded automatically.",
             ],
             es: [
@@ -5579,6 +5622,8 @@
               "- **EDIT** cambia una de las tuyas; guardar con el mismo nombre la sustituye. **✕** la borra tras un segundo toque.",
               "## Tema",
               "**THEME** tiene los seis aspectos que comparte con TRACK.Pocket. En pantallas anchas el fondo está animado y se mueve con la banda o el micrófono.",
+              "## Opciones",
+              "**OPTIONS** → **Note names**: letras (**A B C**) o solfeo (**Do Re Mi**). La elección se comparte con TRACK.Pocket y SING.Pocket.",
               "Las afinaciones y ajustes se guardan en este dispositivo. Las afinaciones guardadas en la antigua app LFTuner se cargan automáticamente.",
             ],
           },
