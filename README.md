@@ -1,5 +1,8 @@
 ![TUNE.Pocket](.github/banner.png)
 
+![TUNE.Pocket on five screens, each in a different theme](.github/readme/hero.png)
+
+
 # TUNE.Pocket
 
 Tune was the first app I actually coded with the help of AI for personal reasons. I found myself going through hurdles to find a good off-line guitalele tuner, and always ended up having to use an ad-ridden guitar tuner app and a lot of traditional fifth chord manual tuning. 
@@ -21,7 +24,6 @@ There is a help wiki inside (también en español), with small interactive demos
 I want to apologize to my neighbours for my live session afternoons and state here that I actually made a cow move gracefully out of the way with a tin whistle song. I have witnesses.
 
 
-![TUNE.Pocket on five screens, each in a different theme](.github/readme/hero.png)
 
 <p align="center"><img src=".github/readme/demo.gif" width="320" alt="TUNE.Pocket in use: a string coming into tune, five loops playing, the metronome and the circle of fifths"></p>
 
@@ -39,6 +41,9 @@ No ads, no cookies, no nothing. This is free and clean. No hidden stealers, no w
 
 Why is it free? Because not everything should be a product.
 
+![A strip of TUNE.Pocket screens](.github/readme/strip.png)
+
+
 ## AI use
 
 I'm a programmer and I have been coding for a living for over two decades, but life has given me too little free time that I want to spend offline and outside, making music and art. So I used a lot of AI to build this in a quick and easy way.
@@ -51,7 +56,7 @@ I did waste a lot of tokens by making it code it in a non-minified way, so if th
 
 If you want to try something made by me by hand (95%, I did use an early model to find some bugs but solved them by hand) in which I made the code, assets, music and all, check out Nanaya, my Pico-8 tower defense game: https://www.lexaloffle.com/bbs/?tid=153336
 
-![A strip of TUNE.Pocket screens](.github/readme/strip.png)
+![alt text](.github/readme/nanaya.png)
 
 
 ## How to run it
@@ -134,3 +139,10 @@ Have fun.
 ### Third-party code
 
 The banner, app icons and favicons are lettered in [Inter](https://rsms.me/inter/) (SIL Open Font License 1.1), converted to shapes, so no font file is included. The app itself has no third-party code.
+
+## The readmes
+
+Yeah. They are all similar. I copied and pasted. No one ever reads them all. Kilroy was here.
+
+
+Anyway, listen to me: You matter. A lot. I don't know you stranger, but you have my admiration and love. Keep making art.
