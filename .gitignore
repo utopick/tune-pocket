@@ -7,3 +7,7 @@ android/out/
 *.aab
 .DS_Store
 _legacy/
+
+# signing keys never go in the repository
+*.jks
+*.keystore

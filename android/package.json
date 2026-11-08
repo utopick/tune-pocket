@@ -9,7 +9,8 @@
   "scripts": {
     "www": "node scripts/prepare-www.js",
     "android:init": "npm run www && npx cap add android && node scripts/android-permissions.js && node scripts/android-icons.js",
-    "android:apk": "npm run www && npx cap sync android && cd native && ./gradlew assembleDebug"
+    "android:apk": "npm run www && npx cap sync android && cd native && ./gradlew assembleDebug",
+    "android:release": "npm run www && npx cap sync android && cd native && ./gradlew assembleRelease"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.0",

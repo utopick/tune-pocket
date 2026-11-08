@@ -59,15 +59,32 @@ jobs:
           for i in 1 2 3; do ./gradlew --version && exit 0; echo "Gradle download failed (try $i), retrying"; sleep 15; done
           exit 1
 
-      - name: Build the APK
-        run: npm run android:apk
-
-      - name: Name the APK
+      # With the release key in the repository's secrets: a release build signed with it, numbered by the run,
+      # so every new APK installs over the one before and keeps its data. Without it (a fork): a debug build,
+      # signed with a throwaway key.
+      - name: Build and sign the APK
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           v=$(node -p "require('./package.json').version")
           n=$(node -p "require('./package.json').name")
+          sed -i -e "s/versionCode [0-9]*/versionCode ${GITHUB_RUN_NUMBER}/" -e "s/versionName \"[^\"]*\"/versionName \"${v}\"/" native/app/build.gradle
           mkdir -p out
-          cp native/app/build/outputs/apk/debug/app-debug.apk "out/${n}-${v}-${GITHUB_RUN_NUMBER}-debug.apk"
+          if [ -n "$KS" ]; then
+            npm run android:release
+            bt="$ANDROID_HOME/build-tools/34.0.0"
+            echo "$KS" | base64 -d > "$RUNNER_TEMP/release.jks"
+            "$bt/zipalign" -p -f 4 native/app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/aligned.apk"
+            "$bt/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KS_ALIAS" --ks-pass env:KS_PASS --key-pass env:KS_PASS --out "out/${n}-${v}.apk" "$RUNNER_TEMP/aligned.apk"
+            rm -f "$RUNNER_TEMP/release.jks"
+            "$bt/apksigner" verify --print-certs "out/${n}-${v}.apk" | grep -i "SHA-256"
+          else
+            echo "::warning::No ANDROID_KEYSTORE_BASE64 secret: building a debug APK with a throwaway key"
+            npm run android:apk
+            cp native/app/build/outputs/apk/debug/app-debug.apk "out/${n}-${v}-${GITHUB_RUN_NUMBER}-debug.apk"
+          fi
           cp ../index.html "out/${n}-${v}.html"
 
       - uses: actions/upload-artifact@v4
