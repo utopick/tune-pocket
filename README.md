@@ -12,6 +12,8 @@ Thus came TUNE.Pocket, a pocket tuner, note detector, scale finder and jam band 
 
 It should run fully offline, although opening the HTML file directly can cause microphone permission issues, so use the hosted GitHub page instead or self-host the HTML.
 
+**Open it:** [utopick.github.io/tune-pocket](https://utopick.github.io/tune-pocket/) · **Download:** the Android APK and the HTML file from [Releases](https://github.com/utopick/tune-pocket/releases/latest).
+
 I've been adding features and tweaking a lot, so they come out not fully tested, and there could be bugs. Leave me an issue and I'll fix it.
 
 There is a help wiki inside (también en español), with small interactive demos you can touch and hear: the tuner, the metronome, the looper's quantize and the circle of fifths.
