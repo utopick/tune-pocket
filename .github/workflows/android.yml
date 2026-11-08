@@ -38,6 +38,23 @@ jobs:
       - name: Create the Android project
         run: npm run android:init
 
+      # Gradle itself (~130 MB) is downloaded by the wrapper. Keep it between runs, use the smaller -bin
+      # distribution, give the download 2 minutes instead of 10 s, and retry: services.gradle.org sometimes stalls.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/package-lock.json', 'android/package.json') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Download Gradle
+        working-directory: android/native
+        run: |
+          sed -i -e 's/-all\.zip/-bin.zip/' -e 's/^networkTimeout=.*/networkTimeout=120000/' gradle/wrapper/gradle-wrapper.properties
+          for i in 1 2 3; do ./gradlew --version && exit 0; echo "Gradle download failed (try $i), retrying"; sleep 15; done
+          exit 1
+
       - name: Build the APK
         run: npm run android:apk
 
