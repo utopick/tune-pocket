@@ -23,6 +23,8 @@ I want to apologize to my neighbours for my live session afternoons and state he
 
 ![TUNE.Pocket on five screens, each in a different theme](.github/readme/hero.png)
 
+<p align="center"><img src=".github/readme/demo.gif" width="320" alt="TUNE.Pocket in use: a string coming into tune, five loops playing, the metronome and the circle of fifths"></p>
+
 ## Why did I release these apps? 
 
 Because GitHub allows me to host them in a GitHub site if I make them public, and I don't want to host them myself. 
