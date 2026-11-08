@@ -1,3 +1,5 @@
+![TUNE.Pocket](.github/banner.png)
+
 # TUNE.Pocket
 
 TUNE.Pocket is a pocket tuner for guitar, bass, violin, guitalele and ukulele, the sister app of [TRACK.Pocket](https://github.com/utopick/track-pocket). Like TRACK.Pocket, it is one self-contained HTML file with no network requests, and it shares TRACK.Pocket's look and themes.
@@ -50,3 +52,7 @@ The app itself uses no AI: everything runs on your device, and nothing you play,
 
 - `index.html` — the complete app
 - `android/` and `.github/workflows/android.yml` — Android build
+
+## Artwork
+
+The banner, app icons and favicons are lettered in [Inter](https://rsms.me/inter/) (SIL Open Font License 1.1), converted to shapes, so no font file is included.
