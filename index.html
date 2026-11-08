@@ -1,18 +1,18 @@
 <!doctype html>
 <!--
-  TUNE.Pocket - pocket tuner, note detector, scale finder and jam band. One self-contained file, no network requests.
+  TUNE.Pocket - pocket tuner, note detector, scale finder, jam band, metronome and looper. One self-contained file, no network requests.
   Sister app of TRACK.Pocket: the base styles and the six themes are shared with TRACK.Pocket's index.html (the block marked
   "shared with TRACK.Pocket"); keep them in step when one changes.
 
   Layout of this file
     <head>    theme bootstrap (reads localStorage before first paint), <style>
-    <body>    backdrop canvas, header, one <section> per view (tun, det, scl, jam, cof, set), help + welcome dialogs, toast
+    <body>    backdrop canvas, header, one <section> per view (tun, det, scl, jam, cof, met, loop, set), help + welcome dialogs, toast
     <script>  music theory and data, mic + pitch detection, one block per view, boot
 
   localStorage keys
     tune.theme      dark | light | demo | term | dungeon | dmg
     tune.lang       help language (en | es)                 tune.welcome    "1" once the first-visit dialog was closed
-    tune.state      { inst, tun, a4, view, auto, jam: { genre, key, pattern, bpm, mix } }
+    tune.state      { inst, tun, a4, view, auto, scl, jam, cof, met: { bpm, beats, sub, snd, accent, vol }, loop: { bars, sync, latch, grid, aq } }
     customTunings   [{ name, instrument, strings: ["E2" | "82.41", ...] }]  (key kept from LFTuner so old tunings load)
 -->
 <html lang="en">
@@ -1437,6 +1437,299 @@
           font-size: clamp(54px, 19vw, 100px);
         }
       }
+
+      /* metronome: a wireframe metronome whose weight slides, and the numbered beats under it */
+      #met .metw {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        touch-action: none;
+        cursor: ns-resize;
+      }
+      #metSvg {
+        height: 100%;
+        max-width: 100%;
+        overflow: visible;
+      }
+      #metSvg .wf {
+        fill: none;
+        stroke: var(--dim);
+        stroke-width: 1.4;
+        stroke-linejoin: round;
+      }
+      #metSvg .wf.back {
+        stroke-dasharray: 3 4;
+        opacity: 0.45;
+      }
+      #metSvg .wf.slot {
+        stroke: var(--line);
+      }
+      #metSvg .tk {
+        stroke: var(--dim);
+        stroke-width: 1;
+      }
+      #metSvg text {
+        fill: var(--dim);
+        font: 700 8.5px var(--mono);
+      }
+      #metSvg text.now {
+        fill: var(--acc);
+      }
+      #metSvg .rod {
+        stroke: var(--acc);
+        stroke-width: 2.6;
+        stroke-linecap: round;
+      }
+      #metSvg .wt {
+        fill: var(--bg);
+        stroke: var(--acc);
+        stroke-width: 2.2;
+        stroke-linejoin: round;
+      }
+      #metSvg .wt.hit {
+        fill: var(--acc);
+      }
+      #metSvg .wt.hit.one {
+        fill: var(--acc2);
+        stroke: var(--acc2);
+      }
+      #metSvg .pv {
+        fill: var(--bg);
+        stroke: var(--acc);
+        stroke-width: 2;
+      }
+      #metSvg .strike {
+        stroke: var(--acc);
+        stroke-width: 2.4;
+        stroke-linecap: round;
+        opacity: 0;
+      }
+      #metSvg .strike.hit {
+        opacity: 1;
+      }
+      .metbeats {
+        position: relative;
+        display: flex;
+        gap: 4px;
+        height: 46px;
+        flex: none;
+        padding-bottom: 7px;
+      }
+      .metbeats .b {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--panel);
+        color: var(--dim);
+        font: 800 17px var(--mono);
+        line-height: 1;
+      }
+      .metbeats .b small {
+        display: flex;
+        gap: 3px;
+        margin-top: 3px;
+      }
+      .metbeats .b small u {
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: currentColor;
+        opacity: 0.4;
+      }
+      .metbeats .b small u.on {
+        opacity: 1;
+      }
+      .metbeats .b.on {
+        background: var(--acc);
+        border-color: var(--acc);
+        color: var(--ink);
+      }
+      .metbeats .b.on.one {
+        background: var(--acc2);
+        border-color: var(--acc2);
+        color: var(--ink2);
+      }
+      .metbeats .cur {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--hi);
+        will-change: transform;
+      }
+      .tempo {
+        flex: 2.2 !important;
+        flex-direction: column;
+        font-family: var(--mono);
+      }
+      .tempo b {
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1;
+      }
+      .tempo i {
+        font-size: 9px;
+        letter-spacing: 1px;
+        color: var(--dim);
+        font-style: normal;
+      }
+      .tempo span {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+      }
+      #lEdit button.dis {
+        opacity: 0.35;
+        pointer-events: none;
+      }
+      /* the header: the metronome button blinks on the beat, the looper's stays lit while loops play */
+      #hViews button.tick:not(.on) {
+        background: color-mix(in srgb, var(--acc) 45%, transparent);
+      }
+      #hViews button.live:not(.on) {
+        color: var(--acc);
+        border-color: var(--acc);
+      }
+      .pm {
+        flex: 0.7 !important;
+        font-size: 24px !important;
+        color: var(--acc);
+      }
+      /* looper: 16 pads, the FX pads and the edit tools swap in the middle */
+      #lPads,
+      #lFx {
+        grid-template-columns: repeat(4, 1fr);
+        grid-auto-rows: 1fr;
+        flex: 1;
+        min-height: 0;
+      }
+      #lPads .sq,
+      #lFx .sq {
+        min-height: 0;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+      #lPads .sq svg.wv {
+        position: absolute;
+        inset: 18% 4px 22%;
+        width: calc(100% - 8px);
+        height: 60%;
+        pointer-events: none;
+        opacity: 0.55;
+      }
+      #lPads .sq svg.wv path {
+        fill: rgb(var(--ccrgb));
+      }
+      #lPads .sq.play svg.wv path {
+        fill: var(--chink, #06100a);
+        opacity: 0.35;
+      }
+      #lPads .sq .nt,
+      #lPads .sq .in {
+        position: relative;
+      }
+      #lPads .sq.empty {
+        opacity: 0.55;
+      }
+      #lPads .sq.empty .nt {
+        font-size: 22px;
+      }
+      #lPads .sq.rec {
+        background: color-mix(in srgb, var(--hot) 70%, transparent);
+        border-color: var(--hot);
+        color: #fff;
+        opacity: 1;
+        border-style: solid;
+      }
+      #lPads .sq.count {
+        border-color: var(--hot);
+        color: var(--hot);
+        opacity: 1;
+        border-style: solid;
+      }
+      #lPads .sq.count .nt {
+        font-size: 34px;
+      }
+      #lPads .sq.wait {
+        animation: lpwait 0.5s steps(2) infinite;
+      }
+      @keyframes lpwait {
+        50% {
+          border-color: var(--hi);
+        }
+      }
+      #lPads .sq > i {
+        height: 5px;
+      }
+      #lPads .sq.rec > i {
+        background: #fff;
+      }
+      #lFx .nt.sm {
+        font-size: 12px;
+        font-family: system-ui, -apple-system, sans-serif;
+        white-space: nowrap;
+      }
+      #lLen button b {
+        display: flex;
+        gap: 2px;
+        align-items: flex-end;
+        height: 16px;
+      }
+      #lLen button b u {
+        width: 4px;
+        height: 12px;
+        border-radius: 1px;
+        background: currentColor;
+      }
+      #lLen button b u:nth-child(4n + 1) {
+        height: 16px;
+      }
+      #lLen button.on {
+        background: var(--acc);
+        border-color: var(--acc);
+        color: var(--ink);
+      }
+      #lLen button.on i {
+        color: var(--ink);
+      }
+      #lEdit {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex: none;
+      }
+      #lEdit[hidden] {
+        display: none;
+      }
+      #lWave {
+        touch-action: none;
+        cursor: col-resize;
+        height: 64px;
+        width: 100%;
+        border-radius: 6px;
+        background: var(--wave);
+        border: 1px solid var(--line);
+      }
+      #lEdit .prow > button {
+        font-size: 11px;
+      }
+      body[data-view="met"] #instBar,
+      body[data-view="loop"] #instBar {
+        display: none;
+      }
+      /* the A4 reference sits at the end of the instrument bar */
+      #instBar .a4dd {
+        flex: 0 0 74px;
+      }
     </style>
   </head>
   <body class="pocket">
@@ -1448,9 +1741,6 @@
           ><span class="l" style="--i: 2">N</span><span class="l" style="--i: 3">E</span><b>.</b></span
         ><span class="sub">Pocket</span>
       </button>
-      <label class="bpm" title="Reference pitch for A4"
-        ><span class="bl">A4 Hz</span><input id="a4" type="number" min="415" max="466" value="440"
-      /></label>
       <div id="hViews" class="pk-only">
         <button data-v="tun" class="on" title="Tuner">
           <svg class="ic" viewBox="0 0 24 24"><path d="M4 17a8 8 0 0 1 16 0" /><path d="M12 17l4-6" /><circle cx="12" cy="17" r="1.2" /></svg></button
@@ -1461,7 +1751,11 @@
         ><button data-v="jam" title="Jam">
           <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /><path d="M12 4v2M12 18v2" /></svg></button
         ><button data-v="cof" title="Circle of fifths">
-          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><path d="M12 3.5v4M19.4 7.8l-3.5 2M19.4 16.2l-3.5-2" /></svg>
+          <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><path d="M12 3.5v4M19.4 7.8l-3.5 2M19.4 16.2l-3.5-2" /></svg></button
+        ><button data-v="met" title="Metronome">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M9.5 3h5l4 18h-13z" /><path d="M12 17l5-9" /><path d="M7.5 15h9" /></svg></button
+        ><button data-v="loop" title="Looper">
+          <svg class="ic" viewBox="0 0 24 24"><path d="M18 8a7 7 0 1 0 1.5 6" /><path d="M19 3v5h-5" /><circle cx="12" cy="12" r="2.2" /></svg>
         </button>
       </div>
       <button id="rec" class="rec" title="Listen (microphone on / off)">●</button>
@@ -1472,7 +1766,8 @@
       </button>
     </header>
     <div class="prow" id="instBar">
-      <label class="dd"><span id="instTxt"></span><select id="inst" title="Instrument"></select></label>
+      <label class="dd"><span id="instTxt"></span><select id="inst" title="Instrument"></select></label
+      ><label class="dd a4dd" title="Reference pitch for A4"><span id="a4Txt"></span><select id="a4"></select></label>
     </div>
 
     <main>
@@ -1595,6 +1890,65 @@
         <div class="prow rib">
           <button id="cPlay"></button><button id="cMinor"></button><button id="c7"></button><button id="cScl"></button
           ><button id="cJam"></button>
+        </div>
+      </section>
+
+      <!-- METRONOME: drag the weight up (slower) or down (faster); the numbers under it count the bar -->
+      <section id="met">
+        <div class="metw" id="metW"><svg id="metSvg" viewBox="0 0 240 300"></svg></div>
+        <div class="metbeats" id="metBeats"></div>
+        <div class="prow">
+          <button class="pm" id="mDn" title="Slower">−</button
+          ><label class="dd tempo" title="Tempo"><span><i>BPM</i><b id="mBpmTxt">100</b><i id="mName"></i></span><select id="mBpmSel"></select></label
+          ><button class="pm" id="mUp" title="Faster">+</button>
+        </div>
+        <div class="prow">
+          <label class="dd"><span id="mBeatsTxt"></span><select id="mBeats" title="Beats in a bar"></select></label
+          ><label class="dd"><span id="mSubTxt"></span><select id="mSub" title="Clicks in a beat"></select></label
+          ><label class="dd"><span id="mSndTxt"></span><select id="mSnd" title="Sound"></select></label>
+        </div>
+        <div class="prow">
+          <label class="knob"><i>VOLUME</i><b id="mVolTxt"></b><input id="mVol" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
+        </div>
+        <div class="prow rib">
+          <button id="mPlay"></button><button id="mTap"></button><button id="mAcc"></button><button id="mScl"></button
+          ><button id="mLoop"></button>
+        </div>
+      </section>
+
+      <!-- LOOPER: tap an empty pad, it counts in and records; tap a loop to play or stop it -->
+      <section id="loop">
+        <div class="prow">
+          <button id="lTempo" class="tempo" style="flex: 1.25 !important" title="Tempo (set in the metronome)"></button
+          ><button id="lClick"></button
+          ><button id="lAutoQ" title="Quantize every new loop and layer to the GRID as it lands"></button
+          ><label class="dd"><span id="lSyncTxt"></span><select id="lSync" title="Recording delay of this phone"></select></label>
+        </div>
+        <div class="pads" id="lPads"></div>
+        <div class="jp" id="lFxP" hidden>
+          <div class="pads" id="lFx"></div>
+          <div class="prow"><button id="lLatch">LATCH<i>TAP ON / OFF</i></button><button id="lFxOff">ALL OFF<i>EFFECTS</i></button></div>
+        </div>
+        <div id="lEdit" hidden>
+          <canvas id="lWave"></canvas>
+          <div class="prow">
+            <label class="knob"><i id="lSelTxt">LOOP</i><b id="lVolTxt"></b><input id="lVol" type="range" min="0" max="1.5" step="0.01" value="1" /></label>
+          </div>
+          <div class="prow">
+            <button id="lOver">OVERDUB<i>ADD LAYER</i></button><button id="lRev">REVERSE<i>FLIP</i></button
+            ><button id="lNorm">NORMALIZE<i>0 dB</i></button><button id="lClr">CLEAR<i>THIS</i></button
+            ><button id="lClrAll">CLEAR<i>ALL</i></button>
+          </div>
+          <div class="prow">
+            <button id="lNudL" title="Slide the loop 10 ms earlier">◀<i>EARLIER</i></button><button id="lNudR" title="Slide the loop 10 ms later">▶<i>LATER</i></button
+            ><label class="dd"><span id="lGridTxt"></span><select id="lGrid" title="Quantize grid"></select></label
+            ><button id="lQuant">QUANTIZE<i>TO GRID</i></button><button id="lCrop"></button>
+          </div>
+        </div>
+        <div class="prow" id="lLen"></div>
+        <div class="prow rib">
+          <button id="lPlay"></button><button id="lRec" class="rec"></button><button id="lFxB"></button><button id="lEditB"></button
+          ><button id="lUndo"></button>
         </div>
       </section>
 
@@ -1865,6 +2219,8 @@
         scl: { root: "A", type: "Pentatonic Minor", oct: 3, pos: 0, reg: 0, pass: false, spd: 140, wv: "one" },
         jam: { genre: "rock", key: "A", pattern: "straight4", bpm: 100, minor: false, mix: { drums: 0.8, bass: 0.6, chord: 0.35 }, snd: null, fx: [], latch: true, song: 8 },
         cof: { i: 0, minor: false, sev: false }, // circle of fifths: position (0 = C, 1 = G...), minor key, sevenths
+        met: { bpm: 100, beats: 4, sub: 1, snd: "click", accent: true, vol: 0.8 }, // metronome (the looper keeps its time)
+        loop: { bars: 2, sync: -1, latch: true, grid: 1, aq: false }, // looper: new loop length in bars, recording delay in ms (-1 = auto), FX latch, quantize grid
       };
       let customTunings = [];
       try {
@@ -1874,11 +2230,13 @@
         if (o.scl) Object.assign(S.scl, o.scl);
         if (o.jam) Object.assign(S.jam, o.jam, { mix: Object.assign(S.jam.mix, o.jam.mix) });
         if (o.cof) Object.assign(S.cof, o.cof);
+        if (o.met) Object.assign(S.met, o.met);
+        if (o.loop) Object.assign(S.loop, o.loop);
       } catch {}
       A4 = S.a4;
       function saveState() {
         try {
-          localStorage.setItem("tune.state", JSON.stringify({ view: S.view, inst: S.inst, tun: S.tun, auto: S.auto, a4: S.a4, scl: S.scl, jam: S.jam, cof: S.cof }));
+          localStorage.setItem("tune.state", JSON.stringify({ view: S.view, inst: S.inst, tun: S.tun, auto: S.auto, a4: S.a4, scl: S.scl, jam: S.jam, cof: S.cof, met: S.met, loop: S.loop }));
         } catch {}
       }
 
@@ -4651,8 +5009,10 @@
         TP.timers.push(setTimeout(stringsStop, (strum + 1.6) * 1000));
       }
       // the header ▶ does what fits the view; it is hidden where nothing plays
-      const PLAYS = { tun: true, scl: true, jam: true, cof: true };
+      const PLAYS = { tun: true, scl: true, jam: true, cof: true, met: true, loop: true };
       function playOn() {
+        if (S.view === "met") return MET.on;
+        if (S.view === "loop") return lpAny();
         return S.view === "tun" ? TP.on : S.view === "scl" ? SP.on : S.view === "cof" ? COF.on : J.on;
       }
       function playFace() {
@@ -4661,7 +5021,7 @@
         b.style.visibility = PLAYS[S.view] ? "" : "hidden";
         b.classList.toggle("on", on);
         b.textContent = on ? "■" : "▶";
-        b.title = { tun: "Play the strings, then strum", scl: "Play the scale", jam: "Play / stop the band", cof: "Play a progression in the key" }[S.view] || "";
+        b.title = { tun: "Play the strings, then strum", scl: "Play the scale", jam: "Play / stop the band", cof: "Play a progression in the key", met: "Start / stop the metronome", loop: "Play / stop all the loops" }[S.view] || "";
         ribFace();
       }
       function playToggle() {
@@ -4669,6 +5029,8 @@
         if (S.view === "scl") return SP.on ? scaleStop() : playScale(false);
         if (S.view === "jam") return jamToggle();
         if (S.view === "cof") return COF.on ? cofStop() : cofProg();
+        if (S.view === "met") return metToggle();
+        if (S.view === "loop") return lpAll();
       }
       // ---- live effects on the band (the same chain and settings as TRACK.Pocket's FX)
       const jStep = () => 60 / S.jam.bpm / 4;
@@ -4679,15 +5041,13 @@
         if (sec) p.exponentialRampToValueAtTime(to, t + sec);
         else p.setTargetAtTime(to, t, 0.06);
       }
-      function jamFx() {
-        const f = J.fx;
-        if (!f) return;
+      // the effect pads on an FX chain (TK.buildFxChain): st keeps the chain's state (fkey, gd, lfo)
+      function chainFx(f, st, on, step, echo) {
         const c = ctx,
           t = c.currentTime,
-          on = (id) => S.jam.fx.includes(id),
           key = ["flo", "fhi", "rad"].filter(on).join();
-        if (key !== J.fkey) {
-          J.fkey = key;
+        if (key !== st.fkey) {
+          st.fkey = key;
           jfxRamp(f.lp.frequency, on("flo") ? 220 : on("rad") ? 3400 : 20000, on("flo") ? 1.3 : 0);
           jfxRamp(f.hp.frequency, on("fhi") ? 3200 : on("rad") ? 700 : 10, on("fhi") ? 1.3 : 0);
           f.lp.Q.setTargetAtTime(on("flo") ? 6 : 0.7, t, 0.05);
@@ -4697,18 +5057,18 @@
         f.crush.set(on("lofi") ? 1 : 0);
         f.flange.set(on("fln") ? 1 : 0);
         f.es.gain.setTargetAtTime(on("ech") ? 1 : 0, t, 0.01);
-        f.dl.delayTime.setTargetAtTime((60 / S.jam.bpm) * 0.75, t, 0.01);
+        f.dl.delayTime.setTargetAtTime(echo, t, 0.01);
         f.rs.gain.setTargetAtTime(on("rvb") ? 1.2 : 0, t, 0.02);
         f.dry.gain.setTargetAtTime(on("rvb") ? 0.55 : 1, t, 0.05);
         const gd = on("g16") ? 2 : on("g8") ? 4 : 0;
-        if (gd !== J.gd) {
-          J.gd = gd;
-          if (J.lfo) {
+        if (gd !== st.gd) {
+          st.gd = gd;
+          if (st.lfo) {
             try {
-              J.lfo.o.stop(t + 0.01);
+              st.lfo.o.stop(t + 0.01);
             } catch {}
-            J.lfo.ag.disconnect();
-            J.lfo = null;
+            st.lfo.ag.disconnect();
+            st.lfo = null;
           }
           f.gate.gain.cancelScheduledValues(t);
           if (gd) {
@@ -4720,10 +5080,13 @@
             ag.connect(f.gate.gain);
             f.gate.gain.setValueAtTime(0.5, t);
             o.start(t);
-            J.lfo = { o, ag };
+            st.lfo = { o, ag };
           } else f.gate.gain.setTargetAtTime(1, t, 0.01);
         }
-        if (J.lfo) J.lfo.o.frequency.setValueAtTime(1 / (jStep() * J.gd), t);
+        if (st.lfo) st.lfo.o.frequency.setValueAtTime(1 / (step * st.gd), t);
+      }
+      function jamFx() {
+        if (J.fx) chainFx(J.fx, J, (id) => S.jam.fx.includes(id), jStep(), (60 / S.jam.bpm) * 0.75);
       }
       function jamFxSet(id, on) {
         S.jam.fx = S.jam.fx.filter((x) => x !== id);
@@ -5133,6 +5496,1182 @@
       };
 
       // ======================================================================
+      // metronome and looper: one clock
+      // ======================================================================
+      // The metronome and the looper share one clock (CLK). Song time 0 is a downbeat; every loop is a whole number of
+      // bars and remembers the bar it was recorded on, so any set of loops stays in step with each other and with the
+      // clicks, whenever each one is started. Clicks are scheduled a little ahead on the audio clock; the drawing reads
+      // the same clock minus the output delay, so the pendulum reaches the side when you hear the click.
+      const MET = { on: false, out: null, noise: null, taps: [], drag: false };
+      const CLK = { on: false, t0: 0, n: 0, last: 0, timer: 0, raf: 0 };
+      const beatDur = () => 60 / S.met.bpm;
+      const barDur = () => beatDur() * S.met.beats;
+      const subDur = () => beatDur() / S.met.sub;
+      const mod = (a, b) => ((a % b) + b) % b;
+      // the moment you are hearing now: what plays left the speaker a little after it was scheduled
+      const heardNow = () => ctx.currentTime - (ctx.outputLatency || 0) - (ctx.baseLatency || 0);
+      // start the clock: song time `song` falls at audio time `when`
+      function clkStart(when, song = 0) {
+        CLK.t0 = when - song;
+        CLK.n = Math.ceil((when - CLK.t0) / subDur() - 1e-6);
+        CLK.last = when - 1;
+        if (!CLK.on) {
+          CLK.on = true;
+          CLK.timer = setInterval(clkTick, 25);
+        }
+        clkTick();
+        rhythmKick();
+      }
+      function clkMaybeStop() {
+        if (MET.on || lpAny() || LP.rec) return;
+        CLK.on = false;
+        clearInterval(CLK.timer);
+      }
+      // after a tempo or subdivision change: the beat carries on from where it is
+      function clkRetime(oldBeat) {
+        if (!CLK.on || !ctx) return;
+        const now = ctx.currentTime;
+        CLK.t0 = now - ((now - CLK.t0) / oldBeat) * beatDur();
+        CLK.n = Math.floor((CLK.last + 0.02 - CLK.t0) / subDur()) + 1;
+      }
+      const nextBar = (t) => CLK.t0 + Math.ceil((t - CLK.t0) / barDur() - 1e-9) * barDur();
+      function clkTick() {
+        if (!ctx) return;
+        const now = ctx.currentTime,
+          ahead = now + 0.15;
+        for (;;) {
+          const t = CLK.t0 + CLK.n * subDur();
+          if (t > ahead) break;
+          if (t > now - 0.02) clickAt(t, CLK.n);
+          CLK.last = t;
+          CLK.n++;
+        }
+        lpTick();
+      }
+      // a click: 2 = first beat of the bar, 1 = a beat, 0 = a subdivision. While a loop counts in, its bar clicks
+      // even with the metronome off.
+      function clickAt(t, n) {
+        const sub = S.met.sub,
+          kind = mod(n, sub * S.met.beats) === 0 ? 2 : mod(n, sub) === 0 ? 1 : 0,
+          r = LP.rec,
+          counting = r && kind > 0 && t < r.start - 0.001 && t > r.start - barDur() - 0.001;
+        if (MET.on || counting) metSound(t, kind);
+      }
+      function metSound(t, kind) {
+        const c = ctx,
+          acc = kind === 2 && S.met.accent,
+          lv = acc ? 1 : kind ? 0.62 : 0.32,
+          g = c.createGain(),
+          snd = S.met.snd;
+        if (!MET.out) {
+          MET.out = c.createGain();
+          MET.out.connect(c.destination);
+        }
+        MET.out.gain.value = S.met.vol;
+        g.connect(MET.out);
+        if (snd === "wood") {
+          if (!MET.noise) {
+            MET.noise = c.createBuffer(1, c.sampleRate * 0.1, c.sampleRate);
+            const d = MET.noise.getChannelData(0);
+            for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+          }
+          const src = c.createBufferSource(),
+            bp = c.createBiquadFilter();
+          src.buffer = MET.noise;
+          bp.type = "bandpass";
+          bp.frequency.value = acc ? 2700 : kind ? 1900 : 1450;
+          bp.Q.value = 9;
+          src.connect(bp).connect(g);
+          g.gain.setValueAtTime(lv * 3, t);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+          src.start(t);
+          src.stop(t + 0.08);
+          return;
+        }
+        const f = { click: [1760, 1320, 990], beep: [1047, 784, 523], cow: [800, 560, 420] }[snd] || [1760, 1320, 990],
+          hz = acc ? f[0] : kind ? f[1] : f[2],
+          dur = snd === "beep" ? 0.07 : snd === "cow" ? 0.2 : 0.035,
+          peak = lv * (snd === "beep" ? 0.3 : snd === "cow" ? 0.35 : 0.9),
+          oscs = snd === "cow" ? [hz, hz * 1.48] : [hz];
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(peak, t + 0.002);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        let dest = g;
+        if (snd === "cow") {
+          dest = c.createBiquadFilter();
+          dest.type = "bandpass";
+          dest.frequency.value = hz * 1.2;
+          dest.Q.value = 2;
+          dest.connect(g);
+        }
+        for (const h of oscs) {
+          const o = c.createOscillator();
+          o.type = snd === "click" ? "sine" : "square";
+          o.frequency.value = h;
+          o.connect(dest);
+          o.start(t);
+          o.stop(t + dur + 0.01);
+        }
+      }
+
+      // ---- metronome view
+      const SUBS = [
+        [1, "♩", "ONE CLICK"],
+        [2, "♪♪", "EIGHTHS"],
+        [3, "♪♪♪", "TRIPLETS"],
+        [4, "♬♬", "SIXTEENTHS"],
+      ];
+      const MSNDS = [
+        ["click", "Click"],
+        ["wood", "Wood block"],
+        ["beep", "Beep"],
+        ["cow", "Cowbell"],
+      ];
+      const TEMPI = [
+        [40, "Grave"],
+        [60, "Largo"],
+        [66, "Larghetto"],
+        [76, "Adagio"],
+        [108, "Andante"],
+        [120, "Moderato"],
+        [168, "Allegro"],
+        [200, "Presto"],
+        [1e9, "Prestissimo"],
+      ];
+      const tempoName = (b) => TEMPI.find(([x]) => b < x)[1];
+      // the weight slides on the rod: higher is slower, like a real metronome
+      const MPX = 120,
+        MPY = 252,
+        RMAX = 196,
+        RMIN = 62,
+        BMIN = 30,
+        BMAX = 250;
+      const wR = (b) => RMAX - ((RMAX - RMIN) * Math.log(b / BMIN)) / Math.log(BMAX / BMIN);
+      const rBpm = (r) => BMIN * Math.pow(BMAX / BMIN, (RMAX - r) / (RMAX - RMIN));
+      const SCALE_BPM = [40, 50, 60, 72, 84, 100, 120, 144, 176, 208, 240];
+      function metRender() {
+        const svg = $("#metSvg");
+        if (!svg.firstChild) {
+          // the body: front face solid, the hidden back corner dashed, the base under it
+          let h = `<path class="wf back" d="M36 260L102 10M36 260L224 260M36 260L26 270"/>
+            <path class="wf" d="M92 20H148L214 270H26Z"/><path class="wf" d="M92 20L102 10H158L148 20M158 10L224 260L214 270"/>
+            <path class="wf" d="M16 270H224V290H16Z"/><path class="wf" d="M224 270L234 260V280L224 290"/>
+            <rect class="wf slot" x="111" y="34" width="18" height="206" rx="9"/>`;
+          for (const b of SCALE_BPM) {
+            const y = MPY - wR(b);
+            h += `<line class="tk" x1="101" y1="${y}" x2="109" y2="${y}"/><text data-b="${b}" x="98" y="${y + 3}" text-anchor="end">${b}</text>`;
+          }
+          h += `<line class="strike" id="mStL" x1="${MPX - 104}" y1="40" x2="${MPX - 96}" y2="58"/><line class="strike" id="mStR" x1="${MPX + 104}" y1="40" x2="${MPX + 96}" y2="58"/>
+            <g id="mPend"><line class="rod" x1="${MPX}" y1="${MPY}" x2="${MPX}" y2="${MPY - 224}"/>
+            <g id="mWtG"><path class="wt" id="mWt" d="M${MPX - 14} -9H${MPX + 14}L${MPX + 10} 9H${MPX - 10}Z"/></g></g>
+            <circle class="pv" cx="${MPX}" cy="${MPY}" r="5"/>`;
+          svg.innerHTML = h;
+        }
+        if (!$("#mBeats").options.length) {
+          $("#mBeats").innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${i + 1} ${i ? "beats" : "beat"} in a bar</option>`).join("");
+          $("#mSub").innerHTML = SUBS.map(([n, sym, name]) => `<option value="${n}">${sym} ${name.toLowerCase()}</option>`).join("");
+          $("#mSnd").innerHTML = MSNDS.map(([v, n]) => `<option value="${v}">${n}</option>`).join("");
+          $("#mBpmSel").innerHTML = Array.from({ length: BMAX - BMIN + 1 }, (_, i) => `<option value="${BMIN + i}">${BMIN + i} · ${tempoName(BMIN + i)}</option>`).join("");
+        }
+        metFace();
+      }
+      function metFace() {
+        const m = S.met;
+        $("#mBpmTxt").textContent = m.bpm;
+        $("#mBpmSel").value = m.bpm;
+        $("#mName").textContent = tempoName(m.bpm).toUpperCase();
+        $("#mBeats").value = m.beats;
+        $("#mSub").value = m.sub;
+        $("#mSnd").value = m.snd;
+        $("#mBeatsTxt").innerHTML = `<i>BAR</i>${m.beats} ${m.beats > 1 ? "BEATS" : "BEAT"}`;
+        const sb = SUBS.find((x) => x[0] === m.sub);
+        $("#mSubTxt").innerHTML = `<i>CLICKS</i>${sb[1]} ${sb[2]}`;
+        $("#mSndTxt").innerHTML = `<i>SOUND</i>${MSNDS.find((x) => x[0] === m.snd)[1]}`;
+        $("#mVol").value = m.vol;
+        $("#mVolTxt").textContent = Math.round(m.vol * 100) + "%";
+        const wg = $("#mWtG");
+        if (wg) wg.setAttribute("transform", `translate(0 ${MPY - wR(m.bpm)})`);
+        let near = SCALE_BPM.reduce((a, b) => (Math.abs(b - m.bpm) < Math.abs(a - m.bpm) ? b : a));
+        $$("#metSvg text").forEach((t) => t.classList.toggle("now", +t.dataset.b === near));
+        // the numbered beats under the metronome
+        const box = $("#metBeats");
+        if (box.childElementCount !== m.beats + 1 || box.dataset.sub != m.sub) {
+          box.dataset.sub = m.sub;
+          box.innerHTML =
+            Array.from({ length: m.beats }, (_, i) => `<div class="b">${i + 1}${m.sub > 1 ? `<small>${"<u></u>".repeat(m.sub)}</small>` : ""}</div>`).join("") +
+            `<div class="cur"></div>`;
+        }
+        rib("mPlay", MET.on ? "stop" : "play", MET.on ? "STOP" : "START", MET.on);
+        rib("mTap", "tap", "TAP TEMPO");
+        $("#mAcc").innerHTML = `<b>&gt;</b><i>${m.accent ? "ACCENT ON 1" : "NO ACCENT"}</i>`;
+        $("#mAcc").classList.toggle("on", m.accent);
+        rib("mScl", "up", "SCALES");
+        rib("mLoop", "loop", "LOOPER");
+        metFrame();
+      }
+      // the pendulum swings with the clock: at a side on every beat, through the middle between beats
+      function metFrame() {
+        const pend = $("#mPend");
+        if (!pend) return;
+        const m = S.met,
+          ph = MET.on && CLK.on && ctx ? (heardNow() - CLK.t0) / beatDur() : null,
+          ang = ph === null ? 0 : -24 * Math.cos(Math.PI * ph),
+          bi = ph === null ? -1 : Math.floor(ph + 1e-4),
+          fr = ph === null ? 0 : ph - bi,
+          hit = ph !== null && fr < 0.12,
+          lit = ph === null ? -1 : mod(bi, m.beats);
+        pend.setAttribute("transform", `rotate(${ang.toFixed(2)} ${MPX} ${MPY})`);
+        const wt = $("#mWt");
+        wt.classList.toggle("hit", hit);
+        wt.classList.toggle("one", hit && lit === 0 && m.accent);
+        $("#mStL").classList.toggle("hit", hit && mod(bi, 2) === 0);
+        $("#mStR").classList.toggle("hit", hit && mod(bi, 2) === 1);
+        const bs = $$("#metBeats .b"),
+          si = Math.floor(fr * m.sub);
+        bs.forEach((b, k) => {
+          b.classList.toggle("on", k === lit);
+          b.classList.toggle("one", k === 0 && m.accent);
+          b.querySelectorAll("u").forEach((u, j) => u.classList.toggle("on", k === lit && j <= si));
+        });
+        // the marker glides from beat to beat (and back to 1 at the end of the bar)
+        const cur = $("#metBeats .cur");
+        if (cur && bs.length) {
+          const w = bs[0].offsetWidth,
+            x = (k) => bs[k].offsetLeft,
+            from = lit < 0 ? 0 : lit,
+            to = lit < 0 ? 0 : (lit + 1) % m.beats,
+            e = 0.5 - 0.5 * Math.cos(Math.PI * fr);
+          cur.style.width = w + "px";
+          cur.style.transform = `translateX(${x(from) + (x(to) - x(from)) * e}px)`;
+          cur.style.opacity = lit < 0 ? 0.35 : 1;
+        }
+      }
+      async function metToggle() {
+        const c = await getCtx();
+        MET.on = !MET.on;
+        if (MET.on && !CLK.on) clkStart(c.currentTime + 0.06);
+        if (!MET.on) clkMaybeStop();
+        metFace();
+        lpFace();
+        playFace();
+        rhythmKick();
+      }
+      // tempo and beats are locked while there are loops: they were recorded at this tempo
+      function rhythmLocked() {
+        if (!lpHas()) return false;
+        toast("Clear the loops to change the tempo or the bar");
+        metFace();
+        return true;
+      }
+      function setBpm(v) {
+        v = Math.max(BMIN, Math.min(BMAX, Math.round(v)));
+        if (v === S.met.bpm) return;
+        if (rhythmLocked()) return;
+        const old = beatDur();
+        S.met.bpm = v;
+        clkRetime(old);
+        metFace();
+        lpFace();
+        saveState();
+      }
+      // − and + step by one, and keep stepping while held
+      for (const [id, d] of [
+        ["#mDn", -1],
+        ["#mUp", 1],
+      ]) {
+        const b = $(id);
+        let tmr = 0;
+        const stop = () => clearTimeout(tmr);
+        b.addEventListener("pointerdown", (e) => {
+          e.preventDefault();
+          setBpm(S.met.bpm + d);
+          const rpt = (ms) => (tmr = setTimeout(() => (setBpm(S.met.bpm + d), rpt(Math.max(40, ms * 0.85))), ms));
+          rpt(420);
+        });
+        ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => b.addEventListener(ev, stop));
+      }
+      $("#mBpmSel").onchange = (e) => setBpm(+e.target.value);
+      // drag anywhere on the metronome: up is slower, down is faster
+      $("#metW").addEventListener("pointerdown", (e) => {
+        const svg = $("#metSvg");
+        if (!svg.getScreenCTM()) return;
+        e.preventDefault();
+        MET.drag = true;
+        $("#metW").setPointerCapture(e.pointerId);
+        const at = (ev) => {
+          const p = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(svg.getScreenCTM().inverse());
+          setBpm(rBpm(Math.max(RMIN, Math.min(RMAX, MPY - p.y))));
+        };
+        at(e);
+        const mv = (ev) => MET.drag && at(ev),
+          up = () => ((MET.drag = false), $("#metW").removeEventListener("pointermove", mv));
+        $("#metW").addEventListener("pointermove", mv);
+        $("#metW").addEventListener("pointerup", up, { once: true });
+        $("#metW").addEventListener("pointercancel", up, { once: true });
+      });
+      $("#mBeats").onchange = (e) => {
+        if (rhythmLocked()) return;
+        S.met.beats = +e.target.value;
+        metFace();
+        lpFace();
+        saveState();
+      };
+      $("#mSub").onchange = (e) => {
+        const old = beatDur();
+        S.met.sub = +e.target.value;
+        clkRetime(old);
+        metFace();
+        saveState();
+      };
+      $("#mSnd").onchange = (e) => {
+        S.met.snd = e.target.value;
+        metFace();
+        saveState();
+        if (!MET.on) getCtx().then((c) => metSound(c.currentTime + 0.03, 2));
+      };
+      $("#mVol").oninput = (e) => {
+        S.met.vol = +e.target.value;
+        if (MET.out) MET.out.gain.value = S.met.vol;
+        $("#mVolTxt").textContent = Math.round(S.met.vol * 100) + "%";
+        saveState();
+      };
+      $("#mPlay").onclick = metToggle;
+      $("#mTap").onclick = () => {
+        const t = performance.now(),
+          ts = (MET.taps = MET.taps.filter((x) => t - x < 2500).concat(t));
+        if (ts.length >= 2) setBpm(60000 / ((ts[ts.length - 1] - ts[0]) / (ts.length - 1)));
+        else toast("Keep tapping");
+      };
+      $("#mAcc").onclick = () => {
+        S.met.accent = !S.met.accent;
+        metFace();
+        saveState();
+      };
+      $("#mScl").onclick = () => showView("scl");
+      $("#mLoop").onclick = () => showView("loop");
+
+      // ---- looper
+      // 16 pads. An empty pad counts in one bar and records the next 1, 2, 4 or 8 bars from the microphone; the loop
+      // then plays at once. Tap a loop to stop it, tap again and it comes back in on the next bar, in time.
+      const LFX = [
+        ["r2", "Repeat 2", "two beats"],
+        ["r1", "Repeat 1", "one beat"],
+        ["rh", "Repeat ½", "half a beat"],
+        ["rev", "Reverse", "backwards"],
+        ["oup", "Octave ↑", "fast + high"],
+        ["odn", "Octave ↓", "slow + low"],
+        ...JFX,
+      ];
+      const TIME_FX = ["r2", "r1", "rh", "rev", "oup", "odn"];
+      const LENS = [1, 2, 4, 8];
+      const LP = { loops: Array(16).fill(null), sel: -1, rec: null, panel: "pads", fxOn: [], undo: [], chunks: [], stream: null, bus: null };
+      const lpAny = () => LP.loops.some((L) => L && L.on);
+      const lpHas = () => LP.loops.some(Boolean) || !!LP.rec;
+      const lpFx = (id) => LP.fxOn.includes(id);
+      // recording delay: the time from a click leaving the speaker to your answer reaching the recording
+      const lpLat = () => (S.loop.sync >= 0 ? S.loop.sync / 1000 : (ctx.outputLatency || 0) + 2 * (ctx.baseLatency || 0) + 0.01);
+      function lpGraph(c) {
+        if (LP.bus) return;
+        const comp = c.createDynamicsCompressor();
+        comp.threshold.value = -8;
+        comp.ratio.value = 3;
+        comp.connect(c.destination);
+        LP.an = c.createAnalyser(); // read by the backdrop
+        LP.an.fftSize = 2048;
+        comp.connect(LP.an);
+        LP.fx = TK.buildFxChain(c);
+        LP.fx.out.connect(comp);
+        LP.bus = c.createGain();
+        LP.bus.connect(LP.fx.in);
+      }
+      function lpPeaks(buf, n) {
+        const d = buf.getChannelData(0),
+          step = Math.max(1, Math.floor(d.length / n)),
+          out = [];
+        for (let i = 0; i < n; i++) {
+          let p = 0;
+          for (let k = i * step, e = Math.min(d.length, k + step); k < e; k += 4) p = Math.max(p, Math.abs(d[k]));
+          out.push(p);
+        }
+        const top = Math.max(0.05, ...out);
+        return out.map((p) => p / top);
+      }
+      function lpMake(o) {
+        const L = { buf: o.buf, bars: o.bars, a: o.a, o: o.o || 0, vol: o.vol ?? 1, on: false, wait: false, at: 0, src: null, rbuf: null };
+        L.g = ctx.createGain();
+        L.g.gain.value = L.vol;
+        L.g.connect(LP.bus);
+        L.peaks = lpPeaks(L.buf, 40);
+        return L;
+      }
+      const lpSnap = (L) => L && { buf: L.buf, bars: L.bars, a: L.a, o: L.o, vol: L.vol, on: L.on };
+      // a loop's length in beats, and its name: "2 BARS", or "3 BEATS" once cropped off the bar
+      const lpBeats = (L) => Math.max(1, Math.round(L.buf.duration / beatDur()));
+      const lpName = (L) => {
+        const n = lpBeats(L),
+          b = S.met.beats;
+        return n % b ? `${n} ${n > 1 ? "BEATS" : "BEAT"}` : `${n / b} ${n / b > 1 ? "BARS" : "BAR"}`;
+      };
+      function lpRev(L) {
+        if (!L.rbuf) {
+          const d = L.buf.getChannelData(0),
+            b = ctx.createBuffer(1, d.length, L.buf.sampleRate),
+            r = b.getChannelData(0);
+          for (let i = 0, n = d.length; i < n; i++) r[i] = d[n - 1 - i];
+          L.rbuf = b;
+        }
+        return L.rbuf;
+      }
+      // where in the loop the song is at audio time t
+      const lpOffset = (L, t) => mod(t - CLK.t0 - L.a * barDur() - L.o * beatDur(), L.buf.duration);
+      function lpHalt(L, when) {
+        if (!L.src) return;
+        const { node, env } = L.src;
+        env.gain.setTargetAtTime(0, when, 0.004);
+        try {
+          node.stop(when + 0.05);
+        } catch {}
+        L.src = null;
+      }
+      // (re)start a loop's player at `when`, in time, with the time effects (repeat, reverse, octave) that are on
+      function lpLaunch(L, when) {
+        const c = ctx;
+        lpHalt(L, when);
+        let buf = L.buf,
+          dur = buf.duration,
+          off = lpOffset(L, when);
+        if (lpFx("rev")) {
+          buf = lpRev(L);
+          off = mod(dur - off, dur);
+        }
+        const node = c.createBufferSource(),
+          env = c.createGain();
+        node.buffer = buf;
+        node.loop = true;
+        node.playbackRate.value = lpFx("oup") ? 2 : lpFx("odn") ? 0.5 : 1;
+        const rb = lpFx("rh") ? 0.5 : lpFx("r1") ? 1 : lpFx("r2") ? 2 : 0;
+        if (rb) {
+          const seg = Math.min(dur, rb * beatDur()),
+            ls = Math.floor(off / seg) * seg;
+          node.loopStart = ls;
+          node.loopEnd = Math.min(dur, ls + seg);
+        }
+        env.gain.setValueAtTime(0, when);
+        env.gain.linearRampToValueAtTime(1, when + 0.008);
+        node.connect(env).connect(L.g);
+        node.start(when, off);
+        L.src = { node, env };
+      }
+      function lpStartAt(L, when) {
+        L.on = true;
+        L.at = when;
+        L.wait = when - ctx.currentTime > 0.06;
+        lpLaunch(L, when);
+        if (L.wait) setTimeout(() => ((L.wait = false), lpFace()), (when - ctx.currentTime) * 1000);
+      }
+      function lpStop(L) {
+        L.on = L.wait = false;
+        lpHalt(L, ctx.currentTime + 0.005);
+      }
+      // play a stopped loop: on the next bar if something is playing, at once (from its start) if not
+      function lpPlay(L) {
+        const now = ctx.currentTime;
+        if (!CLK.on) {
+          clkStart(now + 0.05, L.a * barDur() + L.o * beatDur());
+          lpStartAt(L, now + 0.05);
+        } else lpStartAt(L, nextBar(now + 0.03));
+      }
+      async function lpAll() {
+        const c = await getCtx();
+        lpGraph(c);
+        if (lpAny()) LP.loops.forEach((L) => L && L.on && lpStop(L));
+        else if (LP.loops.some(Boolean)) {
+          const now = c.currentTime,
+            was = CLK.on;
+          if (!was) clkStart(now + 0.05, 0);
+          const at = was ? nextBar(now + 0.03) : now + 0.05;
+          LP.loops.forEach((L) => L && lpStartAt(L, at));
+        } else toast("No loops yet: tap a pad to record one");
+        clkMaybeStop();
+        lpFace();
+        playFace();
+      }
+
+      // ---- recording: the microphone goes through a tiny AudioWorklet that stamps every block with the audio clock,
+      // so the recording can be cut exactly on the bar (old browsers fall back to a ScriptProcessor, a little less exact)
+      const CAP_CODE = `class C extends AudioWorkletProcessor{constructor(){super();this.b=new Float32Array(2048);this.n=0;this.t=0}
+        process(i){const x=i[0]&&i[0][0];if(x){if(!this.n)this.t=currentTime;this.b.set(x,this.n);this.n+=x.length;
+        if(this.n>=1920){this.port.postMessage({t:this.t,d:this.b.slice(0,this.n)});this.n=0}}return true}}
+        registerProcessor("tp-cap",C)`;
+      async function lpMicOpen() {
+        if (LP.stream) return true;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return micError("NO_API"), false;
+        try {
+          const c = await getCtx();
+          LP.stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+            video: false,
+          });
+          await c.resume().catch(() => {});
+          LP.src = c.createMediaStreamSource(LP.stream);
+          LP.chunks = [];
+          const keep = (t, d) => {
+            LP.chunks.push({ t, d });
+            while (LP.chunks.length && LP.chunks[0].t < c.currentTime - 75) LP.chunks.shift();
+          };
+          try {
+            if (!LP.worklet) {
+              await c.audioWorklet.addModule(URL.createObjectURL(new Blob([CAP_CODE], { type: "application/javascript" })));
+              LP.worklet = true;
+            }
+            LP.cap = new AudioWorkletNode(c, "tp-cap", { channelCount: 1, channelCountMode: "explicit" });
+            LP.cap.port.onmessage = (e) => keep(e.data.t, e.data.d);
+          } catch {
+            const sp = c.createScriptProcessor(1024, 1, 1);
+            sp.onaudioprocess = (e) => keep((e.playbackTime || c.currentTime) - 2048 / c.sampleRate, new Float32Array(e.inputBuffer.getChannelData(0)));
+            LP.cap = sp;
+          }
+          LP.sink = c.createGain();
+          LP.sink.gain.value = 0;
+          LP.src.connect(LP.cap);
+          LP.cap.connect(LP.sink);
+          LP.sink.connect(c.destination);
+          return true;
+        } catch (e) {
+          LP.stream = null;
+          micError(e.name || "UNKNOWN");
+          return false;
+        }
+      }
+      function lpMicClose() {
+        if (!LP.stream || LP.rec) return;
+        try {
+          LP.src.disconnect();
+          LP.cap.disconnect();
+          LP.sink.disconnect();
+        } catch {}
+        LP.stream.getTracks().forEach((t) => t.stop());
+        LP.stream = LP.src = LP.cap = LP.sink = null;
+        LP.chunks = [];
+      }
+      // the recorded samples between audio times from and from + dur
+      function lpCut(from, n) {
+        const sr = ctx.sampleRate,
+          out = new Float32Array(n);
+        let got = 0;
+        for (const { t, d } of LP.chunks) {
+          const i0 = Math.round((t - from) * sr);
+          if (i0 >= n || i0 + d.length <= 0) continue;
+          for (let k = Math.max(0, -i0), e = Math.min(d.length, n - i0); k < e; k++) out[i0 + k] = d[k];
+          got += Math.min(d.length, n - i0) - Math.max(0, -i0);
+        }
+        return got > n * 0.6 ? out : null;
+      }
+      async function lpRecord(i, overdub = false) {
+        if (LP.rec) return toast("Already recording: tap the red pad to cancel");
+        const c = await getCtx();
+        lpGraph(c);
+        if (!(await lpMicOpen())) return;
+        const L = overdub ? LP.loops[i] : null,
+          now = c.currentTime;
+        let start;
+        if (!CLK.on) {
+          // a bar of count-in, then the loop starts on a downbeat (an overdub, on its own first bar)
+          const s0 = L ? L.a * barDur() + L.o * beatDur() : 0;
+          clkStart(now + 0.08, s0 - barDur());
+          start = now + 0.08 + barDur();
+          if (L) lpStartAt(L, start);
+        } else if (L) {
+          // an overdub starts on the loop's next turn
+          if (!L.on) lpStartAt(L, nextBar(now + 0.03));
+          const from = Math.max(now + beatDur(), L.at);
+          start = from + mod(-lpOffset(L, from), L.buf.duration);
+        } else {
+          start = nextBar(now + 0.05);
+          if (start - now < beatDur() * 0.9) start += barDur();
+        }
+        const len = L ? L.buf.duration : S.loop.bars * barDur();
+        LP.rec = { i, start, end: start + len, n: L ? L.buf.length : Math.round(len * c.sampleRate), bars: L ? L.bars : S.loop.bars, a: Math.round((start - CLK.t0) / barDur()), overdub };
+        LP.sel = i;
+        lpFace();
+        playFace();
+        rhythmKick();
+      }
+      function lpRecCancel() {
+        LP.rec = null;
+        clkMaybeStop();
+        lpFace();
+        playFace();
+        if (S.view !== "loop") lpMicClose();
+      }
+      function lpTick() {
+        const r = LP.rec;
+        if (r && ctx.currentTime > r.end + lpLat() + 0.2) lpRecDone();
+      }
+      function lpRecDone() {
+        const r = LP.rec,
+          c = ctx;
+        LP.rec = null;
+        const d = lpCut(r.start + lpLat(), r.n);
+        if (!d) {
+          toast("Nothing was recorded: check the microphone");
+          clkMaybeStop();
+          return lpFace();
+        }
+        // a few milliseconds of fade at both ends, so the loop point doesn't click
+        const fd = Math.min(d.length >> 2, Math.round(c.sampleRate * 0.004));
+        for (let k = 0; k < fd; k++) {
+          d[k] *= k / fd;
+          d[d.length - 1 - k] *= k / fd;
+        }
+        // AUTO QUANTIZE (off by default): the new take (or just the new layer) snaps to the GRID before it lands
+        let aqTxt = "";
+        if (S.loop.aq) {
+          const sr = c.sampleRate,
+            gi = S.loop.grid ?? 1,
+            q = lpQuantize(d, sr, (beatDur() / LGRID[gi][1]) * sr);
+          if (q && q.moved) {
+            d.set(q.out.subarray(0, d.length));
+            aqTxt = ` · ${q.moved} hits quantized to ${LGRID[gi][0]}`;
+          }
+        }
+        if (r.overdub && LP.loops[r.i]) {
+          const L = LP.loops[r.i],
+            old = L.buf.getChannelData(0),
+            mix = new Float32Array(old.length);
+          let p = 0;
+          for (let k = 0; k < mix.length; k++) p = Math.max(p, Math.abs((mix[k] = old[k] + (d[k] || 0))));
+          if (p > 0.98) for (let k = 0; k < mix.length; k++) mix[k] *= 0.98 / p;
+          lpUndoPush([r.i]);
+          lpSetBuf(L, mix);
+          toast("Layer added" + aqTxt);
+        } else {
+          const buf = c.createBuffer(1, d.length, c.sampleRate);
+          buf.copyToChannel(d, 0);
+          lpUndoPush([r.i]);
+          const L = (LP.loops[r.i] = lpMake({ buf, bars: r.bars, a: r.a }));
+          lpStartAt(L, c.currentTime + 0.02);
+          if (aqTxt) toast("Loop recorded" + aqTxt);
+        }
+        LP.sel = r.i;
+        if (S.view !== "loop") lpMicClose();
+        lpFace();
+        playFace();
+      }
+      function lpSetBuf(L, data) {
+        const b = ctx.createBuffer(1, data.length, L.buf.sampleRate);
+        b.copyToChannel(data, 0);
+        L.buf = b;
+        L.rbuf = null;
+        L.peaks = lpPeaks(b, 40);
+        L.big = null;
+        if (L.on && !L.wait) lpLaunch(L, ctx.currentTime + 0.02);
+      }
+      // UNDO: the pads as they were before the last recording or edit
+      function lpUndoPush(is) {
+        LP.undo.push(is.map((i) => [i, lpSnap(LP.loops[i])]));
+        if (LP.undo.length > 20) LP.undo.shift();
+      }
+      function lpPut(i, snap) {
+        const L = LP.loops[i];
+        if (L) {
+          lpStop(L);
+          L.g.disconnect();
+        }
+        LP.loops[i] = snap ? lpMake(snap) : null;
+        if (snap && snap.on) lpPlay(LP.loops[i]);
+      }
+      function lpUndo() {
+        const u = LP.undo.pop();
+        if (!u) return toast("Nothing to undo");
+        u.forEach(([i, snap]) => lpPut(i, snap));
+        clkMaybeStop();
+        lpFace();
+        playFace();
+        toast("Undone");
+      }
+
+      // ---- the pads
+      async function lpPad(i) {
+        const c = await getCtx();
+        lpGraph(c);
+        if (LP.rec && LP.rec.i === i) return lpRecCancel();
+        const L = LP.loops[i];
+        if (!L) return lpRecord(i);
+        if (LP.panel === "edit" && LP.sel !== i) ((LP.sel = i), (LP.cs = null));
+        if (L.on) lpStop(L);
+        else lpPlay(L);
+        clkMaybeStop();
+        lpFace();
+        playFace();
+      }
+      const wavePath = (pk) => pk.map((p, x) => `M${x} ${(10 - p * 9.5).toFixed(1)}h.7v${(p * 19 + 0.4).toFixed(1)}h-.7z`).join("");
+      function lpRender() {
+        if (!$("#lFx").childElementCount)
+          $("#lFx").innerHTML = LFX.map(
+            ([id, n, h], i) => `<div class="sq has" data-fx="${id}" style="--ccrgb:${PC(Math.floor(i / 2))};--v:.25"><span class="nt sm">${n}</span><span class="in">${h}</span></div>`,
+          ).join("");
+        if (!$("#lSync").options.length) {
+          $("#lSync").innerHTML =
+            `<option value="-1">Auto</option>` + [0, 20, 40, 60, 80, 100, 130, 160, 200, 250, 300].map((v) => `<option value="${v}">${v} ms</option>`).join("");
+          $("#lLen").innerHTML = LENS.map((n) => `<button data-bars="${n}"><b>${"<u></u>".repeat(n)}</b><i>${n} ${n > 1 ? "BARS" : "BAR"}</i></button>`).join("");
+        }
+        lpFace();
+      }
+      function lpFace() {
+        if (!$("#lPads")) return;
+        const r = LP.rec;
+        if (LP.panel === "edit" && !LP.loops[LP.sel]) LP.sel = LP.loops.findIndex(Boolean);
+        $("#lPads").innerHTML = LP.loops
+          .map((L, i) => {
+            const st = `<span class="st">${i + 1}</span>`,
+              col = `style="--ccrgb:${PC(i % 6)};--v:.35"`;
+            if (r && r.i === i && !r.overdub) return `<div class="sq count" data-p="${i}" ${col}>${st}<span class="nt">·</span><span class="in">GET READY</span><i></i></div>`;
+            if (!L) return `<div class="sq empty" data-p="${i}" ${col}>${st}<span class="nt">+</span><span class="in">REC ${S.loop.bars} ${S.loop.bars > 1 ? "BARS" : "BAR"}</span></div>`;
+            const cls = ["sq has", L.on && !L.wait ? "play" : "", L.wait ? "wait" : "", r && r.i === i ? "count" : "", LP.panel === "edit" && LP.sel === i ? "sel" : ""].join(" ");
+            return `<div class="${cls}" data-p="${i}" ${col}><svg class="wv" viewBox="0 0 40 20" preserveAspectRatio="none"><path d="${wavePath(L.peaks)}"/></svg>${st}<span class="nt">${i + 1}</span><span class="in">${lpName(L)}</span><i></i></div>`;
+          })
+          .join("");
+        $("#lPads").hidden = LP.panel === "fx";
+        $("#lFxP").hidden = LP.panel !== "fx";
+        $("#lEdit").hidden = LP.panel !== "edit";
+        $$("#lFx [data-fx]").forEach((e) => e.classList.toggle("ok", lpFx(e.dataset.fx)));
+        $("#lLatch").classList.toggle("on", S.loop.latch !== false);
+        $$("#lLen button").forEach((b) => b.classList.toggle("on", +b.dataset.bars === S.loop.bars));
+        $("#lTempo").innerHTML = `<i>TEMPO</i><b>${S.met.bpm}</b><i>${S.met.beats} BEATS A BAR</i>`;
+        $("#lClick").innerHTML = `CLICK<i>${MET.on ? "ON" : "OFF"}</i>`;
+        $("#lClick").classList.toggle("on", MET.on);
+        $("#lAutoQ").innerHTML = `AUTO Q<i>${S.loop.aq ? LGRID[S.loop.grid ?? 1][0] : "OFF"}</i>`;
+        $("#lAutoQ").classList.toggle("on", !!S.loop.aq);
+        $("#lSync").value = S.loop.sync;
+        $("#lSyncTxt").innerHTML = `<i>REC DELAY</i>${S.loop.sync >= 0 ? S.loop.sync + " ms" : "AUTO" + (ctx ? " " + Math.round(lpLat() * 1000) : "")}`;
+        const any = lpAny(),
+          has = LP.loops.some(Boolean);
+        rib("lPlay", any ? "stop" : "play", any ? "STOP ALL" : "PLAY ALL", any);
+        $("#lPlay").classList.toggle("dis", !has);
+        rib("lRec", "rec", r ? "CANCEL" : "REC", !!r);
+        rib("lFxB", "fx", "FX" + (LP.fxOn.length ? " · " + LP.fxOn.length : ""), LP.panel === "fx");
+        rib("lEditB", "edit", "EDIT", LP.panel === "edit");
+        rib("lUndo", "undo", "UNDO");
+        $("#lUndo").classList.toggle("dis", !LP.undo.length);
+        const L = LP.loops[LP.sel];
+        $("#lSelTxt").textContent = L ? `LOOP ${LP.sel + 1} · VOLUME` : "TAP A LOOP";
+        $("#lVol").value = L ? L.vol : 1;
+        $("#lVolTxt").textContent = L ? Math.round(L.vol * 100) + "%" : "";
+        $$("#lEdit button").forEach((b) => b.classList.toggle("dis", b.id !== "lClrAll" ? !L : !has));
+        $("#lEdit .dd").classList.toggle("dis", !L);
+        $("#lOver").classList.toggle("on", !!(r && r.overdub));
+        if (!$("#lGrid").options.length) $("#lGrid").innerHTML = LGRID.map(([n, , t], i) => `<option value="${i}">${n} · ${t}</option>`).join("");
+        const gi = S.loop.grid ?? 1,
+          cs = L && LP.cs && LP.cs.i === LP.sel ? Math.abs(LP.cs.b1 - LP.cs.b0) + 1 : 0;
+        $("#lGrid").value = gi;
+        $("#lGridTxt").innerHTML = `<i>GRID</i>${LGRID[gi][0]}`;
+        $("#lCrop").innerHTML = `CROP<i>${cs && L && cs < lpBeats(L) ? `KEEP ${cs}` : "DRAG BEATS"}</i>`;
+        $("#lCrop").classList.toggle("on", !!(cs && L && cs < lpBeats(L)));
+        lpFrame();
+      }
+      // every frame: the count-in, the recording and each loop's position
+      function lpFrame() {
+        if (!ctx || S.view !== "loop") return;
+        const tv = heardNow(),
+          r = LP.rec;
+        $$("#lPads .sq").forEach((el) => {
+          const i = +el.dataset.p,
+            L = LP.loops[i],
+            bar = el.querySelector("i");
+          if (r && r.i === i) {
+            const left = r.start - tv;
+            if (left > 0) {
+              const n = Math.ceil(left / beatDur() - 1e-3);
+              if (!r.overdub) el.querySelector(".nt").textContent = n;
+              el.classList.add("count");
+              el.classList.remove("rec");
+              if (!r.overdub) el.querySelector(".in").textContent = "GET READY";
+            } else {
+              el.classList.remove("count");
+              el.classList.add("rec");
+              if (!r.overdub) el.querySelector(".nt").textContent = "REC";
+              el.querySelector(".in").textContent = r.overdub ? "OVERDUB" : `BAR ${Math.min(r.bars, Math.floor(-left / barDur()) + 1)} / ${r.bars}`;
+            }
+            if (bar) bar.style.width = Math.max(0, Math.min(100, (-left / (r.end - r.start)) * 100)) + "%";
+          } else if (L && bar) bar.style.width = L.on && !L.wait && CLK.on ? (lpOffset(L, tv) / L.buf.duration) * 100 + "%" : "0";
+        });
+        if (LP.panel === "edit") lpWave();
+      }
+      function lpWave() {
+        const cv = $("#lWave"),
+          L = LP.loops[LP.sel],
+          w = cv.clientWidth,
+          h = cv.clientHeight,
+          dpr = devicePixelRatio || 1;
+        if (!w) return;
+        if (cv.width !== Math.round(w * dpr)) ((cv.width = Math.round(w * dpr)), (cv.height = Math.round(h * dpr)));
+        const g = cv.getContext("2d");
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        g.clearRect(0, 0, w, h);
+        if (!L) return;
+        if (!L.big || L.big.buf !== L.buf) L.big = { buf: L.buf, pk: lpPeaks(L.buf, 240) };
+        g.fillStyle = `rgb(${PC(LP.sel % 6)})`;
+        const pk = L.big.pk,
+          bw = w / pk.length;
+        pk.forEach((p, x) => g.fillRect(x * bw, h / 2 - (p * h) / 2.2, Math.max(1, bw - 0.5), Math.max(1, (p * h) / 1.1)));
+        // the beats of the loop (a full line on each bar), the quantize grid between them, and the hits found
+        const beats = lpBeats(L),
+          dur = L.buf.duration,
+          bpx = w / beats,
+          sub = LGRID[S.loop.grid ?? 1][1];
+        g.fillStyle = css("--line");
+        for (let b = 0; b < beats; b++) {
+          const bar = mod(b + L.o, S.met.beats) === 0;
+          if (b) g.fillRect(b * bpx, bar ? 0 : h - 9, 1, bar ? h : 9);
+          for (let k = 1; k < sub; k++) g.fillRect(b * bpx + (k * bpx) / sub, h - 4, 1, 4);
+        }
+        if (!L.big.hits) L.big.hits = lpHits(L.buf.getChannelData(0), L.buf.sampleRate);
+        g.fillStyle = css("--ink");
+        L.big.hits.forEach((x) => g.fillRect((x / L.buf.length) * w - 1, 0, 2, 5));
+        const cs = LP.cs && LP.cs.i === LP.sel ? LP.cs : null;
+        if (cs) {
+          const a = Math.min(cs.b0, cs.b1),
+            z = Math.max(cs.b0, cs.b1) + 1;
+          g.globalAlpha = 0.65;
+          g.fillStyle = css("--bg");
+          g.fillRect(0, 0, a * bpx, h);
+          g.fillRect(z * bpx, 0, w - z * bpx, h);
+          g.globalAlpha = 1;
+          g.fillStyle = css("--hi");
+          g.fillRect(a * bpx, 0, 2, h);
+          g.fillRect(z * bpx - 2, 0, 2, h);
+        }
+        if (L.on && !L.wait && CLK.on) {
+          g.fillStyle = css("--hi");
+          g.fillRect((lpOffset(L, heardNow()) / L.buf.duration) * w, 0, 2, h);
+        }
+      }
+      $("#lPads").addEventListener("pointerdown", (e) => {
+        const p = e.target.closest("[data-p]");
+        if (!p) return;
+        e.preventDefault();
+        lpPad(+p.dataset.p);
+      });
+      // FX pads: the same LATCH as the band's
+      function lpFxSet(id, on) {
+        LP.fxOn = LP.fxOn.filter((x) => x !== id);
+        if (on) {
+          // one repeat and one octave at a time
+          const grp = [["r2", "r1", "rh"], ["oup", "odn"]].find((g) => g.includes(id));
+          if (grp) LP.fxOn = LP.fxOn.filter((x) => !grp.includes(x));
+          LP.fxOn.push(id);
+        }
+        $$("#lFx [data-fx]").forEach((e) => e.classList.toggle("ok", lpFx(e.dataset.fx)));
+        if (ctx && LP.fx) {
+          if (TIME_FX.includes(id)) {
+            const t = ctx.currentTime + 0.02;
+            LP.loops.forEach((L) => L && L.on && !L.wait && lpLaunch(L, t));
+          } else chainFx(LP.fx, LP, lpFx, beatDur() / 4, beatDur() * 0.75);
+        }
+        rib("lFxB", "fx", "FX" + (LP.fxOn.length ? " · " + LP.fxOn.length : ""), LP.panel === "fx");
+      }
+      const lHeld = new Map();
+      $("#lFx").addEventListener("pointerdown", async (e) => {
+        const p = e.target.closest("[data-fx]");
+        if (!p) return;
+        e.preventDefault();
+        lpGraph(await getCtx());
+        const id = p.dataset.fx;
+        if (S.loop.latch !== false) lpFxSet(id, !lpFx(id));
+        else (lHeld.set(e.pointerId, id), lpFxSet(id, true));
+      });
+      const lUp = (e) => {
+        const id = lHeld.get(e.pointerId);
+        if (!id) return;
+        lHeld.delete(e.pointerId);
+        if (![...lHeld.values()].includes(id)) lpFxSet(id, false);
+      };
+      addEventListener("pointerup", lUp);
+      addEventListener("pointercancel", lUp);
+      $("#lLatch").onclick = () => {
+        S.loop.latch = S.loop.latch === false;
+        lpFace();
+        saveState();
+        toast(S.loop.latch ? "Latch on: tap an effect to turn it on or off" : "Latch off: effects play while you hold them");
+      };
+      $("#lFxOff").onclick = () => [...LP.fxOn].forEach((id) => lpFxSet(id, false));
+      // the bars, the bottom bar and the edit tools
+      $("#lLen").onclick = (e) => {
+        const b = e.target.closest("[data-bars]");
+        if (!b) return;
+        S.loop.bars = +b.dataset.bars;
+        lpFace();
+        saveState();
+      };
+      $("#lTempo").onclick = () => showView("met");
+      $("#lClick").onclick = metToggle;
+      $("#lAutoQ").onclick = () => {
+        S.loop.aq = !S.loop.aq;
+        saveState();
+        lpFace();
+        toast(S.loop.aq ? `Auto quantize on: new loops and layers snap to the ${LGRID[S.loop.grid ?? 1][0]} grid (set it in EDIT)` : "Auto quantize off");
+      };
+      $("#lSync").onchange = (e) => {
+        S.loop.sync = +e.target.value;
+        lpFace();
+        saveState();
+      };
+      $("#lPlay").onclick = lpAll;
+      $("#lRec").onclick = () => {
+        if (LP.rec) return lpRecCancel();
+        const i = LP.loops.findIndex((L) => !L);
+        if (i < 0) return toast("All 16 pads have a loop: clear one first");
+        lpRecord(i);
+      };
+      const lpPanel = (p) => ((LP.panel = LP.panel === p ? "pads" : p), lpFace());
+      $("#lFxB").onclick = () => lpPanel("fx");
+      $("#lEditB").onclick = () => lpPanel("edit");
+      $("#lUndo").onclick = lpUndo;
+      $("#lVol").oninput = (e) => {
+        const L = LP.loops[LP.sel];
+        if (!L) return;
+        L.vol = +e.target.value;
+        L.g.gain.setTargetAtTime(L.vol, ctx.currentTime, 0.02);
+        $("#lVolTxt").textContent = Math.round(L.vol * 100) + "%";
+      };
+      $("#lOver").onclick = () => {
+        if (LP.rec && LP.rec.overdub) return lpRecCancel();
+        if (LP.loops[LP.sel]) lpRecord(LP.sel, true);
+      };
+      $("#lRev").onclick = () => {
+        const L = LP.loops[LP.sel];
+        if (!L) return;
+        lpUndoPush([LP.sel]);
+        lpSetBuf(L, lpRev(L).getChannelData(0).slice());
+        lpFace();
+      };
+      $("#lNorm").onclick = () => {
+        const L = LP.loops[LP.sel];
+        if (!L) return;
+        const d = L.buf.getChannelData(0);
+        let p = 0;
+        for (let k = 0; k < d.length; k++) p = Math.max(p, Math.abs(d[k]));
+        if (p < 1e-4) return toast("This loop is silent");
+        lpUndoPush([LP.sel]);
+        lpSetBuf(L, d.map((v) => (v / p) * 0.95));
+        lpFace();
+      };
+      $("#lClr").onclick = () => {
+        if (!LP.loops[LP.sel]) return;
+        lpUndoPush([LP.sel]);
+        lpPut(LP.sel, null);
+        clkMaybeStop();
+        lpFace();
+        playFace();
+      };
+      $("#lClrAll").onclick = () => {
+        const is = LP.loops.map((L, i) => (L ? i : -1)).filter((i) => i >= 0);
+        if (!is.length) return;
+        lpUndoPush(is);
+        is.forEach((i) => lpPut(i, null));
+        clkMaybeStop();
+        lpFace();
+        playFace();
+        toast("All loops cleared (UNDO brings them back)");
+      };
+
+      // ---- the beat tools: drag across the wave to choose whole beats and CROP to them; ◀ ▶ slide the loop;
+      // QUANTIZE finds every hit and moves it onto the grid (beats, eighths, triplets, sixteenths)
+      const LGRID = [
+        ["1/4", 1, "BEATS"],
+        ["1/8", 2, "EIGHTHS"],
+        ["1/8T", 3, "TRIPLETS"],
+        ["1/16", 4, "SIXTEENTHS"],
+      ];
+      // the hits: where the loudness jumps (in 5 ms steps), at least 70 ms apart, ignoring the quiet ones
+      function lpHits(d, sr) {
+        const hop = Math.max(1, Math.round(sr * 0.005)),
+          nf = Math.floor(d.length / hop),
+          db = new Float32Array(nf);
+        let top = -200;
+        for (let j = 0; j < nf; j++) {
+          let e = 0;
+          for (let k = j * hop, z = k + hop; k < z; k++) e += d[k] * d[k];
+          db[j] = 10 * Math.log10(e / hop + 1e-12);
+          top = Math.max(top, db[j]);
+        }
+        const out = [];
+        let last = -99;
+        // the loop is a circle: the frames before the first one are the last ones
+        const at = (j) => db[mod(j, nf)];
+        for (let j = 0; j < nf; j++) {
+          const lo = Math.min(at(j - 1), at(j - 2), at(j - 3), at(j - 4));
+          if (db[j] - lo < 9 || db[j] < top - 30 || j - last < 14) continue;
+          let k = j;
+          while (k > j - 4 && at(k - 1) > lo + 3) k--;
+          out.push(mod(k * hop - Math.round(sr * 0.002), d.length));
+          last = j;
+        }
+        // a hit just after the loop point and one just before it are the same hit
+        if (out.length > 1 && out[0] + d.length - out[out.length - 1] < sr * 0.07) out.shift();
+        return out.sort((x, y) => x - y);
+      }
+      // move every hit to its nearest grid point; the sound from one hit to the next goes with it
+      function lpQuantize(d, sr, grid) {
+        const N = d.length,
+          hits = lpHits(d, sr),
+          tg = [],
+          src = [];
+        for (const x of hits) {
+          const q = mod(Math.round(Math.round(x / grid) * grid), N);
+          if (tg.includes(q)) continue;
+          src.push(x);
+          tg.push(q);
+        }
+        if (!src.length) return null;
+        const out = new Float32Array(N),
+          fo = Math.round(sr * 0.003),
+          fi = Math.round(sr * 0.0005),
+          m = src.length;
+        let moved = 0;
+        for (let i = 0; i < m; i++) {
+          const s0 = src[i],
+            s1 = i + 1 < m ? src[i + 1] : src[0] + N,
+            g0 = tg[i],
+            g1 = i + 1 < m ? tg[i + 1] : tg[0] + N,
+            slot = mod(g1 - g0 - 1, N) + 1,
+            len = Math.min(slot, s1 - s0);
+          if (Math.abs(s0 - g0) > sr * 0.003) moved++;
+          for (let k = 0; k < len; k++) {
+            let v = d[(s0 + k) % N];
+            if (k < fi) v *= k / fi;
+            if (len - k < fo) v *= (len - k) / fo;
+            out[(g0 + k) % N] = v;
+          }
+        }
+        return { out, moved, hits: m };
+      }
+      function lpEditBuf(fn) {
+        const L = LP.loops[LP.sel];
+        if (!L) return null;
+        const r = fn(L);
+        if (!r) return null;
+        lpUndoPush([LP.sel]);
+        if (r.o != null) L.o = r.o;
+        lpSetBuf(L, r.d);
+        lpFace();
+        return r;
+      }
+      function lpCrop() {
+        const cs = LP.cs && LP.cs.i === LP.sel ? LP.cs : null;
+        if (!cs) return toast("Drag across the wave to choose the beats to keep");
+        const a = Math.min(cs.b0, cs.b1),
+          z = Math.max(cs.b0, cs.b1) + 1;
+        const r = lpEditBuf((L) => {
+          if (z - a >= lpBeats(L)) return null;
+          const d = L.buf.getChannelData(0),
+            sr = L.buf.sampleRate,
+            per = (beatDur() * sr),
+            out = d.slice(Math.round(a * per), Math.round(z * per)),
+            fd = Math.min(out.length >> 2, Math.round(sr * 0.004));
+          for (let k = 0; k < fd; k++) ((out[k] *= k / fd), (out[out.length - 1 - k] *= k / fd));
+          return { d: out, o: L.o + a };
+        });
+        LP.cs = null;
+        lpFace();
+        if (r) toast(`Cropped to ${z - a} ${z - a > 1 ? "beats" : "beat"}`);
+      }
+      function lpNudge(ms) {
+        lpEditBuf((L) => {
+          const d = L.buf.getChannelData(0),
+            N = d.length,
+            sh = mod(Math.round((ms / 1000) * L.buf.sampleRate), N),
+            out = new Float32Array(N);
+          for (let k = 0; k < N; k++) out[(k + sh) % N] = d[k];
+          return { d: out };
+        });
+      }
+      function lpQuant() {
+        const gi = S.loop.grid ?? 1;
+        let res = null;
+        lpEditBuf((L) => {
+          const sr = L.buf.sampleRate;
+          res = lpQuantize(L.buf.getChannelData(0), sr, (beatDur() / LGRID[gi][1]) * sr);
+          return res && res.moved ? { d: res.out } : null;
+        });
+        if (!res) toast("No hits found in this loop");
+        else toast(res.moved ? `${res.moved} of ${res.hits} hits moved to the ${LGRID[gi][0]} grid` : `All ${res.hits} hits were already on the ${LGRID[gi][0]} grid`);
+      }
+      (() => {
+        const cv = $("#lWave");
+        let drag = null;
+        const beatAt = (e) => {
+          const L = LP.loops[LP.sel],
+            r = cv.getBoundingClientRect(),
+            n = lpBeats(L);
+          return Math.max(0, Math.min(n - 1, Math.floor(((e.clientX - r.left) / r.width) * n)));
+        };
+        cv.addEventListener("pointerdown", (e) => {
+          if (!LP.loops[LP.sel]) return;
+          e.preventDefault();
+          cv.setPointerCapture(e.pointerId);
+          const b = beatAt(e),
+            was = LP.cs && LP.cs.i === LP.sel && LP.cs.b0 === b && LP.cs.b1 === b;
+          drag = { b, was, moved: false };
+          LP.cs = { i: LP.sel, b0: b, b1: b };
+          lpFace();
+        });
+        cv.addEventListener("pointermove", (e) => {
+          if (!drag || !LP.cs) return;
+          const b = beatAt(e);
+          if (b !== LP.cs.b1) ((LP.cs.b1 = b), (drag.moved = true), lpFace());
+        });
+        const up = () => {
+          if (drag && !drag.moved && drag.was) ((LP.cs = null), lpFace());
+          drag = null;
+        };
+        cv.addEventListener("pointerup", up);
+        cv.addEventListener("pointercancel", up);
+      })();
+      $("#lCrop").onclick = lpCrop;
+      $("#lQuant").onclick = lpQuant;
+      $("#lGrid").onchange = (e) => {
+        S.loop.grid = +e.target.value;
+        lpFace();
+        saveState();
+      };
+      [["lNudL", -10], ["lNudR", 10]].forEach(([id, ms]) => {
+        let t = 0;
+        const go = () => (lpNudge(ms), (t = setTimeout(go, t ? 90 : 450)));
+        $("#" + id).addEventListener("pointerdown", (e) => (e.preventDefault(), (t = 0), go()));
+        ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => $("#" + id).addEventListener(ev, () => (clearTimeout(t), (t = 0))));
+      });
+
+      // ---- drawing: one animation loop while the clock runs
+      function rhythmKick() {
+        if (!CLK.raf) CLK.raf = requestAnimationFrame(rhythmFrame);
+      }
+      function rhythmFrame() {
+        CLK.raf = 0;
+        if (S.view === "met") metFrame();
+        if (S.view === "loop") lpFrame();
+        // the header buttons: the metronome blinks on the beat, the looper stays lit while loops play
+        const hm = $('#hViews [data-v="met"]'),
+          hl = $('#hViews [data-v="loop"]');
+        const ph = MET.on && CLK.on && ctx ? (heardNow() - CLK.t0) / beatDur() : null;
+        hm.classList.toggle("tick", ph !== null && mod(ph, 1) < 0.15);
+        hl.classList.toggle("live", lpAny() || !!LP.rec);
+        if (CLK.on || LP.rec) CLK.raf = requestAnimationFrame(rhythmFrame);
+        else if (S.view === "met") metFrame();
+      }
+      function rhythmStopAll() {
+        if (LP.rec) LP.rec = null;
+        MET.on = false;
+        LP.loops.forEach((L) => L && L.on && lpStop(L));
+        lpMicClose();
+        clkMaybeStop();
+        metFace();
+        lpFace();
+        playFace();
+      }
+
+      // ======================================================================
       // custom tunings (setup view)
       // ======================================================================
       let rows = [];
@@ -5265,7 +6804,7 @@
       // ======================================================================
       // views, ribbons, themes
       // ======================================================================
-      const WM = { tun: "TUNER", det: "DETECT", scl: "SCALES", jam: "JAM", cof: "CIRCLE", set: "TUNINGS" };
+      const WM = { tun: "TUNER", det: "DETECT", scl: "SCALES", jam: "JAM", cof: "CIRCLE", met: "TEMPO", loop: "LOOPS", set: "TUNINGS" };
       function showView(v) {
         if (!WM[v]) v = "tun";
         S.view = v;
@@ -5282,6 +6821,10 @@
         if (v === "scl") renderScale();
         if (v !== "scl") practiceStop();
         if (v === "scl") requestAnimationFrame(drawDia);
+        if (v === "met") metRender();
+        if (v === "loop") lpRender();
+        if (v !== "loop") lpMicClose(); // the metronome and the loops keep playing in the other views
+        rhythmKick();
         if (v !== "tun" && v !== "det" && v !== "scl" && MIC.on) micStop(); // the mic only runs where it is shown
         saveState();
       }
@@ -5302,6 +6845,10 @@
         minor: IC('<path d="M9 18V6l9-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="15.5" cy="16" r="2.5"/>'),
         snd: IC('<path d="M4 14h4v6H4zM10 9h4v11h-4zM16 4h4v16h-4z"/>'),
         fx: IC('<path d="M5 12a7 7 0 0 1 14 0M8 12a4 4 0 0 1 8 0"/><circle cx="12" cy="12" r="1.5"/><path d="M12 14v6"/>'),
+        loop: IC('<path d="M18 8a7 7 0 1 0 1.5 6"/><path d="M19 3v5h-5"/>'),
+        rec: IC('<circle cx="12" cy="12" r="6" fill="currentColor"/>'),
+        edit: IC('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>'),
+        undo: IC('<path d="M9 6L4 11l5 5"/><path d="M4 11h10a5 5 0 0 1 0 10h-3"/>'),
       };
       function rib(id, icon, cap, on) {
         const b = $("#" + id);
@@ -5390,10 +6937,14 @@
         if (detLastHz > 0) playTone(midiToHz(Math.round(hzToMidi(detLastHz))));
         else toast("No note heard yet");
       };
+      function a4Face() {
+        $("#a4Txt").innerHTML = `<i>A4 HZ</i>${A4}`;
+      }
       $("#a4").onchange = (e) => {
         const v = Math.max(415, Math.min(466, Math.round(+e.target.value) || 440));
         e.target.value = v;
         A4 = S.a4 = v;
+        a4Face();
         renderStrings();
         renderScale();
         saveState();
@@ -5455,6 +7006,7 @@
         if (document.hidden) {
           if (MIC.on) micStop();
           if (J.on) jamStop();
+          rhythmStopAll();
         }
       });
 
@@ -5781,7 +7333,7 @@
       document.addEventListener("visibilitychange", bgKick);
       bgWide.addEventListener?.("change", bgKick);
       // what the backdrop listens to: the jam band while it plays, else the microphone while it is on
-      const bgSource = () => (J.on && J.an ? J.an : MIC.on && MIC.an ? MIC.an : null);
+      const bgSource = () => (J.on && J.an ? J.an : lpAny() && LP.an ? LP.an : MIC.on && MIC.an ? MIC.an : null);
 
       // ======================================================================
       // help manual (EN / ES), same format as TRACK.Pocket: "## " heading, "- " list item, **bold**, *dim*
@@ -5792,26 +7344,26 @@
           t: { en: "Welcome", es: "Bienvenida" },
           b: {
             en: [
-              "**TUNE.Pocket** is a pocket tuner, note detector, scale finder and jam band: the tuning sister of TRACK.Pocket. Everything runs on this phone; nothing is recorded or uploaded.",
+              "**TUNE.Pocket** is a pocket tuner, note detector, scale finder, jam band, metronome and looper: the tuning sister of TRACK.Pocket. Everything runs on this phone; nothing is uploaded, and your loops stay on it.",
               "## The header",
               "- **TUNE.** opens this manual.",
-              "- **A4 Hz** is the reference pitch (440 by default, 415 to 466). Every note, string and scale follows it.",
-              "- The view buttons: **Tuner**, **Detect**, **Scales**, **Jam**, **Circle** (of fifths), and **Tunings** (the disk) at the far right.",
+              "- **A4 Hz**, at the end of the instrument bar under the header, is the reference pitch (440 by default, 415 to 466). Every note, string and scale follows it.",
+              "- The view buttons: **Tuner**, **Detect**, **Scales**, **Jam**, **Circle** (of fifths), **Metronome**, **Looper**, and **Tunings** (the disk) at the far right. The metronome button blinks on the beat while it ticks, and the looper button stays lit while loops play, whatever view you are in.",
               "- **●** turns the microphone on and off (Tuner and Detect only). It is lit while the app listens.",
-              "- **▶** plays what the view has to play: the strings and a strum in the Tuner, the scale in Scales, the band in Jam. It is hidden in Detect and Tunings.",
+              "- **▶** plays what the view has to play: the strings and a strum in the Tuner, the scale in Scales, the band in Jam, the clicks in the Metronome, every loop in the Looper. It is hidden in Detect and Tunings.",
               "## Microphone",
-              "The first time you tap **●** the phone asks for permission to use the microphone. In the Android app, if you refused it, allow it in *Settings → Apps → TUNE.Pocket → Permissions → Microphone*. The microphone turns off when you leave the Tuner or Detect views or switch apps.",
+              "The first time you tap **●** the phone asks for permission to use the microphone. In the Android app, if you refused it, allow it in *Settings → Apps → TUNE.Pocket → Permissions → Microphone*. The Looper asks for it the first time you record. The microphone turns off when you leave the view that uses it or switch apps; switching apps also stops the metronome and the loops.",
             ],
             es: [
-              "**TUNE.Pocket** es un afinador de bolsillo, detector de notas, buscador de escalas y banda para tocar encima: la app hermana de TRACK.Pocket. Todo funciona en el teléfono; no se graba ni se sube nada.",
+              "**TUNE.Pocket** es un afinador de bolsillo, detector de notas, buscador de escalas, banda para tocar encima, metrónomo y looper: la app hermana de TRACK.Pocket. Todo funciona en el teléfono; no se sube nada, y tus loops se quedan en él.",
               "## La cabecera",
               "- **TUNE.** abre este manual.",
-              "- **A4 Hz** es el tono de referencia (440 por defecto, de 415 a 466). Todas las notas, cuerdas y escalas lo siguen.",
-              "- Los botones de vista: **Afinador**, **Detectar**, **Escalas**, **Jam**, **Círculo** (de quintas), y **Afinaciones** (el disco) a la derecha del todo.",
+              "- **A4 Hz**, al final de la barra del instrumento bajo la cabecera, es el tono de referencia (440 por defecto, de 415 a 466). Todas las notas, cuerdas y escalas lo siguen.",
+              "- Los botones de vista: **Afinador**, **Detectar**, **Escalas**, **Jam**, **Círculo** (de quintas), **Metrónomo**, **Looper**, y **Afinaciones** (el disco) a la derecha del todo. El botón del metrónomo parpadea con el pulso mientras suena, y el del looper se queda encendido mientras suenan loops, estés en la vista que estés.",
               "- **●** enciende y apaga el micrófono (solo en Afinador y Detectar). Se ilumina mientras la app escucha.",
-              "- **▶** toca lo que corresponde a la vista: las cuerdas y un rasgueo en el Afinador, la escala en Escalas, la banda en Jam. Se oculta en Detectar y Afinaciones.",
+              "- **▶** toca lo que corresponde a la vista: las cuerdas y un rasgueo en el Afinador, la escala en Escalas, la banda en Jam, los clics en el Metrónomo, todos los loops en el Looper. Se oculta en Detectar y Afinaciones.",
               "## Micrófono",
-              "La primera vez que tocas **●** el teléfono pide permiso para usar el micrófono. En la app de Android, si lo rechazaste, actívalo en *Ajustes → Aplicaciones → TUNE.Pocket → Permisos → Micrófono*. El micrófono se apaga al salir de Afinador o Detectar, o al cambiar de app.",
+              "La primera vez que tocas **●** el teléfono pide permiso para usar el micrófono. En la app de Android, si lo rechazaste, actívalo en *Ajustes → Aplicaciones → TUNE.Pocket → Permisos → Micrófono*. El Looper lo pide la primera vez que grabas. El micrófono se apaga al salir de la vista que lo usa o al cambiar de app; cambiar de app también para el metrónomo y los loops.",
             ],
           },
         },
@@ -5978,6 +7530,84 @@
           },
         },
         {
+          id: "met",
+          t: { en: "Metronome", es: "Metrónomo" },
+          b: {
+            en: [
+              "A metronome to practise with: it keeps ticking when you go to **Scales**, **Jam** or any other view, so you can play the scale in time.",
+              "- **Drag the metronome** up or down, like the weight of a real one: higher is slower, lower is faster. The numbers on its body are the tempos.",
+              "- The pendulum swings with the clicks: it reaches a side on every beat. The weight lights up on the beat, in the second colour on the first beat of the bar.",
+              "- The **numbered beats** under it count the bar; the bar under the numbers glides from one beat to the next. With more clicks a beat, the dots in each number count them.",
+              "- **−** and **+** change the tempo one by one (hold to keep going). Tap the tempo in the middle to pick it from a list; its name (Adagio, Allegro…) is under the number.",
+              "- **BAR**: beats in a bar (1 to 12). **CLICKS**: one a beat, eighths, triplets or sixteenths. **SOUND**: click, wood block, beep or cowbell. **VOLUME** is the clicks' own.",
+              "## The bar",
+              "- **START / STOP** (or **▶**), **TAP TEMPO** (tap it at least twice in time), **ACCENT** (a stronger first beat or all the same), **SCALES** and **LOOPER** to jump there with the metronome still going.",
+              "The looper records to this tempo: while there are loops, the tempo and the beats of the bar are locked (clear the loops to change them).",
+            ],
+            es: [
+              "Un metrónomo para practicar: sigue sonando cuando vas a **Escalas**, **Jam** o cualquier otra vista, para tocar la escala a tempo.",
+              "- **Arrastra el metrónomo** arriba o abajo, como la pesa de uno de verdad: más arriba es más lento, más abajo más rápido. Los números de su cuerpo son los tempos.",
+              "- El péndulo se mueve con los clics: llega a un lado en cada pulso. La pesa se ilumina en el pulso, con el segundo color en el primero del compás.",
+              "- Los **pulsos numerados** de debajo cuentan el compás; la barra bajo los números se desliza de un pulso al siguiente. Con más clics por pulso, los puntos de cada número los cuentan.",
+              "- **−** y **+** cambian el tempo de uno en uno (mantén pulsado para seguir). Toca el tempo del centro para elegirlo de una lista; su nombre (Adagio, Allegro…) está bajo el número.",
+              "- **BAR**: pulsos por compás (de 1 a 12). **CLICKS**: uno por pulso, corcheas, tresillos o semicorcheas. **SOUND**: clic, caja china, pitido o cencerro. **VOLUME** es el de los clics.",
+              "## La barra",
+              "- **START / STOP** (o **▶**), **TAP TEMPO** (tócalo al menos dos veces a tempo), **ACCENT** (el primer pulso más fuerte o todos iguales), **SCALES** y **LOOPER** para ir allí sin parar el metrónomo.",
+              "El looper graba a este tempo: mientras haya loops, el tempo y los pulsos del compás quedan fijos (borra los loops para cambiarlos).",
+            ],
+          },
+        },
+        {
+          id: "loop",
+          t: { en: "Looper", es: "Looper" },
+          b: {
+            en: [
+              "Record short loops from the microphone and play them together, in time: a chord progression to solo over, a rhythm, a bass line, layer on layer.",
+              "- **Tap an empty pad**: it counts in one bar (the big number counts down with the clicks), then records. Pick the length first with the bars under the pads: **1, 2, 4 or 8 bars**. When it ends, the loop plays at once. **REC** in the bar records into the next empty pad.",
+              "- **Tap a loop** to stop it; tap it again and it comes back in on the next bar. Play as many as you like: they all keep to the same bars, whenever you start them.",
+              "- Tap the red pad while it counts or records to cancel.",
+              "- The top row: the **TEMPO** (tap it to open the metronome), **CLICK** (the metronome on or off while you loop), and the **REC DELAY**.",
+              "## FX",
+              "The same effect pads as the band, plus loop effects: **Repeat 2, 1 or ½** (the beat you are on, over and over), **Reverse**, **Octave ↑ / ↓**. **LATCH** on: tap to turn an effect on or off; off: it plays while you hold it.",
+              "## EDIT",
+              "Tap a loop to choose it (it still starts and stops). The wave shows it with its beats, a long line on each bar, the quantize grid as short ticks, the hits it found as marks on top, and where it is playing.",
+              "- The **volume** of that loop.",
+              "- **OVERDUB** records another layer on top of it, on its next turn. **REVERSE** turns it back to front. **NORMALIZE** makes it as loud as it can be. **CLEAR THIS** empties the pad, **CLEAR ALL** every pad.",
+              "- **CROP**: drag across the wave to choose whole beats, then CROP keeps only those. The beats stay where they were in the bar, so a 3-beat loop over 4/4 drifts against the bar on purpose, always on the beat. Tap a chosen beat again to unchoose it.",
+              "- **QUANTIZE** finds every hit (a strum, a clap, a note's start) and moves it to the nearest point of the **GRID**: beats, eighths, triplets or sixteenths. What follows each hit moves with it. Best on rhythmic loops; on long held notes there is little to move.",
+              "- **AUTO Q** (at the top, off by default) does the same to every new loop and every new layer as it lands, on the GRID chosen here. Layers are quantized on their own, so what is already in the loop stays as it was.",
+              "- **◀ ▶** slide the whole loop 10 ms earlier or later (hold to keep going), to set it against the beat by ear.",
+              "- **UNDO** (in the bar) takes back the last recording, layer or edit.",
+              "## Tips",
+              "- Use **headphones**: without them the microphone also records the loops coming out of the speaker.",
+              "- If your loops come out late or early, set **REC DELAY**: it is the time from a click to your answer reaching the recording, and it depends on the phone. Auto guesses it from the phone's own figures.",
+              "- Loops stay until you close the app; they are not saved.",
+            ],
+            es: [
+              "Graba loops cortos con el micrófono y tócalos juntos, a tempo: una progresión de acordes para improvisar encima, un ritmo, una línea de bajo, capa sobre capa.",
+              "- **Toca un pad vacío**: cuenta un compás (el número grande baja con los clics) y graba. Elige antes la duración con las barras de debajo: **1, 2, 4 u 8 compases**. Al terminar, el loop suena enseguida. **REC** en la barra graba en el siguiente pad vacío.",
+              "- **Toca un loop** para pararlo; tócalo otra vez y vuelve a entrar en el siguiente compás. Toca todos los que quieras: siguen los mismos compases, los empieces cuando los empieces.",
+              "- Toca el pad rojo mientras cuenta o graba para cancelar.",
+              "- La fila de arriba: el **TEMPO** (tócalo para abrir el metrónomo), **CLICK** (el metrónomo encendido o apagado mientras tocas) y el **REC DELAY**.",
+              "## FX",
+              "Los mismos pads de efectos que la banda, y efectos de loop: **Repeat 2, 1 o ½** (el pulso en el que estás, una y otra vez), **Reverse** (al revés), **Octave ↑ / ↓**. Con **LATCH**: toca para encender o apagar un efecto; sin él, suena mientras lo mantienes.",
+              "## EDIT",
+              "Toca un loop para elegirlo (también se enciende y se para). La onda lo muestra con sus pulsos, una línea larga en cada compás, la rejilla de cuantizar como marcas cortas, los golpes que ha encontrado arriba, y por dónde va.",
+              "- El **volumen** de ese loop.",
+              "- **OVERDUB** graba otra capa encima, en su siguiente vuelta. **REVERSE** le da la vuelta. **NORMALIZE** lo pone tan fuerte como puede. **CLEAR THIS** vacía el pad, **CLEAR ALL** todos.",
+              "- **CROP**: arrastra por la onda para elegir pulsos enteros, y CROP deja solo esos. Los pulsos se quedan donde estaban en el compás, así que un loop de 3 pulsos sobre 4/4 se desplaza respecto al compás a propósito, siempre a tempo. Toca otra vez un pulso elegido para quitarlo.",
+              "- **QUANTIZE** (cuantizar) encuentra cada golpe (un rasgueo, una palmada, el inicio de una nota) y lo mueve al punto más cercano de la **GRID** (rejilla): pulsos, corcheas, tresillos o semicorcheas. Lo que sigue a cada golpe se mueve con él. Va mejor en loops rítmicos; en notas largas hay poco que mover.",
+              "- **AUTO Q** (arriba, apagado por defecto) hace lo mismo con cada loop nuevo y cada capa nueva al terminar de grabar, con la GRID elegida aquí. Las capas se cuantizan solas, así lo que ya estaba en el loop no cambia.",
+              "- **◀ ▶** desplazan todo el loop 10 ms antes o después (mantén pulsado para seguir), para encajarlo con el pulso de oído.",
+              "- **UNDO** (en la barra) deshace la última grabación, capa o edición.",
+              "## Consejos",
+              "- Usa **auriculares**: sin ellos el micrófono también graba los loops que salen por el altavoz.",
+              "- Si tus loops quedan adelantados o atrasados, ajusta **REC DELAY**: es el tiempo que pasa de un clic a que tu respuesta llega a la grabación, y depende del teléfono. Auto lo calcula con los datos del propio teléfono.",
+              "- Los loops duran hasta que cierras la app; no se guardan.",
+            ],
+          },
+        },
+        {
           id: "set",
           t: { en: "Tunings", es: "Afinaciones" },
           b: {
@@ -6128,7 +7758,9 @@
       // ======================================================================
       buildMeter();
       renderScaleSelects();
+      $("#a4").innerHTML = Array.from({ length: 52 }, (_, i) => `<option value="${415 + i}">${415 + i} Hz</option>`).join("");
       $("#a4").value = A4;
+      a4Face();
       renderInst();
       renderJam();
       renderCustom();
