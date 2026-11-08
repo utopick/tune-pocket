@@ -14,7 +14,7 @@ It should run fully offline, although opening the HTML file directly can cause m
 
 I've been adding features and tweaking a lot, so they come out not fully tested, and there could be bugs. Leave me an issue and I'll fix it.
 
-There is a help wiki inside (también en español).
+There is a help wiki inside (también en español), with small interactive demos you can touch and hear: the tuner, the metronome, the looper's quantize and the circle of fifths.
 
 I want to apologize to my neighbours for my live session afternoons and state here that I actually made a cow move gracefully out of the way with a tin whistle song. I have witnesses.
 

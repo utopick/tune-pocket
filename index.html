@@ -32,9 +32,9 @@
       } catch {}
     </script>
     <title>TUNE.Pocket tuner</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20108%20108%22%3E%3Crect%20width%3D%22108%22%20height%3D%22108%22%20rx%3D%2224%22%20fill%3D%22%230d0f12%22%2F%3E%3Cpath%20d%3D%22M37.70%2040.85L24.12%2040.85L24.12%2030.90L63.61%2030.90L63.61%2040.85L50.03%2040.85L50.03%2076.37L37.70%2076.37L37.70%2040.85Z%22%20fill%3D%22%23e8ecf1%22%2F%3E%3Cpath%20d%3D%22M77.60%2077.10L77.60%2077.10Q74.91%2077.10%2073.11%2075.33Q71.31%2073.56%2071.31%2070.91L71.31%2070.91Q71.31%2068.25%2073.11%2066.48Q74.91%2064.71%2077.60%2064.71L77.60%2064.71Q80.28%2064.71%2082.08%2066.48Q83.88%2068.25%2083.88%2070.91L83.88%2070.91Q83.88%2073.56%2082.08%2075.33Q80.28%2077.10%2077.60%2077.10Z%22%20fill%3D%22%236ee7da%22%2F%3E%3C%2Fsvg%3E" />
-    <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABlklEQVR4nOyXT0sCQRjGn9ldNwkzDPp3rmOH6uD2CeoadErqEARBRHXpe1REINSt7NrHcD3UQW/R2ZQg0DUSXad5oxWT2txyHA/+YNgZZuF95p15Z/cx0EIkMjmhGbVdzrEqhnOi6egOrmg5xnDbqIfOHadQ9CaY14lGYwnOWJJ0QC4O43ynVHpJ0UBvCX4tuibkY4KxtfBQ+KFafcsySjvTa4+Qv/J2HO6GZvTw8NCRGCyj95ia3ng1Pg+cEig2Gxkdq6N7pz0orqEwOKFrUIzhN7l/cIi4ZaETMraN05NjBMVXAAW3rCXIRPkWUBXwTl++St00M2LbaWwk1vFflGdgIGAgoL9vwr8yFV/Ewt42njJ3yItGz5+QkoFpIYBEzAsRJMQPaRnw8Ft9YAH0wfmu38792UUzC/lfBAS6imXQF2XoQh0uCchBHTmN7BIUQbGVGpNG3ZjVyCiSV0OPoZiVSrHw8UtOHo28msjJCuT7QzKnW1/MqSfCDEUvyS6JYUy0cXSvTKnSsmLPk8IPbpbLz2lv4h0AAP//TqSNVAAAAAZJREFUAwBHsYac4F1/bwAAAABJRU5ErkJggg==" />
-    <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAAC9ElEQVR4nOzdP4oTYRyA4VFsRbDSUkSwXC1MruAlBMFKPIz/sBIEET2CV3AtdEtvoMdwcGBZcF8wG51J1uchRRiy1ffu70tmBubS5StXBzjNxQGCOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEiXhoWsVuvVej3suefPng7n14WlnvH27v2HsY9hz926eWM4v2wrJHGQxEESB0kcJHGQxEESB0kcJHGQxEESB0kcJHGQxEFa7H6O7a1W63fvPwxn9eL5s/N9q872TA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIImDJA6SOEjiIC320OH/3LV7d+88eTS9mY78+PxlfI1vvr58PewGccxtyuK4iZPHjw/uSB+2lVndf/tqfP1exkkHTx49/PZpmivLEsd8Th0Y5WCTD/8j4pjJWMbBhsNg8eEhjpkcbL7S4+QY96BhOeKYw5lnwMlvqfMTB0kcc9jmv//6cpPDeY45bBOHbYVdZHLsuumc+iJMjjksuMDbEMcctonju8lxvp15gY8v1S5CHHMYF/joTBdal708K46ZjMu86Qw42vxP/i5xzGejMTBmsfhdHeKYz7jeb26v/2R/GT/z8cHjYWl7/Ljy4dcTy4ctHB5+GpYw3dhx6qnPaWDsyE/f/Y5j3419TJdOpp8zu3Y6RBwk3zlI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iD9BAAA//9AGlNRAAAABklEQVQDAAxfc4abnbF7AAAAAElFTkSuQmCC" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20108%20108%22%3E%3Crect%20width%3D%22108%22%20height%3D%22108%22%20rx%3D%2224%22%20fill%3D%22%230d0f12%22%2F%3E%3Cpath%20d%3D%22M37.70%2040.85L24.12%2040.85L24.12%2030.90L63.61%2030.90L63.61%2040.85L50.03%2040.85L50.03%2076.37L37.70%2076.37L37.70%2040.85Z%22%20fill%3D%22%23e8ecf1%22%2F%3E%3Cpath%20d%3D%22M77.60%2077.10L77.60%2077.10Q74.91%2077.10%2073.11%2075.33Q71.31%2073.56%2071.31%2070.91L71.31%2070.91Q71.31%2068.25%2073.11%2066.48Q74.91%2064.71%2077.60%2064.71L77.60%2064.71Q80.28%2064.71%2082.08%2066.48Q83.88%2068.25%2083.88%2070.91L83.88%2070.91Q83.88%2073.56%2082.08%2075.33Q80.28%2077.10%2077.60%2077.10Z%22%20fill%3D%22%23007ba7%22%2F%3E%3C%2Fsvg%3E" />
+    <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABnElEQVR4nOyXv08CMRTHX6/lIAYxmKgDoz8mZ86/QBNdTJwkOjiZOKiL/4c6mDC4Ka4u/g8cK0wSRwaIiQkcRsKV2kc4gkQvnFwpA5+kSZs2ed++9vXuy2CAeHxl2WDtMyFgXw43ZaMQDly2EiHw3HEjd45TrXkTxOskEsmMICSLOkAtDhHitF7/yOGADgR/lF0T1GMCIQexaKzcan0VCaad0PYbqN/5MI7gkVUam4teycE2TB7ToJ1P1rtwWsDYZH5h0YXwbntQONMYHKEGaIb5TZ5fXELasmAUCrYNtzfXEBRfARjcsrZAJdqPAKtAjLr4IffUz4ht5+Eocwjjoj0DMwEzAdP9Ev4XnlqHVnoPWKUMtPIqW/nPtUoywFMbPRG7XSF+KMmAK4P3A/jsPrAA/OD81h8mWnjpZgGF4BH4EegpVsFUlCEHfXAUUAJ9lAy0S6AJjK3VmHRctmagUUSvBhMGYzabtWr3lxw9Gno1mZMdUO8P0Zye/DCnnggzkrhHuySHSdmWILwyxUoryjPPSj943Gi8572JbwAAAP//mVQvvgAAAAZJREFUAwA46ohLNdxkDQAAAABJRU5ErkJggg==" />
+    <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAADBUlEQVR4nOzdTYoTTQCA4fq+GRQEEdy6EtEjmDmDrjyHG4/i3xFEl670DOoRdD1XEJQRbCcgor5gJtidjM/DLEKTWfWbqkpXoA4vX7k64Hf+HxDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQTocC1mtjlZHR2PPPX70cJxf/y11xtuz5y+mPsaeu3nj+ji/TCskcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQVrs9xzbW62Onj1/Mc7qyeNH5/unOtszcpDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHabFDh/9xX67d/HT77vrF+srB8YfD4w/TiwvvXo3dII65rbP43sSP179f3JE+xDGrj/ce/JrFTz7dvjP9XXz3evFErDnm8/l3A0aZ+vjzN/8l4pjJVMZ0vzf6l/WiZEHimMmmZYzTVcg0DY3liGMOn886Bvy4Sp2fOEjimMPJFp/+L9dujYWIYw7bTA0nphV2kIdgu279TH0RRo45HCx3g7chjjls8+k/OH4/FiKOOZz5Bk9DzoFp5XybbvC0kTY2d3HRvTdxzGTaYt10DJh6WnaxIo75bDQMTFnYsv+HTPf78tP7fzK/TO+59HL507L3+LjycXpi+djC27dvxhKmfbiT2FE7XZ282pGvvvsdx7473XT9tnWy/jqza49DxEGy5iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJg/QVAAD//zNlusMAAAAGSURBVAMAFBx1RSjbyR4AAAAASUVORK5CYII=" />
     <style>
       /* ===================== shared with TRACK.Pocket (base, pocket layout, themes) ===================== */
       :root { --bg: #0d0f12; --panel: #161a20; --panel2: #1d222a; --line: #2a313b; --text: #e8ecf1; --dim: #8a94a3; --acc: #7cf29a; --acc2: #ffb347; --hot: #ff5e7a; --blue: #6ab7ff; --r: 10px; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace; --ink: #082012; --ink2: #1b1000; --beat: #1a1f27; --playbg: #24402e; --playbg2: #1f5133; --wave: #0a0c0f; --scope: #ffb347; --tie: #1d2a22; --lcn: #232a35; --hi: #fff; --blink: #35404f; }
@@ -46,8 +46,6 @@
       .mark .t { font-weight: 900; font-size: 22px; letter-spacing: 0.5px; }
       .mark b { color: var(--acc); }
       /* the logo dot in TUNE.Pocket's own colour (the special themes still style it their own way) */
-      :root { --brand: #6ee7da; }
-      html[data-theme="light"] { --brand: #0d9488; }
       .mark b { color: var(--brand); }
       .mark .sub { display: none; font-size: 11px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; color: var(--acc2); margin-top: 3px; }
       .grow { flex: 1; }
@@ -72,7 +70,7 @@
               }
             }
       .hint { color: var(--dim); font-size: 12px; line-height: 1.4; }
-      #toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--acc); color: #000; padding: 8px 14px; border-radius: 20px; font-weight: 600; opacity: 0; transition: 0.25s; pointer-events: none; z-index: 9; }
+      #toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--acc); color: var(--ink); padding: 8px 14px; border-radius: 20px; font-weight: 600; opacity: 0; transition: 0.25s; pointer-events: none; z-index: 9; }
       [hidden] { display: none !important; }
       :root { --bh: 44px; --chn: 4; }
       @supports (height: 100dvh) {
@@ -512,11 +510,11 @@
         --st: var(--hot);
       }
       .disp.ok {
-        --st: var(--acc);
-        border-color: var(--acc);
+        --st: var(--ok);
+        border-color: var(--ok);
         box-shadow:
-          0 0 0 1px var(--acc),
-          0 0 26px -6px var(--acc);
+          0 0 0 1px var(--ok),
+          0 0 26px -6px var(--ok);
       }
       .note {
         display: flex;
@@ -569,7 +567,7 @@
         left: 45%;
         width: 10%;
         background: rgba(124, 242, 154, 0.14);
-        background: color-mix(in srgb, var(--acc) 18%, transparent);
+        background: color-mix(in srgb, var(--ok) 18%, transparent);
       }
       .mtrack .tick {
         position: absolute;
@@ -677,7 +675,7 @@
         cursor: pointer;
       }
       .dia .nd.root {
-        fill: var(--acc);
+        fill: var(--ok);
         opacity: 0.55;
       }
       .dia .nb {
@@ -690,7 +688,7 @@
         transition: transform 0.12s;
       }
       .dia .nb.root circle {
-        fill: var(--acc);
+        fill: var(--ok);
       }
       .dia .nb text {
         font-family: var(--mono);
@@ -707,7 +705,7 @@
         filter: drop-shadow(0 0 6px var(--hi));
       }
       .dia .nb.done circle {
-        fill: var(--acc);
+        fill: var(--ok);
       }
       .dia .nb.lit text,
       .dia .nb.done text {
@@ -799,7 +797,7 @@
       }
       .dia .wk b.root,
       .dia .bk b.root {
-        background: var(--acc);
+        background: var(--ok);
       }
       .dia .wk b.pass,
       .dia .bk b.pass {
@@ -819,7 +817,7 @@
       }
       .dia .wk.done,
       .dia .bk.done {
-        background: var(--acc);
+        background: var(--ok);
       }
       .dia .kbl {
         position: absolute;
@@ -939,7 +937,7 @@
         fill: var(--text);
       }
       .dia .wone .wn.root {
-        fill: var(--acc);
+        fill: var(--ok);
       }
       .dia .wone .ws {
         font: 700 11px var(--mono);
@@ -1006,7 +1004,7 @@
         font: 900 12px var(--mono);
       }
       .dia .wch.root b {
-        color: var(--acc);
+        color: var(--ok);
       }
       .dia .wch i {
         font-style: normal;
@@ -1040,7 +1038,7 @@
         background: color-mix(in srgb, var(--hot) 15%, transparent);
       }
       .dia .wch.done {
-        background: color-mix(in srgb, var(--acc) 30%, transparent);
+        background: color-mix(in srgb, var(--ok) 30%, transparent);
       }
       .sq.tgt {
         outline: 2px solid var(--hot);
@@ -1730,7 +1728,21 @@
       #instBar .a4dd {
         flex: 0 0 74px;
       }
-    </style>
+          /* help demos: live drawings inside the manual */
+      .hdemo { margin: 10px 0 14px; border: 1px solid var(--line); border-radius: var(--r); background: var(--wave); overflow: hidden; }
+      .hdemo canvas { display: block; width: 100%; cursor: pointer; }
+      .hdemo .hdb { display: flex; gap: 6px; padding: 8px; background: var(--wave); }
+      .hdemo .hdb button { flex: 1; min-width: 0; height: auto; min-height: 0; margin: 0; padding: 8px 4px; font: 800 11px var(--mono); letter-spacing: 0.04em; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); box-shadow: none; text-transform: none; }
+      .hdemo .hdb button.on { background: var(--acc); color: var(--ink); border-color: var(--acc); }
+      .hdemo figcaption { padding: 8px 10px; font-size: 12px; line-height: 1.45; color: var(--dim); border-top: 1px solid var(--line); background: var(--panel); }
+      /* the app's own colour, in the dark and light themes: the dot of the logo, buttons, tabs, highlights.
+         --ok stays green: it means right (in tune, a root, a note played); in the other themes it is their accent */
+      :root { --ok: var(--acc); --brand: var(--acc); }
+      html:not([data-theme]), html[data-theme="dark"] { --acc: #007ba7; --brand: #007ba7; --ok: #7cf29a; --ink: #ffffff; --playbg: #10303d; --playbg2: #0f3a4b; --tie: #15262e; }
+      html[data-theme="light"] { --acc: #007ba7; --brand: #007ba7; --ok: #12a05c; --ink: #ffffff; --playbg: #cde6f0; --playbg2: #bddcea; --tie: #d5e8f0; }
+      /* dark text on the bright green of dark */
+      html:not([data-theme]) .dia .nb.root text, html[data-theme="dark"] .dia .nb.root text, html:not([data-theme]) .dia .nb.done text, html[data-theme="dark"] .dia .nb.done text { fill: #06100a; }
+</style>
   </head>
   <body class="pocket">
     <canvas id="bgfx" aria-hidden="true"></canvas>
@@ -2609,7 +2621,7 @@
         g.clearRect(0, 0, w, h);
         g.lineWidth = 2 * d;
         g.lineCap = "round";
-        const col = css("--acc") || "#7cf29a",
+        const col = css("--ok") || "#7cf29a",
           hot = css("--hot") || "#ff5e7a",
           warm = css("--acc2") || "#ffb347",
           mL = w * 0.06,
@@ -7373,6 +7385,7 @@
           b: {
             en: [
               "The **INSTRUMENT** bar under the header is on every screen: it sets the tuner's strings, the diagram in Scales and the tunings listed. Pick the **tuning** under it, tap the big **microphone** in the middle (or **●**) and play one string at a time, letting it ring. The chip under the microphone switches **AUTO** string detection.",
+              "@tuner",
               "Tap **▶** to hear every string in turn, then a strum, played by a synthesized version of the instrument (a plucked guitar, bass, ukulele or guitalele, a bowed violin, a piano, a recorder or whistle). The pads light up as they sound.",
               "- The big letter is the string's note. The bar below shows how far off you are, from −50 to +50 cents (a cent is 1/100 of a semitone).",
               "- **Orange, ▼ FLAT**: tighten the string. **Red, ▲ SHARP**: loosen it. **Green, ✓ IN TUNE**: within 4 cents.",
@@ -7387,6 +7400,7 @@
             ],
             es: [
               "La barra **INSTRUMENT** bajo la cabecera está en todas las pantallas: decide las cuerdas del afinador, el diagrama de Escalas y las afinaciones de la lista. Elige la **afinación** debajo, toca el **micrófono** grande del centro (o **●**) y toca una cuerda cada vez, dejándola sonar. La ficha bajo el micrófono activa la detección **AUTO** de cuerda.",
+              "@tuner",
               "Toca **▶** para oír cada cuerda por turno y luego un rasgueo, con una versión sintetizada del instrumento (guitarra, bajo, ukelele o guitalele punteados, violín con arco, piano, flauta dulce o whistle). Los pads se iluminan al sonar.",
               "- La letra grande es la nota de la cuerda. La barra de debajo muestra cuánto te desvías, de −50 a +50 cents (un cent es 1/100 de semitono).",
               "- **Naranja, ▼ FLAT** (baja): tensa la cuerda. **Rojo, ▲ SHARP** (alta): aflójala. **Verde, ✓ IN TUNE**: a menos de 4 cents.",
@@ -7503,6 +7517,7 @@
           b: {
             en: [
               "The twelve keys in a ring, each a fifth above the one before it: C, G, D, A… clockwise, F, B♭, E♭… the other way. Keys side by side share all their notes but one, so it shows which keys and chords go well together.",
+              "@cof",
               "- The **outer ring** is the major keys, the **inner ring** their relative minors (the same notes, another home), and the small ring the **key signature**: how many ♯ or ♭.",
               "- **Tap a key** to choose it and hear its chord: outer for major, inner for minor. The circle turns to put it at the top.",
               "- The **seven chords of the key** light up with their numbers: the key in the middle, its **IV** on the left and **V** on the right, and the three minors under them (**ii vi iii**), with the **vii°** one step further. Every pop song in that key lives in these seven.",
@@ -7516,6 +7531,7 @@
             ],
             es: [
               "Las doce tonalidades en un anillo, cada una una quinta por encima de la anterior: Do, Sol, Re, La… en el sentido del reloj, Fa, Si♭, Mi♭… al revés. Las vecinas comparten todas sus notas menos una, así que muestra qué tonalidades y acordes van bien juntos.",
+              "@cof",
               "- El **anillo de fuera** son las tonalidades mayores, el **de dentro** sus relativas menores (las mismas notas, otra casa), y el anillo pequeño la **armadura**: cuántos ♯ o ♭.",
               "- **Toca una tonalidad** para elegirla y oír su acorde: fuera mayor, dentro menor. El círculo gira para ponerla arriba.",
               "- Los **siete acordes de la tonalidad** se iluminan con sus números: la tonalidad en el centro, su **IV** a la izquierda y su **V** a la derecha, y los tres menores debajo (**ii vi iii**), con el **vii°** un paso más allá. Cualquier canción pop en esa tonalidad vive en estos siete.",
@@ -7535,6 +7551,7 @@
           b: {
             en: [
               "A metronome to practise with: it keeps ticking when you go to **Scales**, **Jam** or any other view, so you can play the scale in time.",
+              "@met",
               "- **Drag the metronome** up or down, like the weight of a real one: higher is slower, lower is faster. The numbers on its body are the tempos.",
               "- The pendulum swings with the clicks: it reaches a side on every beat. The weight lights up on the beat, in the second colour on the first beat of the bar.",
               "- The **numbered beats** under it count the bar; the bar under the numbers glides from one beat to the next. With more clicks a beat, the dots in each number count them.",
@@ -7546,6 +7563,7 @@
             ],
             es: [
               "Un metrónomo para practicar: sigue sonando cuando vas a **Escalas**, **Jam** o cualquier otra vista, para tocar la escala a tempo.",
+              "@met",
               "- **Arrastra el metrónomo** arriba o abajo, como la pesa de uno de verdad: más arriba es más lento, más abajo más rápido. Los números de su cuerpo son los tempos.",
               "- El péndulo se mueve con los clics: llega a un lado en cada pulso. La pesa se ilumina en el pulso, con el segundo color en el primero del compás.",
               "- Los **pulsos numerados** de debajo cuentan el compás; la barra bajo los números se desliza de un pulso al siguiente. Con más clics por pulso, los puntos de cada número los cuentan.",
@@ -7563,6 +7581,7 @@
           b: {
             en: [
               "Record short loops from the microphone and play them together, in time: a chord progression to solo over, a rhythm, a bass line, layer on layer.",
+              "@loop",
               "- **Tap an empty pad**: it counts in one bar (the big number counts down with the clicks), then records. Pick the length first with the bars under the pads: **1, 2, 4 or 8 bars**. When it ends, the loop plays at once. **REC** in the bar records into the next empty pad.",
               "- **Tap a loop** to stop it; tap it again and it comes back in on the next bar. Play as many as you like: they all keep to the same bars, whenever you start them.",
               "- Tap the red pad while it counts or records to cancel.",
@@ -7585,6 +7604,7 @@
             ],
             es: [
               "Graba loops cortos con el micrófono y tócalos juntos, a tempo: una progresión de acordes para improvisar encima, un ritmo, una línea de bajo, capa sobre capa.",
+              "@loop",
               "- **Toca un pad vacío**: cuenta un compás (el número grande baja con los clics) y graba. Elige antes la duración con las barras de debajo: **1, 2, 4 u 8 compases**. Al terminar, el loop suena enseguida. **REC** en la barra graba en el siguiente pad vacío.",
               "- **Toca un loop** para pararlo; tócalo otra vez y vuelve a entrar en el siguiente compás. Toca todos los que quieras: siguen los mismos compases, los empieces cuando los empieces.",
               "- Toca el pad rojo mientras cuenta o graba para cancelar.",
@@ -7678,6 +7698,615 @@
           localStorage.getItem("tune.lang") || ((navigator.language || "en").toLowerCase().startsWith("es") ? "es" : "en");
       } catch {}
       const hfmt = (t) => t.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\*(.+?)\*/g, "<em>$1</em>");
+      // ---------------------------------------------------------------------------------------------
+      // HELP DEMOS: small live drawings inside the manual. A help line "@name" becomes the demo HD[name]:
+      // a canvas drawn every frame with the theme's colours, that takes taps and drags, with optional
+      // buttons under it (tap, or hold) and a caption. They only run while the manual is open.
+      // ---------------------------------------------------------------------------------------------
+      const HD = {};
+      let hdLive = [],
+        hdRaf = 0,
+        hdAC = null,
+        hdNoiseBuf = null;
+      const HDN = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+      const hdNote = (m) => HDN[((Math.round(m) % 12) + 12) % 12] + (Math.floor(Math.round(m) / 12) - 1);
+      const hdHz = (m) => 440 * Math.pow(2, (m - 69) / 12);
+      const hdT = (o) => (typeof o === "string" ? o : o[HLANG] || o.en);
+      const hdClamp = (v, a, b) => Math.max(a, Math.min(b, v));
+      function hdHtml(name) {
+        const d = HD[name];
+        if (!d) return "";
+        const b = (d.btns || [])
+          .map(([id, t, hold]) => `<button data-hdb="${id}"${hold ? " data-hold" : ""}>${hdT(t)}</button>`)
+          .join("");
+        return (
+          `<figure class="hdemo" data-demo="${name}"><canvas style="height:${d.h || 150}px;touch-action:${d.drag ? "none" : "manipulation"}"></canvas>` +
+          (b ? `<div class="hdb">${b}</div>` : "") +
+          `<figcaption>${hfmt(hdT(d.cap))}</figcaption></figure>`
+        );
+      }
+      function hdPal() {
+        const c = (n, f) => css(n) || f;
+        return {
+          bg: c("--wave", "#0a0c0f"),
+          panel: c("--panel", "#161a20"),
+          panel2: c("--panel2", "#1d222a"),
+          line: c("--line", "#2a313b"),
+          text: c("--text", "#e8ecf1"),
+          dim: c("--dim", "#8a94a3"),
+          acc: c("--acc", "#7cf29a"),
+          ok: c("--ok", c("--acc", "#7cf29a")),
+          acc2: c("--acc2", "#ffb347"),
+          hot: c("--hot", "#ff5e7a"),
+          blue: c("--blue", "#6ab7ff"),
+          hi: c("--hi", "#fff"),
+          ink: c("--ink", "#082012"),
+          mono: c("--mono", "monospace"),
+        };
+      }
+      function hdTxt(g, P, s, x, y, o = {}) {
+        g.font = `${o.w || 800} ${o.sz || 10}px ${o.font || P.mono}`;
+        g.fillStyle = o.c || P.dim;
+        g.textAlign = o.a || "left";
+        g.textBaseline = o.b || "alphabetic";
+        g.fillText(s, x, y);
+      }
+      function hdStop() {
+        hdLive.forEach((d) => d.o.stop && d.o.stop());
+        hdLive = [];
+      }
+      function hdMount() {
+        hdStop();
+        const P = hdPal();
+        hdLive = $$("#hBody .hdemo").map((el) => {
+          const def = HD[el.dataset.demo],
+            cv = el.querySelector("canvas"),
+            d = { el, cv, def, P, down: false };
+          d.o = def.make(d);
+          const at = (e) => {
+            const r = cv.getBoundingClientRect();
+            return [e.clientX - r.left, e.clientY - r.top, r.width, r.height];
+          };
+          cv.addEventListener("pointerdown", (e) => {
+            cv.setPointerCapture(e.pointerId);
+            d.down = true;
+            d.o.down && d.o.down(...at(e));
+          });
+          cv.addEventListener("pointermove", (e) => d.down && d.o.move && d.o.move(...at(e)));
+          const up = () => {
+            if (!d.down) return;
+            d.down = false;
+            d.o.up && d.o.up();
+          };
+          cv.addEventListener("pointerup", up);
+          cv.addEventListener("pointercancel", up);
+          el.querySelectorAll("[data-hdb]").forEach((b) => {
+            const id = b.dataset.hdb;
+            if (b.hasAttribute("data-hold")) {
+              b.addEventListener("pointerdown", (e) => {
+                b.setPointerCapture(e.pointerId);
+                d.o.hold(id, true);
+              });
+              const off = () => d.o.hold(id, false);
+              b.addEventListener("pointerup", off);
+              b.addEventListener("pointercancel", off);
+            } else b.addEventListener("click", () => d.o.btn(id));
+          });
+          return d;
+        });
+        if (hdLive.length && !hdRaf) hdRaf = requestAnimationFrame(hdTick);
+      }
+      function hdTick(ms) {
+        hdRaf = 0;
+        if ($("#help").hidden || !hdLive.length) return hdStop();
+        const box = $("#hBody").getBoundingClientRect(),
+          dp = Math.min(2, devicePixelRatio || 1),
+          t = ms / 1000;
+        for (const d of hdLive) {
+          d.dt = Math.min(0.05, d.t ? t - d.t : 0);
+          d.t = t;
+          if (d.o.tick) d.o.tick(t, d.dt); // timing and sound keep going while it is scrolled away
+          const r = d.cv.getBoundingClientRect();
+          if (!(r.width > 0 && r.bottom > box.top && r.top < box.bottom)) continue;
+          const W = Math.round(r.width * dp),
+            H = Math.round(r.height * dp);
+          if (d.cv.width !== W || d.cv.height !== H) ((d.cv.width = W), (d.cv.height = H));
+          const g = d.cv.getContext("2d");
+          g.setTransform(dp, 0, 0, dp, 0, 0);
+          g.clearRect(0, 0, r.width, r.height);
+          g.lineCap = g.lineJoin = "round";
+          d.o.draw(g, r.width, r.height, t, d.dt);
+          d.el.querySelectorAll("[data-hdb]").forEach((b) => {
+            if (d.o.on) b.classList.toggle("on", !!d.o.on(b.dataset.hdb));
+            const l = d.o.label && d.o.label(b.dataset.hdb);
+            if (l != null && b.textContent !== l) b.textContent = l;
+          });
+        }
+        hdRaf = requestAnimationFrame(hdTick);
+      }
+      // sound for the demos: their own small audio graph, only ever started by a tap inside a demo
+      function hdAudio() {
+        if (!hdAC) hdAC = new (window.AudioContext || window.webkitAudioContext)();
+        if (hdAC.state === "suspended") hdAC.resume();
+        return hdAC;
+      }
+      function hdTone(f, dur = 0.2, type = "triangle", vol = 0.16, when, dest) {
+        const c = hdAudio(),
+          t = when ?? c.currentTime,
+          o = c.createOscillator(),
+          g = c.createGain();
+        o.type = type;
+        o.frequency.value = f;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(vol, t + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+        o.connect(g).connect(dest || c.destination);
+        o.start(t);
+        o.stop(t + dur + 0.05);
+        return o;
+      }
+      function hdNoise(when, dur, hp, vol, dest) {
+        const c = hdAudio(),
+          t = when ?? c.currentTime;
+        if (!hdNoiseBuf) {
+          hdNoiseBuf = c.createBuffer(1, c.sampleRate, c.sampleRate);
+          const d = hdNoiseBuf.getChannelData(0);
+          for (let k = 0; k < d.length; k++) d[k] = Math.random() * 2 - 1;
+        }
+        const s = c.createBufferSource(),
+          f = c.createBiquadFilter(),
+          g = c.createGain();
+        s.buffer = hdNoiseBuf;
+        f.type = "highpass";
+        f.frequency.value = hp;
+        g.gain.setValueAtTime(vol, t);
+        g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+        s.connect(f).connect(g).connect(dest || c.destination);
+        s.start(t, Math.random() * 0.5);
+        s.stop(t + dur + 0.05);
+      }
+      // a sustained tone whose pitch can follow a drag: { set(f), off() }
+      function hdHold(f, type = "triangle", vol = 0.1) {
+        const c = hdAudio(),
+          o = c.createOscillator(),
+          g = c.createGain();
+        o.type = type;
+        o.frequency.value = f;
+        g.gain.setValueAtTime(0, c.currentTime);
+        g.gain.linearRampToValueAtTime(vol, c.currentTime + 0.05);
+        o.connect(g).connect(c.destination);
+        o.start();
+        return {
+          set: (f) => o.frequency.setTargetAtTime(f, c.currentTime, 0.02),
+          off: () => {
+            g.gain.setTargetAtTime(0, c.currentTime, 0.03);
+            o.stop(c.currentTime + 0.2);
+          },
+        };
+      }
+      // QUANTIZE, in miniature: one bar played a little loose; each hit slides to the nearest grid line.
+      // o: { bpm, grids: [[label, lines a beat]], gi (the grid to start on), select (drag a selection
+      //      that snaps to the grid), unit (a selection's length in beats -> its label) }
+      function hdQuant(o) {
+        return (d) => {
+          const BEATS = 4,
+            spb = 60 / o.bpm,
+            bar = BEATS * spb,
+            POS = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5], // where the hits mean to be, in beats
+            s = { gi: o.gi || 0, hits: [], play: false, next: 0, t0: 0, sel: null, a: null, w: 1, x0: 0 },
+            sub = () => o.grids[s.gi][1],
+            mess = () => (s.hits = POS.map((b, i) => ({ b: i ? b + (Math.random() - 0.5) * 0.3 : b + 0.03, from: 0, to: 0, k: 1 })).map((h) => ((h.from = h.to = h.b), h)));
+          // the first hit opens the bar; the others are early or late by up to a sixth of a beat
+          mess();
+          const snap = (b) => {
+            const n = sub();
+            return n ? Math.round(b * n) / n : b;
+          };
+          const X = (b, w) => 8 + (b / BEATS) * (w - 16),
+            B = (x, w) => hdClamp(((x - 8) / (w - 16)) * BEATS, 0, BEATS);
+          // the selection keeps a whole number of grid cells
+          const selSnap = (a, b) => {
+            const n = sub();
+            if (!n) return b;
+            let k = Math.round((b - a) * n);
+            if (!k) k = b >= a ? 1 : -1;
+            while (a + k / n > BEATS + 1e-6 || a + k / n < -1e-6) k -= Math.sign(k);
+            return a + k / n;
+          };
+          return {
+            btn(id) {
+              if (id === "q") {
+                const [a, b] = s.sel || [0, BEATS];
+                s.hits.forEach((h) => {
+                  if (h.b < a - 0.06 || h.b >= b - 0.06) return;
+                  h.from = h.b;
+                  h.to = snap(h.b);
+                  h.k = 0;
+                });
+                if (!sub()) toast(HLANG === "es" ? "Elige una GRID primero" : "Choose a GRID first");
+              }
+              if (id === "mess") ((s.sel = null), mess());
+              if (id === "grid") {
+                s.gi = (s.gi + 1) % o.grids.length;
+                if (s.sel && sub()) s.sel[1] = selSnap(s.sel[0], s.sel[1]);
+              }
+              if (id === "play") {
+                s.play = !s.play;
+                if (s.play) ((s.t0 = hdAudio().currentTime + 0.05), (s.next = 0));
+              }
+            },
+            on: (id) => (id === "play" ? s.play : id === "grid" ? !!sub() : false),
+            label: (id) => (id === "grid" ? "GRID " + o.grids[s.gi][0] : null),
+            down(x, y, w) {
+              if (!o.select) return;
+              s.a = B(x, w);
+              if (sub()) s.a = Math.floor(s.a * sub()) / sub();
+              s.sel = null;
+            },
+            move(x, y, w) {
+              if (!o.select || s.a == null) return;
+              const b = selSnap(s.a, B(x, w));
+              s.sel = b > s.a ? [s.a, b] : [b, s.a];
+            },
+            up() {
+              s.a = null;
+              if (s.sel && s.sel[1] - s.sel[0] < 0.05) s.sel = null;
+            },
+            tick(t, dt) {
+              s.hits.forEach((h) => {
+                if (h.k >= 1) return;
+                h.k = Math.min(1, h.k + dt / 0.35);
+                const e = 1 - Math.pow(1 - h.k, 3);
+                h.b = h.from + (h.to - h.from) * e;
+              });
+              if (!s.play) return;
+              // schedule each bar a little ahead: a soft tick on the beats, the hits where they are now
+              const c = hdAudio();
+              while (s.t0 + s.next * bar < c.currentTime + 0.15) {
+                const t0 = s.t0 + s.next * bar;
+                for (let i = 0; i < BEATS; i++) hdTone(i ? 1500 : 2000, 0.03, "sine", 0.05, t0 + i * spb);
+                s.hits.forEach((h, i) => {
+                  const when = t0 + h.b * spb;
+                  if (when < c.currentTime) return;
+                  hdNoise(when, 0.07, 1800, 0.35);
+                  hdTone(i % 2 ? 330 : 220, 0.12, "triangle", 0.18, when);
+                });
+                s.next++;
+              }
+            },
+            draw(g, w, h, t) {
+              const P = d.P,
+                n = sub(),
+                top = 20,
+                mid = (h + top) / 2,
+                amp = (h - top) / 2 - 6,
+                ph = s.play ? (((hdAudio().currentTime - s.t0) / bar) % 1 + 1) % 1 : (t / bar) % 1;
+              g.fillStyle = P.bg;
+              g.fillRect(0, 0, w, h);
+              if (s.sel) {
+                g.fillStyle = P.hi;
+                g.globalAlpha = 0.1;
+                g.fillRect(X(s.sel[0], w), top, X(s.sel[1], w) - X(s.sel[0], w), h - top);
+                g.globalAlpha = 1;
+              }
+              // the grid: a long line on each beat, a short one on each grid line
+              for (let b = 0; b <= BEATS + 1e-6; b += n ? 1 / n : 1) {
+                const beat = Math.abs(b - Math.round(b)) < 1e-6;
+                g.fillStyle = beat ? P.line : P.dim;
+                g.globalAlpha = beat ? 1 : 0.45;
+                g.fillRect(Math.round(X(b, w)), beat ? top : h - 10, 1, beat ? h - top : 10);
+              }
+              g.globalAlpha = 1;
+              // the wave: each hit a quick attack and a decay
+              const cols = Math.floor((w - 16) / 2);
+              g.fillStyle = P.acc;
+              g.globalAlpha = 0.75;
+              for (let i = 0; i < cols; i++) {
+                const b = (i / cols) * BEATS;
+                let a = 0;
+                for (const hh of s.hits) if (b >= hh.b) a += Math.exp(-(b - hh.b) / 0.11);
+                a = Math.min(1, a) * (0.55 + 0.45 * Math.abs(Math.sin(i * 12.9898)));
+                if (a > 0.02) g.fillRect(8 + i * 2, mid - a * amp, 1.4, 2 * a * amp);
+              }
+              g.globalAlpha = 1;
+              // the hits: green on the grid, red off it
+              let off = 0;
+              s.hits.forEach((hh) => {
+                const on = n ? Math.abs(hh.b - snap(hh.b)) < 0.012 : false;
+                off += !on;
+                g.fillStyle = !n ? P.dim : on ? P.ok : P.hot;
+                const x = X(hh.b, w);
+                g.beginPath();
+                g.moveTo(x, top + 8);
+                g.lineTo(x - 4, top);
+                g.lineTo(x + 4, top);
+                g.fill();
+              });
+              g.fillStyle = P.hi;
+              g.fillRect(X(ph * BEATS, w), top, 1.5, h - top);
+              const es = HLANG === "es";
+              hdTxt(g, P, `GRID ${o.grids[s.gi][0]}`, 8, 12, { c: P.text });
+              if (!n) hdTxt(g, P, es ? "SIN REJILLA" : "NO GRID", w - 8, 12, { a: "right" });
+              else hdTxt(g, P, off ? `${off} ${es ? "FUERA DE LA REJILLA" : "OFF THE GRID"}` : es ? "TODO A TIEMPO ✓" : "ALL ON THE GRID ✓", w - 8, 12, { a: "right", c: off ? P.hot : P.ok });
+              if (s.sel && o.unit) hdTxt(g, P, o.unit(s.sel[1] - s.sel[0]), (X(s.sel[0], w) + X(s.sel[1], w)) / 2, top + 22, { a: "center", c: P.hi, sz: 10 });
+            },
+          };
+        };
+      }
+      // the demos of TUNE's manual
+      // TUNER: drag the string out of tune and back; hear it against the right note
+      HD.tuner = {
+        h: 180,
+        drag: true,
+        btns: [
+          ["str", { en: "♪ STRING", es: "♪ CUERDA" }],
+          ["ref", { en: "♪ IN TUNE", es: "♪ AFINADA" }],
+        ],
+        cap: {
+          en: "Drag left and right to put the A string out of tune: **orange ▼ FLAT** means tighten it, **red ▲ SHARP** loosen it, **green ✓** is within 4 cents. **♪ STRING** plays it and **♪ IN TUNE** the right note: together you hear a slow wobble (the beats) that slows down as you get closer, and stops when it is in tune.",
+          es: "Arrastra a izquierda y derecha para desafinar la cuerda La: **naranja ▼ FLAT** es tensarla, **rojo ▲ SHARP** aflojarla, **verde ✓** está a menos de 4 cents. **♪ CUERDA** la toca y **♪ AFINADA** la nota correcta: juntas oyes una ondulación lenta (los batidos) que se frena al acercarte y para cuando está afinada.",
+        },
+        make(d) {
+          const M = 57,
+            s = { c: 31, x0: null, c0: 0, idle: 0, touched: false, str: null, ref: null, hist: [] },
+            f = () => hdHz(M + s.c / 100);
+          return {
+            down(x) {
+              s.x0 = x;
+              s.c0 = s.c;
+              s.touched = true;
+            },
+            move(x, y, w) {
+              s.c = hdClamp(s.c0 + ((x - s.x0) / w) * 120, -50, 50);
+            },
+            up() {
+              s.x0 = null;
+            },
+            btn(id) {
+              if (s[id]) return (s[id].off(), (s[id] = null));
+              s[id] = hdHold(id === "str" ? f() : hdHz(M), "triangle", 0.09);
+            },
+            on: (id) => !!s[id],
+            stop() {
+              s.str && s.str.off();
+              s.ref && s.ref.off();
+            },
+            tick(t, dt) {
+              // untouched, it tunes itself, then goes out again
+              if (!s.touched) {
+                s.idle += dt;
+                if (s.idle > 1.5) s.c *= Math.exp(-dt * 0.9);
+                if (s.idle > 6) ((s.c = (Math.random() < 0.5 ? -1 : 1) * (18 + Math.random() * 28)), (s.idle = 0));
+              }
+              s.str && s.str.set(f());
+              s.hist.push([t, s.c]);
+              while (s.hist.length && s.hist[0][0] < t - 2.5) s.hist.shift();
+            },
+            draw(g, w, h, t) {
+              const P = d.P,
+                ok = Math.abs(s.c) <= 4,
+                col = ok ? P.ok : s.c < 0 ? P.acc2 : P.hot,
+                es = HLANG === "es",
+                my = h - 30,
+                mx = 20,
+                mw = w - 40,
+                X = (c) => mx + ((c + 50) / 100) * mw;
+              g.fillStyle = P.bg;
+              g.fillRect(0, 0, w, h);
+              hdTxt(g, P, "A", w / 2, 66, { a: "center", sz: 60, w: 900, c: col });
+              hdTxt(g, P, "3", w / 2 + 22, 66, { sz: 14, w: 900, c: col });
+              hdTxt(g, P, ok ? "✓ IN TUNE" : s.c < 0 ? "▼ FLAT" : "▲ SHARP", w / 2, 88, { a: "center", sz: 12, c: col });
+              hdTxt(g, P, `${s.c >= 0 ? "+" : "−"}${Math.abs(Math.round(s.c))} ¢ · ${f().toFixed(1)} Hz`, w / 2, 104, { a: "center", sz: 10 });
+              // the last readings, a faint line rising from the meter
+              g.strokeStyle = col;
+              g.globalAlpha = 0.35;
+              g.lineWidth = 1.5;
+              g.beginPath();
+              s.hist.forEach(([tt, c], k) => g[k ? "lineTo" : "moveTo"](X(c), my - 6 - (t - tt) * 12));
+              g.stroke();
+              g.globalAlpha = 0.3;
+              g.fillStyle = P.ok;
+              g.fillRect(X(-4), my - 6, X(4) - X(-4), 12);
+              g.globalAlpha = 1;
+              g.fillStyle = P.line;
+              g.fillRect(mx, my, mw, 1);
+              for (let c = -50; c <= 50; c += 10) g.fillRect(X(c), my - (c ? 3 : 8), 1, c ? 6 : 16);
+              hdTxt(g, P, "−50", mx, my + 16, { a: "center", sz: 8 });
+              hdTxt(g, P, "+50", mx + mw, my + 16, { a: "center", sz: 8 });
+              g.fillStyle = col;
+              g.beginPath();
+              g.moveTo(X(s.c), my - 2);
+              g.lineTo(X(s.c) - 6, my - 12);
+              g.lineTo(X(s.c) + 6, my - 12);
+              g.fill();
+              if (s.str && s.ref) hdTxt(g, P, (es ? "BATIDOS " : "BEATS ") + Math.abs(f() - hdHz(M)).toFixed(1) + "/s", w - 8, 14, { a: "right", c: P.text });
+              if (!s.touched && t % 2 < 1.4) hdTxt(g, P, es ? "ARRASTRA ↔ PARA DESAFINAR" : "DRAG ↔ TO DETUNE", 8, 14, { c: P.acc2, sz: 9 });
+            },
+          };
+        },
+      };
+      // METRONOME: the pendulum, and the weight that sets the tempo
+      HD.met = {
+        h: 210,
+        drag: true,
+        btns: [["play", { en: "▶ CLICK", es: "▶ SONIDO" }]],
+        cap: {
+          en: "Drag the weight **up for slower** or **down for faster**, like a real metronome. The pendulum reaches a side on every beat and the weight lights up, in the second colour on the first beat of the bar. **▶ CLICK** to hear it.",
+          es: "Arrastra la pesa **arriba para ir más lento** o **abajo para más rápido**, como en un metrónomo de verdad. El péndulo llega a un lado en cada pulso y la pesa se ilumina, con el segundo color en el primer pulso del compás. **▶ SONIDO** para oírlo.",
+        },
+        make(d) {
+          const s = { bpm: 96, bp: 0, last: -1, play: false, y0: null, b0: 96, fl: -9, one: false },
+            name = (b) => (b < 60 ? "LARGO" : b < 76 ? "ADAGIO" : b < 108 ? "ANDANTE" : b < 120 ? "MODERATO" : b < 156 ? "ALLEGRO" : b < 176 ? "VIVACE" : "PRESTO");
+          return {
+            down(x, y) {
+              s.y0 = y;
+              s.b0 = s.bpm;
+            },
+            move(x, y) {
+              s.bpm = Math.round(hdClamp(s.b0 + (y - s.y0) * 0.9, 40, 208));
+            },
+            up() {
+              s.y0 = null;
+            },
+            btn() {
+              s.play = !s.play;
+              if (s.play) hdAudio();
+            },
+            on: () => s.play,
+            tick(t, dt) {
+              s.bp += (dt * s.bpm) / 60;
+              const k = Math.floor(s.bp + 0.5); // the beat lands at the side, half a swing on
+              if (k !== s.last) {
+                s.last = k;
+                s.fl = t;
+                s.one = k % 4 === 0;
+                if (s.play) hdTone(s.one ? 1760 : 1320, 0.04, "square", 0.08);
+              }
+            },
+            draw(g, w, h, t) {
+              const P = d.P,
+                cx = w / 2,
+                py = h - 14,
+                L = h - 36,
+                a = 0.42 * Math.sin(Math.PI * s.bp),
+                f = 0.28 + (0.62 * (208 - s.bpm)) / 168,
+                lit = t - s.fl < 0.12;
+              g.fillStyle = P.bg;
+              g.fillRect(0, 0, w, h);
+              // the body, with its tempo scale
+              g.strokeStyle = P.line;
+              g.lineWidth = 1.5;
+              g.beginPath();
+              g.moveTo(cx - 70, h - 4);
+              g.lineTo(cx - 26, 8);
+              g.lineTo(cx + 26, 8);
+              g.lineTo(cx + 70, h - 4);
+              g.stroke();
+              for (const b of [40, 60, 80, 100, 120, 160, 208]) {
+                const y = py - (0.28 + (0.62 * (208 - b)) / 168) * L;
+                hdTxt(g, P, b, cx + 16, y + 3, { sz: 8, w: 700 });
+              }
+              g.save();
+              g.translate(cx, py);
+              g.rotate(a);
+              g.strokeStyle = P.text;
+              g.lineWidth = 2;
+              g.beginPath();
+              g.moveTo(0, 0);
+              g.lineTo(0, -L);
+              g.stroke();
+              g.fillStyle = lit ? (s.one ? P.acc2 : P.acc) : P.dim;
+              g.beginPath();
+              g.roundRect(-11, -f * L - 8, 22, 16, 3);
+              g.fill();
+              g.restore();
+              g.fillStyle = P.dim;
+              g.beginPath();
+              g.arc(cx, py, 4, 0, 7);
+              g.fill();
+              hdTxt(g, P, s.bpm, w - 10, 34, { a: "right", sz: 26, w: 900, c: P.text });
+              hdTxt(g, P, "BPM · " + name(s.bpm), w - 10, 48, { a: "right", sz: 9 });
+              const beat = ((s.last % 4) + 4) % 4;
+              for (let i = 0; i < 4; i++) hdTxt(g, P, i + 1, 12 + i * 18, 26, { sz: 14, w: 900, c: i === beat ? (i ? P.acc : P.acc2) : P.line });
+              if (s.y0 == null && t % 2 < 1.4) hdTxt(g, P, HLANG === "es" ? "ARRASTRA ↕ LA PESA" : "DRAG ↕ THE WEIGHT", 10, h - 8, { c: P.acc2, sz: 9 });
+            },
+          };
+        },
+      };
+      // CIRCLE OF FIFTHS: tap a key; it turns to the top and its seven chords light up
+      HD.cof = {
+        h: 280,
+        cap: {
+          en: "Tap a key, outer ring for major, inner for minor, and hear its chord. The circle turns to put it at the top and its **seven chords** light up with their numbers: **IV** on the left, **V** on the right, the minors under them.",
+          es: "Toca una tonalidad, el anillo de fuera para mayor y el de dentro para menor, y oye su acorde. El círculo gira para ponerla arriba y se iluminan sus **siete acordes** con sus números: **IV** a la izquierda, **V** a la derecha, y las menores debajo.",
+        },
+        make(d) {
+          const MA = ["C", "G", "D", "A", "E", "B", "F♯", "D♭", "A♭", "E♭", "B♭", "F"],
+            MI = ["Am", "Em", "Bm", "F♯m", "C♯m", "G♯m", "E♭m", "B♭m", "Fm", "Cm", "Gm", "Dm"],
+            s = { k: 0, minor: false, rot: 0 },
+            geo = (w, h) => ({ cx: w / 2, cy: h / 2, R: Math.min(w, h) / 2 - 6 });
+          return {
+            down(x, y, w, h) {
+              const { cx, cy, R } = geo(w, h),
+                r = Math.hypot(x - cx, y - cy);
+              if (r < R * 0.34 || r > R) return;
+              const i = ((Math.round((Math.atan2(y - cy, x - cx) + Math.PI / 2) / (Math.PI / 6) + s.rot) % 12) + 12) % 12;
+              s.k = i;
+              s.minor = r < R * 0.63;
+              const pc = (i * 7) % 12,
+                root = 48 + (s.minor ? (pc + 9) % 12 : pc),
+                iv = s.minor ? [0, 3, 7, 12] : [0, 4, 7, 12],
+                c = hdAudio();
+              iv.forEach((n, j) => hdTone(hdHz(root + n), 1.4, "triangle", 0.09, c.currentTime + j * 0.035));
+            },
+            tick(t, dt) {
+              const df = ((((s.k - s.rot) % 12) + 18) % 12) - 6;
+              s.rot += df * Math.min(1, dt * 7);
+            },
+            draw(g, w, h) {
+              const P = d.P,
+                { cx, cy, R } = geo(w, h),
+                RO = ["IV", "I", "V"],
+                RI = ["ii", "vi", "iii", "vii°"],
+                RM = ["VI", "III", "VII"],
+                RN = ["iv", "i", "v", "ii°"];
+              g.fillStyle = P.bg;
+              g.fillRect(0, 0, w, h);
+              for (let i = 0; i < 12; i++) {
+                const a0 = -Math.PI / 2 + (i - s.rot - 0.5) * (Math.PI / 6),
+                  a1 = a0 + Math.PI / 6,
+                  am = (a0 + a1) / 2,
+                  dd = ((((i - s.k) % 12) + 18) % 12) - 6;
+                [
+                  [R * 0.64, R, MA[i], dd >= -1 && dd <= 1 ? (s.minor ? RM : RO)[dd + 1] : null, !s.minor && dd === 0],
+                  [R * 0.35, R * 0.62, MI[i], dd >= -1 && dd <= 2 ? (s.minor ? RN : RI)[dd + 1] : null, s.minor && dd === 0],
+                ].forEach(([r0, r1, name, rn, sel]) => {
+                  g.beginPath();
+                  g.arc(cx, cy, r1, a0 + 0.01, a1 - 0.01);
+                  g.arc(cx, cy, r0, a1 - 0.01, a0 + 0.01, true);
+                  g.closePath();
+                  g.fillStyle = sel ? P.acc : rn ? P.acc : P.panel2;
+                  g.globalAlpha = sel ? 1 : rn ? 0.3 : 1;
+                  g.fill();
+                  g.globalAlpha = 1;
+                  const rm = (r0 + r1) / 2,
+                    x = cx + Math.cos(am) * rm,
+                    y = cy + Math.sin(am) * rm;
+                  hdTxt(g, P, name, x, y + (rn ? -1 : 4), { a: "center", sz: r1 === R ? 13 : 10, w: 900, c: sel ? P.ink : P.text });
+                  if (rn) hdTxt(g, P, rn, x, y + 11, { a: "center", sz: 8, c: sel ? P.ink : P.text });
+                });
+              }
+              const n = s.k,
+                sig = n === 0 ? "♮" : n <= 6 ? n + "♯" : 12 - n + "♭";
+              hdTxt(g, P, s.minor ? MI[n] : MA[n], cx, cy + 4, { a: "center", sz: 22, w: 900, c: P.text });
+              hdTxt(g, P, sig, cx, cy + 20, { a: "center", sz: 10 });
+              hdTxt(g, P, HLANG === "es" ? "TOCA UNA TONALIDAD" : "TAP A KEY", 8, 14, { c: P.acc2, sz: 9 });
+            },
+          };
+        },
+      };
+      HD.loop = {
+        h: 150,
+        drag: false,
+        btns: [
+          ["grid", "GRID"],
+          ["q", "QUANTIZE"],
+          ["mess", { en: "MESS UP", es: "DESORDENAR" }],
+          ["play", "▶"],
+        ],
+        cap: {
+          en: "One bar played a little loose: the marks over the wave are the hits, **red** when they are off the grid. **QUANTIZE** slides each one to the nearest grid line, and what follows each hit goes with it. **GRID** picks eighths, sixteenths or beats; **MESS UP** starts again; **▶** plays it.",
+          es: "Un compás tocado un poco suelto: las marcas sobre la onda son los golpes, **rojas** cuando están fuera de la rejilla. **QUANTIZE** lleva cada uno a la línea más cercana, y lo que sigue a cada golpe va con él. **GRID** elige corcheas, semicorcheas o pulsos; **DESORDENAR** vuelve a empezar; **▶** lo toca.",
+        },
+        make: hdQuant({
+          bpm: 100,
+          grids: [
+            ["1/8", 2],
+            ["1/16", 4],
+            ["1/4", 1],
+          ],
+        }),
+      };
       function helpRender() {
         const L = HLANG,
           U = HELPUI[L];
@@ -7695,10 +8324,11 @@
               return;
             }
             if (ul) ((h += "</ul>"), (ul = false));
-            h += l.startsWith("## ") ? `<h4>${hfmt(l.slice(3))}</h4>` : `<p>${hfmt(l)}</p>`;
+            h += l.startsWith("@") ? hdHtml(l.slice(1)) : l.startsWith("## ") ? `<h4>${hfmt(l.slice(3))}</h4>` : `<p>${hfmt(l)}</p>`;
           });
           return h + (ul ? "</ul>" : "");
         }).join("");
+        hdMount();
       }
       // opens on the section of the view you are in
       function openHelp(sec) {
