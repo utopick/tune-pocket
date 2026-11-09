@@ -646,6 +646,84 @@
       #sclNotes {
         grid-template-columns: repeat(var(--n, 7), 1fr);
       }
+      /* chords: the ways to play it, side by side; a tap picks one and strums it */
+      .vchips {
+        display: flex;
+        gap: 4px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        flex: none;
+      }
+      .vchips[hidden] {
+        display: none;
+      }
+      .vchips::-webkit-scrollbar {
+        display: none;
+      }
+      .vchips .vc {
+        flex: 1 0 64px;
+        max-width: 96px;
+        min-height: 0;
+        padding: 3px 2px 2px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+      }
+      .vchips .vc b {
+        font: 800 11px var(--mono);
+        padding: 9px 0 6px;
+        white-space: nowrap;
+      }
+      .vchips .vc i {
+        font: 800 8px var(--mono);
+        font-style: normal;
+        letter-spacing: 0.04em;
+        color: var(--dim);
+      }
+      .vchips .vc.on {
+        background: var(--panel2);
+        color: var(--text);
+        border-color: var(--acc);
+        box-shadow: inset 0 0 0 1px var(--acc);
+      }
+      .vchips .vc.on i {
+        color: var(--acc);
+      }
+      .vchips .vfr {
+        stroke: var(--dim);
+        stroke-width: 1;
+        opacity: 0.6;
+      }
+      .vchips .vnut {
+        stroke: var(--text);
+        stroke-width: 2.5;
+      }
+      .vchips .vd {
+        fill: var(--blue, #6ab7ff);
+      }
+      .vchips .vd.root {
+        fill: var(--ok);
+      }
+      .vchips .vo {
+        fill: none;
+        stroke: var(--text);
+        stroke-width: 1.2;
+      }
+      .vchips .vx,
+      .vchips .vno {
+        font: 800 8px var(--mono);
+        fill: var(--dim);
+      }
+      .dia .mx {
+        font: 900 12px var(--mono);
+        fill: var(--hot);
+      }
+      .dia .barre {
+        fill: var(--blue, #6ab7ff);
+        opacity: 0.45;
+        pointer-events: none;
+      }
       /* scales: the instrument diagram (neck, keyboard or fingering charts) */
       .dia {
         position: relative;
@@ -1851,6 +1929,7 @@
           ><label class="dd" style="flex: 2"><span id="typeTxt"></span><select id="stype" title="Scale"></select></label>
         </div>
         <div class="pads" id="sclNotes"></div>
+        <div class="vchips" id="sVo" hidden></div>
         <div class="dia" id="dia"></div>
         <button id="sWv" class="wvb" hidden></button>
         <div class="prow rib">
@@ -2113,6 +2192,27 @@
         "Hungarian Minor": [[0, 2, 3, 6, 7, 8, 11], "Harmonic minor with a raised 4th: exotic and dramatic. Eastern European folk."],
         "Arabic (Hijaz)": [[0, 1, 4, 5, 7, 8, 10], "Augmented second between ♭2 and 3: the classic Hijaz colour."],
       };
+      // chords, in the same list as the scales: [intervals above the root (a 9th is 14), symbol, name, degree labels]
+      const CHORDS = {
+        "c:maj": [[0, 4, 7], "", "Major"],
+        "c:min": [[0, 3, 7], "m", "Minor"],
+        "c:5": [[0, 7], "5", "Power chord"],
+        "c:7": [[0, 4, 7, 10], "7", "Dominant 7th"],
+        "c:maj7": [[0, 4, 7, 11], "maj7", "Major 7th"],
+        "c:m7": [[0, 3, 7, 10], "m7", "Minor 7th"],
+        "c:sus2": [[0, 2, 7], "sus2", "Suspended 2nd"],
+        "c:sus4": [[0, 5, 7], "sus4", "Suspended 4th"],
+        "c:7sus4": [[0, 5, 7, 10], "7sus4", "7th, suspended 4th"],
+        "c:6": [[0, 4, 7, 9], "6", "Major 6th"],
+        "c:m6": [[0, 3, 7, 9], "m6", "Minor 6th"],
+        "c:add9": [[0, 4, 7, 14], "add9", "Added 9th"],
+        "c:9": [[0, 4, 7, 10, 14], "9", "Dominant 9th"],
+        "c:dim": [[0, 3, 6], "dim", "Diminished"],
+        "c:dim7": [[0, 3, 6, 9], "dim7", "Diminished 7th"],
+        "c:m7b5": [[0, 3, 6, 10], "m7♭5", "Half-diminished"],
+        "c:aug": [[0, 4, 8], "aug", "Augmented"],
+      };
+      const isChord = () => !!CHORDS[S.scl.type];
       const INSTRUMENTS = [
         ["guitar", "Guitar"],
         ["bass", "Bass"],
@@ -4304,7 +4404,7 @@
       // the violin), a keyboard for the piano, fingering charts for the recorder and the tin whistle. ▶ / SCALE play
       // the notes one at a time and light each one as it sounds; PRACTICE listens and moves on when you play it.
       const KIND = (i) => ({ guitar: "fret", bass: "fret", guitalele: "fret", ukulele: "fret", violin: "fretless", piano: "piano" })[i] || "wind";
-      const sclIvs = () => SCALES[S.scl.type][0];
+      const sclIvs = () => (isChord() ? [...new Set(CHORDS[S.scl.type][0].map((i) => i % 12))].sort((a, b) => a - b) : SCALES[S.scl.type][0]);
       const rootPc = () => NOTE_NAMES.indexOf(S.scl.root);
       const inScale = (m) => sclIvs().includes((((m - rootPc()) % 12) + 12) % 12);
       // PASSING: notes outside the scale that lead from one scale note to the next (the bebop and blue notes)
@@ -4325,7 +4425,7 @@
         "Hungarian Minor": [5],
         "Arabic (Hijaz)": [3],
       };
-      const passIvs = () => (S.scl.pass ? PASS[S.scl.type] || [] : []);
+      const passIvs = () => (S.scl.pass && !isChord() ? PASS[S.scl.type] || [] : []);
       const allIvs = () => [...sclIvs(), ...passIvs()].sort((a, b) => a - b);
       const ivOf = (m) => (((Math.round(m) - rootPc()) % 12) + 12) % 12;
       const isPass = (m) => passIvs().includes(ivOf(m));
@@ -4334,6 +4434,7 @@
       let windM = null;
       // the chord tones (1, 3, 5) of the scale, for ARPEGGIO
       function chordPcs() {
+        if (isChord()) return sclIvs().map((x) => (rootPc() + x) % 12);
         const iv = sclIvs(),
           third = iv.includes(4) && !iv.includes(3) ? 4 : iv.includes(3) ? 3 : iv.includes(4) ? 4 : null,
           fifth = iv.includes(7) ? 7 : iv.includes(6) ? 6 : null;
@@ -4347,6 +4448,7 @@
       // a fret below that to three above. On each string it takes the notes that are higher than the last one taken
       // and lower than the first note available on the next string, so every pitch is played once: the classic boxes.
       function positions() {
+        if (isChord()) return chordVoicings();
         const low = stringMidis()[0],
           out = [];
         for (const iv of sclIvs()) {
@@ -4356,6 +4458,12 @@
         return out;
       }
       function boxNotes() {
+        if (isChord()) {
+          const vs = chordVoicings(),
+            v = vs[(S.scl.pos || 0) % (vs.length || 1)];
+          if (!v) return { notes: [], lo: 1, hi: 4, s0: 1, n: 0, mute: [] };
+          return { notes: v.notes, lo: v.lo, hi: v.hi, s0: v.lo, n: vs.length, mute: v.mute, open: v.open };
+        }
         const ss = stringMidis(),
           pos = positions(),
           s0 = pos[(S.scl.pos || 0) % pos.length],
@@ -4387,6 +4495,169 @@
       }
       const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+      // ---- chords: the ways to play one. On a neck, a small search for playable shapes in every position; on the piano,
+      // the inversions and a spread voicing. Worked out once per instrument, tuning, root and chord.
+      let vCache = { key: "", list: [] };
+      function chordVoicings() {
+        const kind = KIND(S.inst),
+          key = [S.inst, stringMidis().join(" "), S.scl.root, S.scl.type, S.scl.oct].join("|");
+        if (vCache.key !== key) vCache = { key, list: kind === "piano" ? pianoVoicings() : kind === "wind" ? [] : fretVoicings() };
+        return vCache.list;
+      }
+      function fretVoicings() {
+        const ss = stringMidis(),
+          n = ss.length,
+          [ivs] = CHORDS[S.scl.type],
+          r = rootPc(),
+          pcs = [...new Set(ivs.map((i) => (r + i) % 12))],
+          // every tone is needed, except the 5th of a chord with four or more (the first one guitarists leave out)
+          need = ivs.filter((i) => !(ivs.length >= 4 && i === 7)).map((i) => (r + i) % 12),
+          rising = ss.every((m, i) => !i || m > ss[i - 1]),
+          minS = Math.min(n, ivs.length === 2 ? 2 : 3),
+          found = new Map();
+        const consider = (fr) => {
+          const on = fr.map((f, i) => (f >= 0 ? i : -1)).filter((i) => i >= 0);
+          if (on.length < minS) return;
+          const a = on[0],
+            z = on[on.length - 1];
+          if (z - a + 1 !== on.length) return; // no muted string in the middle
+          if (z < n - 1 && n < 6) return;
+          const fretted = on.filter((i) => fr[i] > 0),
+            fs = fretted.map((i) => fr[i]),
+            fmin = fs.length ? Math.min(...fs) : 0,
+            fmax = fs.length ? Math.max(...fs) : 0,
+            opens = on.some((i) => fr[i] === 0);
+          if (fmax - fmin > 3 || (opens && fmax > 4)) return; // open strings only in shapes by the nut
+          const got = new Set(on.map((i) => pcOf(ss[i] + fr[i])));
+          if (!need.every((p) => got.has(p))) return;
+          const ms = on.map((i) => ss[i] + fr[i]),
+            low = Math.min(...ms);
+          if (rising && n >= 5 && pcOf(low) !== r) return; // on a guitar the root is the lowest note
+          // a barre: one finger flat across the lowest fret, when nothing between its ends is open
+          const atMin = fretted.filter((i) => fr[i] === fmin),
+            barre = atMin.length >= 2 && on.filter((i) => i >= atMin[0] && i <= atMin[atMin.length - 1]).every((i) => fr[i] >= fmin),
+            fingers = barre ? 1 + fretted.length - atMin.length : fretted.length;
+          if (fingers > 4) return;
+          const k = fr.join(",");
+          if (found.has(k)) return;
+          const score =
+            Math.min(on.length, ivs.length === 2 ? 3 : 9) * 3 -
+            (n - 1 - z) * 2 -
+            fmin * 0.25 -
+            fingers * 0.4 +
+            (opens ? (fmax <= 3 ? 1.5 : -1.5) : 0) + // the classic open chords, not open strings across a stretch
+            (pcs.every((p) => got.has(p)) ? 1 : 0) -
+            (barre ? 0.5 : 0) -
+            (fmax - fmin === 3 ? 0.8 : 0); // a four-fret stretch is hard
+          found.set(k, { fr: fr.slice(), fmin, fmax, opens, barre, score });
+        };
+        const cur = [];
+        for (let b = 0; b <= 12; b++) {
+          const opts = ss.map((open) => {
+            const o = [-1];
+            if (pcs.includes(pcOf(open))) o.push(0);
+            for (let f = Math.max(1, b); f <= b + 3; f++) if (pcs.includes(pcOf(open + f))) o.push(f);
+            return o;
+          });
+          const rec = (i) => {
+            if (i === n) return consider(cur);
+            for (const f of opts[i]) {
+              cur[i] = f;
+              rec(i + 1);
+            }
+          };
+          rec(0);
+        }
+        // the best shape in each part of the neck, low to high
+        const chosen = [];
+        for (const v of [...found.values()].sort((x, y) => y.score - x.score)) {
+          if (chosen.length >= 7) break;
+          if (chosen.some((c) => Math.abs(c.fmin - v.fmin) < 2 || c.fr.join() === v.fr.join())) continue;
+          chosen.push(v);
+        }
+        return chosen
+          .sort((x, y) => x.fmin - y.fmin)
+          .map((v) => {
+            const notes = [];
+            // fingers: the barre is 1; the other notes from the lowest fret up, one finger each
+            const fg = new Map(
+              v.fr
+                .map((f, i) => ({ s: i, f }))
+                .filter((x) => x.f > 0 && !(v.barre && x.f === v.fmin))
+                .sort((x, y) => x.f - y.f || x.s - y.s)
+                .map((x, j) => [x.s, String(Math.min(4, (v.barre ? 2 : 1) + j))]),
+            );
+            v.fr.forEach((f, i) => {
+              if (f < 0) return;
+              notes.push({ s: i, f, m: ss[i] + f, k: i + "-" + f, pass: false, fing: f === 0 ? "0" : v.barre && f === v.fmin ? "1" : fg.get(i) });
+            });
+            const lo = v.fmin || 1;
+            return {
+              notes,
+              fr: v.fr,
+              mute: v.fr.map((f, i) => (f < 0 ? i : -1)).filter((i) => i >= 0),
+              open: v.opens,
+              barre: v.barre,
+              lo,
+              hi: Math.max(v.fmax, lo + 2),
+              label: v.opens && v.fmin <= 3 ? "OPEN" : (v.barre ? "BARRE " : "FRET ") + v.fmin,
+            };
+          });
+      }
+      function pianoVoicings() {
+        const [ivs] = CHORDS[S.scl.type],
+          base = (S.scl.oct + 1) * 12 + rootPc(),
+          mk = (ms, label) => ({ notes: ms.sort((a, b) => a - b).map((m) => ({ m, k: "p" + m })), label }),
+          INV = ["ROOT", "1ST INV.", "2ND INV.", "3RD INV."],
+          out = [];
+        for (let k = 0; k < Math.min(ivs.length, 4); k++) out.push(mk(ivs.map((iv, j) => base + iv + (j < k ? 12 : 0)), INV[k]));
+        // spread: the root an octave down, the rest above it
+        if (ivs.length >= 3) out.push(mk([base - 12, ...ivs.slice(1).map((iv) => base + iv)], "SPREAD"));
+        return out;
+      }
+      // a voicing in miniature, for the row of choices over the neck
+      function vMini(v) {
+        const ss = stringMidis(),
+          n = ss.length,
+          W = 52,
+          H = 50,
+          l = 10,
+          rr = 6,
+          t = 12,
+          sw = (W - l - rr) / Math.max(1, n - 1),
+          A = v.open ? 1 : v.lo,
+          fh = (H - t - 4) / 4;
+        let g = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`;
+        for (let f = 0; f <= 4; f++) g += `<line x1="${l}" x2="${W - rr}" y1="${t + f * fh}" y2="${t + f * fh}" class="${f === 0 && A === 1 ? "vnut" : "vfr"}"/>`;
+        for (let i = 0; i < n; i++) g += `<line x1="${l + i * sw}" x2="${l + i * sw}" y1="${t}" y2="${H - 4}" class="vfr"/>`;
+        if (A > 1) g += `<text x="${l - 3}" y="${t + fh * 0.7}" text-anchor="end" class="vno">${A}</text>`;
+        v.fr.forEach((f, i) => {
+          const x = l + i * sw;
+          if (f < 0) g += `<text x="${x}" y="${t - 3}" text-anchor="middle" class="vx">×</text>`;
+          else if (f === 0) g += `<circle cx="${x}" cy="${t - 5}" r="2.6" class="vo"/>`;
+          else if (!(v.barre && f === v.fmin && i !== v.fr.findIndex((q) => q === v.fmin)))
+            g += `<circle cx="${x}" cy="${t + (f - A + 0.5) * fh}" r="3.4" class="vd${pcOf(ss[i] + f) === rootPc() ? " root" : ""}"/>`;
+        });
+        if (v.barre) {
+          const a = v.fr.indexOf(v.notes.find((x) => x.fing === "1").f),
+            z = v.fr.lastIndexOf(v.notes.find((x) => x.fing === "1").f);
+          g += `<rect x="${l + a * sw - 3.4}" y="${t + (v.fr[a] - A + 0.5) * fh - 3.4}" width="${(z - a) * sw + 6.8}" height="6.8" rx="3.4" class="vd"/>`;
+        }
+        return g + "</svg>";
+      }
+      function renderVoicings() {
+        const box = $("#sVo"),
+          kind = KIND(S.inst),
+          vs = isChord() ? chordVoicings() : [];
+        box.hidden = !vs.length;
+        if (!vs.length) return;
+        const cur = (S.scl.pos || 0) % vs.length;
+        box.innerHTML = vs
+          .map((v, i) => `<button class="vc${i === cur ? " on" : ""}" data-v="${i}">${kind === "piano" ? `<b>${v.notes.map((x) => plain(NOTE_NAMES[pcOf(x.m)])).join(" ")}</b>` : vMini(v)}<i>${v.label}</i></button>`)
+          .join("");
+        const on = box.querySelector(".on");
+        if (on) on.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
       // ---- wind instruments: fingerings by semitones above the lowest note.
       // Each letter is a hole from the top: 1 closed, 0 open, h half. Recorder (baroque): thumb (back), then 7 front
       // holes, the last two double. Tin whistle: 6 holes; "+" means blow harder (second octave).
@@ -4409,6 +4680,10 @@
         const kind = KIND(S.inst),
           ivs = allIvs();
         if (kind === "fret" || kind === "fretless") return boxNotes().notes.slice().sort((a, b) => a.s - b.s || a.f - b.f);
+        if (kind === "piano" && isChord()) {
+          const vs = chordVoicings();
+          return vs.length ? vs[(S.scl.pos || 0) % vs.length].notes.slice() : [];
+        }
         let base;
         if (kind === "piano") base = (S.scl.oct + 1) * 12 + rootPc();
         else {
@@ -4433,19 +4708,29 @@
       // ---- drawing
       function renderScaleSelects() {
         $("#root").innerHTML = NOTE_NAMES.map((n) => `<option value="${n}">${plain(n)}</option>`).join("");
-        $("#stype").innerHTML = Object.keys(SCALES)
-          .map((k) => `<option>${k}</option>`)
-          .join("");
+        $("#stype").innerHTML =
+          `<optgroup label="Scales">${Object.keys(SCALES)
+            .map((k) => `<option>${k}</option>`)
+            .join("")}</optgroup>` +
+          `<optgroup label="Chords">${Object.entries(CHORDS)
+            .map(([k, [, sym, name]]) => `<option value="${k}">${name} chord · X${sym}</option>`)
+            .join("")}</optgroup>`;
       }
       function renderScale() {
-        if (!SCALES[S.scl.type]) S.scl.type = "Pentatonic Minor";
+        if (!SCALES[S.scl.type] && !CHORDS[S.scl.type]) S.scl.type = "Pentatonic Minor";
         $("#root").value = S.scl.root;
         $("#stype").value = S.scl.type;
         $("#rootTxt").innerHTML = `<i>ROOT</i>${plain(S.scl.root)}`;
-        $("#typeTxt").innerHTML = `<i>SCALE</i>${S.scl.type}`;
+        const ch = CHORDS[S.scl.type];
+        $("#typeTxt").innerHTML = ch ? `<i>CHORD · ${ch[2].toUpperCase()}</i>${plain(S.scl.root)}${ch[1]}` : `<i>SCALE</i>${S.scl.type}`;
+        $("#sPass").hidden = !!ch;
+        // the chord options show the symbol on the current root
+        $$("#stype optgroup[label=Chords] option").forEach((o) => (o.textContent = `${CHORDS[o.value][2]} chord · ${plain(S.scl.root)}${CHORDS[o.value][1]}`));
         const ivs = allIvs(),
           pv = passIvs(),
-          DEG = ["1", "♭2", "2", "♭3", "3", "4", "♭5", "5", "♭6", "6", "♭7", "7"],
+          DEG = ch
+            ? ["R", "♭9", ch[0].includes(14) ? "9" : "2", "♭3", "3", "4", "♭5", "5", ch[0].includes(4) ? "♯5" : "♭6", S.scl.type === "c:dim7" ? "°7" : "6", "♭7", "7"]
+            : ["1", "♭2", "2", "♭3", "3", "4", "♭5", "5", "♭6", "6", "♭7", "7"],
           nb = $("#sclNotes");
         windM = null;
         nb.style.setProperty("--n", ivs.length);
@@ -4455,6 +4740,7 @@
             return `<div class="sq has${i ? "" : " sel"}${ps ? " pass" : ""}" data-n="${i}" data-pc="${(rootPc() + iv) % 12}" style="--ccrgb:${PC(i ? (ps ? 4 : 2) : 0)};--v:${i ? (ps ? 0.08 : 0.2) : 0.6}"><span class="nt">${pretty(NOTE_NAMES[(rootPc() + iv) % 12])}</span><span class="in">${DEG[iv]}</span></div>`;
           })
           .join("");
+        renderVoicings();
         drawDia();
         ribFace();
       }
@@ -4476,7 +4762,7 @@
         const ss = stringMidis(),
           n = ss.length,
           bx = boxNotes(),
-          A = Math.max(1, bx.lo - 1),
+          A = bx.open ? 1 : Math.max(1, bx.lo - 1),
           Z = Math.max(bx.hi + 1, A + 4),
           nut = A === 1,
           L = 28,
@@ -4527,6 +4813,16 @@
         });
         // the scale notes in view: the box big, with the finger to use; any others small
         const r = Math.max(7, Math.min(17, colW * 0.34, (bh / span) * 0.36));
+        // a chord: × over the strings it leaves out, and a bar under the barre
+        (bx.mute || []).forEach((i) => (g += `<text x="${X(i)}" y="${nut ? Yn(0) + 5 : T - 1}" text-anchor="middle" class="mx">×</text>`));
+        if (isChord() && bx.notes.length) {
+          const bar = bx.notes.filter((x) => x.fing === "1" && x.f > 0);
+          if (bar.length > 1) {
+            const a = Math.min(...bar.map((x) => x.s)),
+              z = Math.max(...bar.map((x) => x.s));
+            g += `<rect x="${X(a) - r * 0.55}" y="${Yn(bar[0].f) - r * 0.55}" width="${X(z) - X(a) + r * 1.1}" height="${r * 1.1}" rx="${r * 0.55}" class="barre"/>`;
+          }
+        }
         ss.forEach((open, i) => {
           for (let f = nut ? 0 : A; f <= Z; f++) {
             const m = open + f;
@@ -4537,6 +4833,7 @@
               x = X(i),
               y = Yn(f);
             if (!b) {
+              if (isChord()) continue; // a chord shows only its shape
               g += `<circle cx="${x}" cy="${y}" r="${r * 0.4}" class="nd${root ? " root" : ""}${ps}" data-m="${m}" data-k="${i}-${f}"/>`;
               continue;
             }
@@ -4548,8 +4845,9 @@
       // the octave that is played, sideways (low notes at the bottom): from the root (or the white key under it) to the
       // root above; scale keys marked, the root in the accent colour
       function keysHtml() {
-        const base = (S.scl.oct + 1) * 12 + rootPc(),
-          top = base + 12,
+        const vn = isChord() ? new Set(scaleUp().map((x) => x.m)) : null,
+          base = vn && vn.size ? Math.min(base0(), ...vn) : base0(),
+          top = vn && vn.size ? Math.max(base + 12, ...vn) : base + 12,
           black = (m) => [1, 3, 6, 8, 10].includes(pcOf(m)),
           whites = [],
           blacks = [];
@@ -4561,12 +4859,13 @@
         const wpos = new Map(whites.map((m, i) => [m, i])),
           W = 100 / whites.length,
           mark = (m) =>
-            m >= base && m <= top && inSet(m) ? `<b class="${pcOf(m) === rootPc() ? "root" : ""}${isPass(m) ? " pass" : ""}">${plain(NOTE_NAMES[pcOf(m)])}</b>` : "";
+            (vn ? vn.has(m) : m >= base && m <= top && inSet(m)) ? `<b class="${pcOf(m) === rootPc() ? "root" : ""}${isPass(m) ? " pass" : ""}">${plain(NOTE_NAMES[pcOf(m)])}</b>` : "";
         let h = `<div class="kb">`;
         whites.forEach((m, i) => (h += `<div class="wk" data-k="p${m}" data-m="${m}" style="bottom:${i * W}%;height:${W}%">${mark(m)}</div>`));
         blacks.forEach((m) => (h += `<div class="bk" data-k="p${m}" data-m="${m}" style="bottom:${(wpos.get(m - 1) + 1) * W - W * 0.32}%;height:${W * 0.64}%">${mark(m)}</div>`));
         return h + `</div><div class="kbl">${noteName(base)} – ${noteName(top)} · low notes at the bottom</div>`;
       }
+      const base0 = () => (S.scl.oct + 1) * 12 + rootPc();
       // one big recorder or whistle, its holes lit for one note (the one playing, the practice target or the last tapped)
       const windOneOn = () => KIND(S.inst) === "wind" && S.scl.wv !== "all";
       function windRedraw() {
@@ -4696,9 +4995,23 @@
         await getCtx();
         const seq = scaleSeq(arp),
           step = 60 / (S.scl.spd || 140);
-        if (!seq.length) return toast("Nothing to play in this range");
+        if (!seq.length) return toast(isChord() ? "No way to play this chord here" : "Nothing to play in this range");
         SP.on = true;
         playFace();
+        // a chord: STRUM plays its notes together, low to high, a few milliseconds apart
+        if (isChord() && !arp) {
+          const up = scaleUp().sort((a, b) => (a.s ?? 0) - (b.s ?? 0) || a.m - b.m);
+          up.forEach((n, i) =>
+            SP.timers.push(
+              setTimeout(() => {
+                playScaleNote(n.m, 0, 1.8);
+                light(n.k, n.m, 1.6);
+              }, i * 35),
+            ),
+          );
+          SP.timers.push(setTimeout(scaleStop, up.length * 35 + 1800));
+          return;
+        }
         // each note starts from its own timer, so STOP silences the rest of the scale at once
         seq.forEach((n, i) => {
           SP.timers.push(
@@ -4817,6 +5130,15 @@
         renderScale();
         saveState();
       };
+      $("#sVo").onclick = (e) => {
+        const b = e.target.closest("[data-v]");
+        if (!b) return;
+        S.scl.pos = +b.dataset.v;
+        practiceStop();
+        renderScale();
+        saveState();
+        playScale(false);
+      };
       $("#sUp").onclick = () => (SP.on ? scaleStop() : playScale(false));
       $("#sArp").onclick = () => playScale(true);
       $("#sPrac").onclick = () => (PR.on ? practiceStop() : practiceStart());
@@ -4825,7 +5147,7 @@
       $("#sOct").onclick = () => {
         const kind = KIND(S.inst);
         practiceStop();
-        if (kind === "fret" || kind === "fretless") S.scl.pos = ((S.scl.pos || 0) + 1) % positions().length;
+        if (kind === "fret" || kind === "fretless") S.scl.pos = ((S.scl.pos || 0) + 1) % (positions().length || 1);
         else if (kind === "piano") S.scl.oct = S.scl.oct >= 5 ? 2 : S.scl.oct + 1;
         else S.scl.reg = S.scl.reg ? 0 : 1;
         renderScale();
@@ -6888,7 +7210,7 @@
           rib("cScl", "up", "SCALES");
           rib("cJam", "snd", "JAM");
         }
-        rib("sUp", SP.on ? "stop" : "up", SP.on ? "STOP" : "SCALE", SP.on);
+        rib("sUp", SP.on ? "stop" : "up", SP.on ? "STOP" : isChord() ? "STRUM" : "SCALE", SP.on);
         rib("sArp", "arp", "ARPEGGIO");
         rib("sPrac", "mic", PR.on ? PR.i + 1 + "/" + PR.seq.length : "PRACTICE", PR.on);
         rib("sDrone", "drone", "DRONE", !!drone);
@@ -6897,7 +7219,9 @@
             b = $("#sOct");
           b.innerHTML =
             k === "fret" || k === "fretless"
-              ? `${((S.scl.pos || 0) % positions().length) + 1}<i>POSITION</i>`
+              ? isChord()
+                ? `${((S.scl.pos || 0) % (positions().length || 1)) + 1}/${positions().length}<i>VOICING</i>`
+                : `${((S.scl.pos || 0) % positions().length) + 1}<i>POSITION</i>`
               : k === "piano"
                 ? `${S.scl.oct}<i>OCTAVE</i>`
                 : `${S.scl.reg ? 2 : 1}<i>REGISTER</i>`;
@@ -7445,6 +7769,9 @@
               "Pick a **root** and a **scale**. The pads show its notes and their degree (1, ♭3, 5…); tap one to hear it. The diagram follows the INSTRUMENT bar.",
               "- **POSITION** (next to ROOT) moves the box up the neck; on the piano it is the **OCTAVE**, on a recorder or whistle the **REGISTER**.",
               "- **PASSING** adds passing tones, drawn dashed: notes outside the scale that lead from one scale note to the next (the ♭5 blue note of the minor pentatonic, the ♭6 of the bebop major scale…). They are played and practised too.",
+              "## Chords",
+              "The same list has **chords** under the scales (major, minor, 7, maj7, m7, sus, 6, 9, dim, aug…). The pads show the chord's notes (R, 3, 5, ♭7…), and a row of small **chord charts** shows the ways to play it: the open chord, the barre shapes and the smaller shapes higher up, worked out for your instrument and tuning. Tap one to see it big on the neck and hear it; **VOICING** (next to ROOT) steps through them too. On the neck, **×** is a string you do not play and a bar is a barre. On the piano the choices are the **inversions** (the same notes, a different one at the bottom) and a **spread** voicing. A recorder or whistle plays one note at a time, so it shows the chord as an arpeggio.",
+              "- With a chord, **STRUM** plays it, **ARPEGGIO** plays its notes one by one and **PRACTICE** asks for them one by one.",
               "## Guitar, bass, ukulele, violin",
               "The neck stands upright like a chord chart: nut at the top, lowest string on the left. Big numbered dots are one **box** (a position you can play without moving the hand); the number is the finger (1 index … 4 little). Only the frets around the box are drawn, numbered on the left, with the usual inlays at 3, 5, 7, 9 and 12; green is the root.",
               "## Piano",
@@ -7462,6 +7789,9 @@
               "Elige una **raíz** y una **escala**. Los pads muestran sus notas y su grado (1, ♭3, 5…); toca uno para oírlo. El diagrama sigue la barra INSTRUMENT.",
               "- **POSITION** (junto a ROOT) sube la caja por el mástil; en el piano es la **OCTAVE**, en flauta dulce o whistle el **REGISTER**.",
               "- **PASSING** añade notas de paso, con borde discontinuo: notas fuera de la escala que llevan de una nota a la siguiente (la ♭5 de blues en la pentatónica menor, la ♭6 de la escala bebop mayor…). También se tocan y se practican.",
+              "## Acordes",
+              "La misma lista tiene **acordes** debajo de las escalas (mayor, menor, 7, maj7, m7, sus, 6, 9, dim, aug…). Los pads muestran las notas del acorde (R, 3, 5, ♭7…), y una fila de **diagramas de acorde** pequeños muestra las maneras de tocarlo: el acorde abierto, las cejillas y las formas más pequeñas más arriba, calculadas para tu instrumento y tu afinación. Toca uno para verlo en grande en el mástil y oírlo; **VOICING** (junto a ROOT) también pasa de una a otra. En el mástil, **×** es una cuerda que no se toca y una barra es una cejilla. En el piano las opciones son las **inversiones** (las mismas notas, otra abajo) y una posición **abierta** (SPREAD). La flauta dulce o el whistle tocan una nota cada vez, así que muestran el acorde como arpegio.",
+              "- Con un acorde, **STRUM** lo rasguea, **ARPEGGIO** toca sus notas una a una y **PRACTICE** te las pide una a una.",
               "## Guitarra, bajo, ukelele, violín",
               "El mástil está de pie como en un diagrama de acordes: cejuela arriba, cuerda más grave a la izquierda. Los puntos grandes con número son una **caja** (una posición que se toca sin mover la mano); el número es el dedo (1 índice … 4 meñique). Solo se dibujan los trastes de la caja, numerados a la izquierda, con las marcas de siempre en el 3, 5, 7, 9 y 12; el verde es la tónica.",
               "## Piano",
