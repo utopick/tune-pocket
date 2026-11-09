@@ -2071,10 +2071,12 @@
           <div id="nnBar"><button data-nn="abc">A B C</button><button data-nn="sol">DO RE MI</button></div>
           <div class="hint">Letters or solfège, for every app: TRACK, TUNE and SING.Pocket.</div>
           <h3 style="margin-top: 12px">MIDI device</h3>
-          <div id="midiBar"><button id="midiDev">CONNECT</button></div>
+          <div id="midiBar"><div class="mrow"><button id="midiDev">CONNECT</button><button id="midiMap">ASSIGN</button><button id="midiClr">CLEAR</button></div><button id="midiSnd">SOUND</button></div>
           <div class="hint">
-            Experimental. In SCALES a MIDI keyboard lights the notes you play, PRACTICE listens to it instead of the
-            microphone, and a chord you hold is named and shown on your instrument. Chrome, Edge or Firefox; not Safari.
+            Experimental. The keys sound with a piano (<b>SOUND</b> turns it off, for keyboards with their own speakers).
+            In SCALES the keys light the notes you play, PRACTICE listens to them instead of the microphone, and a
+            chord you hold is named and shown on your instrument. <b>ASSIGN</b> ties pads, buttons and knobs to the
+            scale and JAM buttons, the JAM effects, the metronome and the tempo. Chrome, Edge or Firefox; not Safari.
           </div>
         </div>
         <div class="prow" id="setTabs">
@@ -5103,10 +5105,19 @@
       const MI_KEY = "tune.midi";
       // ---------------------------------------------------------------------------------------------
       // MIDI IN (experimental, from the "midi" branch): keyboards and pad controllers through Web MIDI (Chrome, Edge,
-      // Firefox; not Safari or iPhone). Every input is listened to; the app sets MI.on(note, velocity), MI.off(note)
-      // and MI.cc(controller, value). MI.held: the notes down now.
+      // Firefox; not Safari or iPhone). The same block in TRACK, TUNE and SING.
+      // - Notes and knobs nobody assigned go to the app: MI.on(note, velocity, channel), MI.off(note), MI.cc(cc, value).
+      // - MI.actions() lists what can be assigned: { id, group, name, kind: "tap" | "hold" | "knob", run }.
+      //   MI.map ties a control to one: "n<channel>:<note>" or "c<channel>:<cc>" -> action id (kept in localStorage).
+      //   An assigned control does that and nothing else (a pad assigned to an effect does not also play a note).
+      // - ASSIGN walks through the actions one by one: press the control for each. On the keyboard (channel 1)
+      //   C skips, E goes back, A exits; pads usually send on channel 10, so they never steer by mistake.
       // ---------------------------------------------------------------------------------------------
-      const MI = { acc: null, names: [], held: new Map(), on: null, off: null, cc: null };
+      const MI = { acc: null, names: [], held: new Map(), on: null, off: null, cc: null, actions: () => [], map: {}, learn: null, down: new Map() };
+      try {
+        MI.map = JSON.parse(localStorage.getItem(MI_KEY + ".map") || "{}");
+      } catch {}
+      const miSave = () => localStorage.setItem(MI_KEY + ".map", JSON.stringify(MI.map));
       if (/index_midi\.html$/.test(location.pathname)) document.title += " · MIDI dev";
       async function midiConnect(quiet) {
         if (!navigator.requestMIDIAccess) {
@@ -5134,31 +5145,201 @@
       }
       function midiMsg(e) {
         const [st, a, b] = e.data,
-          cmd = st & 0xf0;
-        if (cmd === 0x90 && b > 0) {
+          cmd = st & 0xf0,
+          ch = st & 15,
+          on = cmd === 0x90 && b > 0,
+          off = cmd === 0x80 || (cmd === 0x90 && b === 0),
+          cc = cmd === 0xb0;
+        if (!on && !off && !cc) return;
+        const key = (cc ? "c" : "n") + ch + ":" + a;
+        if (MI.learn) return on || (cc && b > 0) ? miLearnMsg(key, cc, ch, a) : undefined;
+        const act = MI.map[key] && MI.actions().find((x) => x.id === MI.map[key]);
+        if (act) return miRun(act, key, cc, on, b);
+        if (cc) return MI.cc && MI.cc(a, b, ch);
+        if (on) {
           MI.held.set(a, b);
-          if (MI.on) MI.on(a, b);
-        } else if (cmd === 0x80 || cmd === 0x90) {
+          if (MI.on) MI.on(a, b, ch);
+        } else {
           MI.held.delete(a);
-          if (MI.off) MI.off(a);
-        } else if (cmd === 0xb0 && MI.cc) MI.cc(a, b);
+          if (MI.off) MI.off(a, ch);
+        }
       }
+      function miRun(act, key, cc, on, v) {
+        if (act.kind === "knob") return cc ? act.run(v / 127) : on && act.run(v / 127); // a pad on a knob: its velocity
+        const press = cc ? v >= 64 : on; // pads in CC mode send 127 / 0
+        if (press === !!MI.down.get(key)) return;
+        MI.down.set(key, press);
+        if (act.kind === "hold") act.run(press);
+        else if (press) act.run();
+      }
+      // ---- ASSIGN
+      const MI_NN = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+      const miKeyName = (k) => {
+        const [, t, ch, n] = k.match(/^([nc])(\d+):(\d+)$/);
+        return t === "n" ? `${MI_NN[n % 12]}${Math.floor(n / 12) - 1} · ch ${+ch + 1}` : `knob ${n} · ch ${+ch + 1}`;
+      };
+      function midiAssign() {
+        if (!MI.names.length) return toast("Connect a MIDI device first");
+        MI.learn = { i: 0, t: 0 };
+        miLearnFace();
+      }
+      function miLearnMsg(key, cc, ch, num) {
+        const L = MI.learn;
+        if (performance.now() - L.t < 450) return; // a knob sends many values: one control per step
+        if (!cc && ch === 0) {
+          const pc = num % 12;
+          if (pc === 0) return miStep(1);
+          if (pc === 4) return miStep(-1);
+          if (pc === 9) return midiAssignEnd();
+        }
+        const a = MI.actions()[L.i];
+        for (const k in MI.map) if (MI.map[k] === a.id) delete MI.map[k]; // one control per action
+        MI.map[key] = a.id; // and one action per control
+        miSave();
+        miStep(1);
+      }
+      function miStep(d) {
+        const acts = MI.actions(),
+          L = MI.learn;
+        if (d === "group") {
+          const g = acts[L.i].group;
+          while (L.i < acts.length && acts[L.i].group === g) L.i++;
+        } else L.i += d;
+        L.i = Math.max(0, L.i);
+        L.t = performance.now();
+        if (L.i >= acts.length) return midiAssignEnd();
+        miLearnFace();
+      }
+      function midiAssignEnd() {
+        MI.learn = null;
+        const el = document.getElementById("miLearn");
+        if (el) el.remove();
+        toast(Object.keys(MI.map).length + " MIDI controls assigned");
+        midiFace();
+      }
+      function midiClearMap() {
+        MI.map = {};
+        miSave();
+        midiFace();
+        toast("MIDI assignments cleared: the pads and knobs play notes again");
+      }
+      function miLearnFace() {
+        let el = document.getElementById("miLearn");
+        if (!el) {
+          el = document.createElement("div");
+          el.id = "miLearn";
+          document.body.appendChild(el);
+          el.onclick = (e) => {
+            const b = e.target.closest("[data-ml]");
+            if (!b) return;
+            const k = b.dataset.ml;
+            if (k === "skip") miStep(1);
+            else if (k === "back") miStep(-1);
+            else if (k === "group") miStep("group");
+            else if (k === "clear") {
+              const id = MI.actions()[MI.learn.i].id;
+              for (const x in MI.map) if (MI.map[x] === id) delete MI.map[x];
+              miSave();
+              miLearnFace();
+            } else midiAssignEnd();
+          };
+        }
+        const acts = MI.actions(),
+          a = acts[MI.learn.i],
+          cur = Object.keys(MI.map).filter((k) => MI.map[k] === a.id),
+          how = a.kind === "knob" ? "Turn the knob or move the slider for" : a.kind === "hold" ? "Press the pad or key (it works while held) for" : "Press the pad, key or button for";
+        el.innerHTML = `<div class="mlBox"><i>MIDI ASSIGN · ${MI.learn.i + 1} / ${acts.length} · ${a.group}</i><p>${how}</p><h2>${a.name}</h2><p class="mlCur">${cur.length ? "Now: " + cur.map(miKeyName).join(", ") : "Not assigned"}</p><div class="mlB"><button data-ml="back">◀ BACK</button><button data-ml="skip">SKIP ▶</button><button data-ml="group">SKIP ${a.group.toUpperCase()} ▶▶</button><button data-ml="clear">CLEAR</button><button data-ml="done" class="on">DONE</button></div><p class="mlKeys">On the keyboard: C skips · E goes back · A exits</p></div>`;
+      }
+      {
+        const st = document.createElement("style");
+        st.textContent = `#miLearn{position:fixed;inset:0;z-index:95;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:16px}
+#miLearn .mlBox{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:16px;width:min(380px,100%);text-align:center}
+#miLearn i{display:block;font:800 10px var(--mono,monospace);letter-spacing:.08em;color:var(--dim);font-style:normal}
+#miLearn h2{margin:4px 0 10px;font:900 22px var(--mono,monospace);color:var(--acc)}
+#miLearn p{margin:10px 0 0;font:600 12px var(--mono,monospace);color:var(--dim)}
+#miLearn .mlCur{color:var(--text)}
+#miLearn .mlB{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+#miLearn .mlB button{flex:1 1 30%;min-height:40px;font:800 11px var(--mono,monospace)}
+.mrow,#midiBar{display:flex;gap:6px}.mrow{flex:3}.mrow button,#midiBar>button{flex:1;min-height:38px}`;
+        document.head.appendChild(st);
+      }
+      // the buttons in OPTIONS (#midiDev, #midiMap, #midiClr)
+      function midiFace() {
+        const b = document.getElementById("midiDev"),
+          m = document.getElementById("midiMap"),
+          c = document.getElementById("midiClr"),
+          n = Object.keys(MI.map).length;
+        if (b) {
+          b.textContent = MI.names.length ? "MIDI: " + MI.names.join(", ") : MI.acc ? "NO DEVICE PLUGGED IN" : "CONNECT";
+          b.classList.toggle("on", !!MI.names.length);
+        }
+        if (m) m.textContent = n ? `ASSIGN · ${n}` : "ASSIGN";
+        if (c) c.disabled = !n;
+      }
+      [
+        ["midiDev", () => midiConnect()],
+        ["midiMap", midiAssign],
+        ["midiClr", midiClearMap],
+      ].forEach(([id, f]) => {
+        const b = document.getElementById(id);
+        if (b) b.onclick = f;
+      });
+      midiFace();
       // on the next visit, reconnect by itself when the browser already allows it (no question asked)
       if (localStorage.getItem(MI_KEY) && navigator.permissions)
         navigator.permissions
           .query({ name: "midi" })
           .then((p) => p.state === "granted" && midiConnect(true))
           .catch(() => {});
-      function midiFace() {
-        const b = $("#midiDev");
-        if (!b) return;
-        b.textContent = MI.names.length ? "MIDI: " + MI.names.join(", ") : MI.acc ? "NO DEVICE PLUGGED IN" : "CONNECT";
-        b.classList.toggle("on", !!MI.names.length);
+      MI.actions = () => [
+        { id: "scale", group: "Scales", name: "SCALE / STRUM", kind: "tap", run: () => $("#sUp").click() },
+        { id: "arp", group: "Scales", name: "ARPEGGIO", kind: "tap", run: () => $("#sArp").click() },
+        { id: "prac", group: "Scales", name: "PRACTICE", kind: "tap", run: () => $("#sPrac").click() },
+        { id: "drone", group: "Scales", name: "DRONE", kind: "tap", run: () => droneToggle() },
+        { id: "voicing", group: "Scales", name: "POSITION / VOICING", kind: "tap", run: () => $("#sOct").click() },
+        { id: "jam", group: "Jam", name: "JAM PLAY / STOP", kind: "tap", run: () => jamToggle() },
+        { id: "met", group: "Tempo", name: "METRONOME", kind: "tap", run: () => metToggle() },
+        { id: "bpm", group: "Tempo", name: "TEMPO (BPM)", kind: "knob", run: (v) => setBpm(BMIN + v * (BMAX - BMIN)) },
+        ...JFX.map(([id, n]) => ({ id: "jfx:" + id, group: "Jam FX", name: n.toUpperCase(), kind: "hold", run: (on) => midiJamFx(id, on) })),
+      ];
+      // the JAM effects, as the screen does: held, or on / off with LATCH
+      function midiJamFx(id, on) {
+        getCtx();
+        if (S.jam.latch !== false) return on && jamFxSet(id, !S.jam.fx.includes(id));
+        jamFxSet(id, on);
       }
-      $("#midiDev").onclick = () => midiConnect();
+      // a controller has no sound of its own: the keys play the piano, held until they are let go
+      const miVoices = new Map();
+      if (localStorage.getItem("tune.midi.snd") === "0") $("#midiSnd").classList.remove("on");
+      else $("#midiSnd").classList.add("on");
+      $("#midiSnd").onclick = () => {
+        const on = !$("#midiSnd").classList.contains("on");
+        $("#midiSnd").classList.toggle("on", on);
+        localStorage.setItem("tune.midi.snd", on ? "1" : "0");
+        toast(on ? "MIDI keys sound with a piano" : "MIDI keys are silent (the keyboard makes its own sound)");
+      };
+      function miSound(n, v) {
+        if (!$("#midiSnd").classList.contains("on")) return;
+        getCtx().then((c) => {
+          const g = c.createGain();
+          g.gain.value = 0.35 + (v / 127) * 0.75;
+          g.connect(sclOut(c));
+          TK.voice(c, g, tkIndex("Piano"), n, c.currentTime + 0.005, 6, 0.8);
+          const old = miVoices.get(n);
+          if (old) miRelease(old);
+          miVoices.set(n, g);
+        });
+      }
+      function miRelease(g) {
+        const t = ctx.currentTime;
+        g.gain.setValueAtTime(g.gain.value, t);
+        g.gain.setTargetAtTime(0, t, 0.08);
+        setTimeout(() => g.disconnect(), 800);
+      }
       // SCALES: a key lights its note; PRACTICE takes the exact note; a held chord is named and shown
       let miChordT = 0;
-      MI.on = (n) => {
+      MI.on = (n, v) => {
+        miSound(n, v);
         if (S.view !== "scl") return;
         if (PR.on) {
           if (PR.seq[PR.i] && n === PR.seq[PR.i].m) prNext();
@@ -5169,7 +5350,10 @@
         clearTimeout(miChordT);
         miChordT = setTimeout(midiChord, 70); // the notes of a chord arrive a few milliseconds apart
       };
-      MI.off = () => {};
+      MI.off = (n) => {
+        const g = miVoices.get(n);
+        if (g) (miVoices.delete(n), miRelease(g));
+      };
       // the chord in the held notes: the same pitch classes as one of CHORDS, the bass note as root when it fits
       function midiChord() {
         const ns = [...MI.held.keys()].sort((a, b) => a - b),
