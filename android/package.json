@@ -1,6 +1,6 @@
 {
   "name": "tune-pocket",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "description": "TUNE.Pocket: pocket tuner, note detector, scales and jam band. Sister app of TRACK.Pocket.",
   "pocket": {
