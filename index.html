@@ -2070,6 +2070,12 @@
           <h3>Note names</h3>
           <div id="nnBar"><button data-nn="abc">A B C</button><button data-nn="sol">DO RE MI</button></div>
           <div class="hint">Letters or solfège, for every app: TRACK, TUNE and SING.Pocket.</div>
+          <h3 style="margin-top: 12px">MIDI device</h3>
+          <div id="midiBar"><button id="midiDev">CONNECT</button></div>
+          <div class="hint">
+            Experimental. In SCALES a MIDI keyboard lights the notes you play, PRACTICE listens to it instead of the
+            microphone, and a chord you hold is named and shown on your instrument. Chrome, Edge or Firefox; not Safari.
+          </div>
         </div>
         <div class="prow" id="setTabs">
           <button data-fpb="edit"><i>NEW · EDIT</i>TUNINGS</button>
@@ -5043,8 +5049,11 @@
         PR.seq = scaleSeq(false);
         if (!PR.seq.length) return;
         Object.assign(PR, { on: true, i: 0, hold: 0, t0: performance.now() });
-        await micStart();
-        if (!MIC.on) return practiceStop();
+        // with a MIDI keyboard plugged in, the microphone is not needed
+        if (!MI.names.length) {
+          await micStart();
+          if (!MIC.on) return practiceStop();
+        }
         practiceFace();
       }
       function practiceStop() {
@@ -5075,6 +5084,10 @@
         if (hz > 0 && Math.abs(1200 * Math.log2(hz / midiToHz(n.m))) < 40) PR.hold++;
         else PR.hold = Math.max(0, PR.hold - 1);
         if (PR.hold < 5) return;
+        prNext();
+      }
+      function prNext() {
+        const n = PR.seq[PR.i];
         PR.hold = 0;
         light(n.k, n.m, 0.5, "done");
         PR.i++;
@@ -5085,6 +5098,97 @@
           return;
         }
         practiceFace();
+      }
+
+      const MI_KEY = "tune.midi";
+      // ---------------------------------------------------------------------------------------------
+      // MIDI IN (experimental, from the "midi" branch): keyboards and pad controllers through Web MIDI (Chrome, Edge,
+      // Firefox; not Safari or iPhone). Every input is listened to; the app sets MI.on(note, velocity), MI.off(note)
+      // and MI.cc(controller, value). MI.held: the notes down now.
+      // ---------------------------------------------------------------------------------------------
+      const MI = { acc: null, names: [], held: new Map(), on: null, off: null, cc: null };
+      if (/index_midi\.html$/.test(location.pathname)) document.title += " · MIDI dev";
+      async function midiConnect(quiet) {
+        if (!navigator.requestMIDIAccess) {
+          if (!quiet) toast("No MIDI in this browser: try Chrome, Edge or Firefox (not Safari)");
+          return midiFace();
+        }
+        try {
+          MI.acc = MI.acc || (await navigator.requestMIDIAccess());
+        } catch {
+          if (!quiet) toast("MIDI was not allowed");
+          return midiFace();
+        }
+        localStorage.setItem(MI_KEY, "1");
+        MI.acc.onstatechange = midiBind;
+        midiBind();
+        if (!quiet) toast(MI.names.length ? "MIDI: " + MI.names.join(", ") : "MIDI is on: plug in a keyboard or pad controller");
+      }
+      function midiBind() {
+        MI.names = [];
+        MI.acc.inputs.forEach((i) => {
+          i.onmidimessage = midiMsg;
+          if (i.state !== "disconnected") MI.names.push(i.name);
+        });
+        midiFace();
+      }
+      function midiMsg(e) {
+        const [st, a, b] = e.data,
+          cmd = st & 0xf0;
+        if (cmd === 0x90 && b > 0) {
+          MI.held.set(a, b);
+          if (MI.on) MI.on(a, b);
+        } else if (cmd === 0x80 || cmd === 0x90) {
+          MI.held.delete(a);
+          if (MI.off) MI.off(a);
+        } else if (cmd === 0xb0 && MI.cc) MI.cc(a, b);
+      }
+      // on the next visit, reconnect by itself when the browser already allows it (no question asked)
+      if (localStorage.getItem(MI_KEY) && navigator.permissions)
+        navigator.permissions
+          .query({ name: "midi" })
+          .then((p) => p.state === "granted" && midiConnect(true))
+          .catch(() => {});
+      function midiFace() {
+        const b = $("#midiDev");
+        if (!b) return;
+        b.textContent = MI.names.length ? "MIDI: " + MI.names.join(", ") : MI.acc ? "NO DEVICE PLUGGED IN" : "CONNECT";
+        b.classList.toggle("on", !!MI.names.length);
+      }
+      $("#midiDev").onclick = () => midiConnect();
+      // SCALES: a key lights its note; PRACTICE takes the exact note; a held chord is named and shown
+      let miChordT = 0;
+      MI.on = (n) => {
+        if (S.view !== "scl") return;
+        if (PR.on) {
+          if (PR.seq[PR.i] && n === PR.seq[PR.i].m) prNext();
+          return;
+        }
+        const hit = scaleUp().find((x) => x.m === n);
+        light(hit ? hit.k : "-", n, 0.5);
+        clearTimeout(miChordT);
+        miChordT = setTimeout(midiChord, 70); // the notes of a chord arrive a few milliseconds apart
+      };
+      MI.off = () => {};
+      // the chord in the held notes: the same pitch classes as one of CHORDS, the bass note as root when it fits
+      function midiChord() {
+        const ns = [...MI.held.keys()].sort((a, b) => a - b),
+          pcs = [...new Set(ns.map(pcOf))];
+        if (pcs.length < 2) return;
+        const same = (set) => set.size === pcs.length && pcs.every((p) => set.has(p)),
+          roots = [pcOf(ns[0]), ...pcs.filter((p) => p !== pcOf(ns[0]))];
+        for (const r of roots)
+          for (const [k, [ivs, sym]] of Object.entries(CHORDS))
+            if (same(new Set(ivs.map((i) => (r + i) % 12)))) {
+              if (S.scl.root === NOTE_NAMES[r] && S.scl.type === k) return;
+              S.scl.root = NOTE_NAMES[r];
+              S.scl.type = k;
+              S.scl.pos = 0;
+              renderScale();
+              saveState();
+              const bass = pcOf(ns[0]) !== r ? "/" + plain(NOTE_NAMES[pcOf(ns[0])]) : "";
+              return toast("♪ " + plain(NOTE_NAMES[r]) + sym + bass);
+            }
       }
 
       let drone = null;
