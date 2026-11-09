@@ -2026,7 +2026,7 @@
             <label class="knob"><i id="lSelTxt">LOOP</i><b id="lVolTxt"></b><input id="lVol" type="range" min="0" max="1.5" step="0.01" value="1" /></label>
           </div>
           <div class="prow">
-            <button id="lOver">OVERDUB<i>ADD LAYER</i></button><button id="lRev">REVERSE<i>FLIP</i></button
+            <button id="lOver">OVERDUB<i>ADD LAYER</i></button><button id="lMon"></button><button id="lRev">REVERSE<i>FLIP</i></button
             ><button id="lNorm">NORMALIZE<i>0 dB</i></button><button id="lClr">CLEAR<i>THIS</i></button
             ><button id="lClrAll">CLEAR<i>ALL</i></button>
           </div>
@@ -6715,12 +6715,20 @@
         const len = L ? L.buf.duration : S.loop.bars * barDur();
         LP.rec = { i, start, end: start + len, n: L ? L.buf.length : Math.round(len * c.sampleRate), bars: L ? L.bars : S.loop.bars, a: Math.round((start - CLK.t0) / barDur()), overdub };
         LP.sel = i;
+        // HEAR off: the loops keep silent while the layer records (a phone's speaker would leak into its microphone)
+        if (overdub && S.loop.mon === false) LP.bus.gain.setValueAtTime(0, start);
         lpFace();
         playFace();
         rhythmKick();
       }
+      function lpHear() {
+        if (!LP.bus) return;
+        LP.bus.gain.cancelScheduledValues(0);
+        LP.bus.gain.setValueAtTime(1, ctx.currentTime);
+      }
       function lpRecCancel() {
         LP.rec = null;
+        lpHear();
         clkMaybeStop();
         lpFace();
         playFace();
@@ -6734,6 +6742,7 @@
         const r = LP.rec,
           c = ctx;
         LP.rec = null;
+        lpHear();
         const d = lpCut(r.start + lpLat(), r.n);
         if (!d) {
           toast("Nothing was recorded: check the microphone");
@@ -6863,6 +6872,8 @@
         $("#lTempo").innerHTML = `<i>TEMPO</i><b>${S.met.bpm}</b><i>${S.met.beats} BEATS A BAR</i>`;
         $("#lClick").innerHTML = `CLICK<i>${MET.on ? "ON" : "OFF"}</i>`;
         $("#lClick").classList.toggle("on", MET.on);
+        $("#lMon").innerHTML = `${S.loop.mon === false ? "SILENT" : "HEAR"}<i>WHILE LAYERING</i>`;
+        $("#lMon").classList.toggle("on", S.loop.mon !== false);
         $("#lAutoQ").innerHTML = `AUTO Q<i>${S.loop.aq ? LGRID[S.loop.grid ?? 1][0] : "OFF"}</i>`;
         $("#lAutoQ").classList.toggle("on", !!S.loop.aq);
         $("#lSync").value = S.loop.sync;
@@ -7028,6 +7039,13 @@
       };
       $("#lTempo").onclick = () => showView("met");
       $("#lClick").onclick = metToggle;
+      $("#lMon").title = "While you record a layer: hear the loops (HEAR) or keep them silent (SILENT, for the phone's own speaker)";
+      $("#lMon").onclick = () => {
+        S.loop.mon = S.loop.mon === false;
+        saveState();
+        lpFace();
+        toast(S.loop.mon ? "OVERDUB: you hear the loops while you record a layer" : "OVERDUB: the loops keep silent while you record a layer (no echo from the speaker)");
+      };
       $("#lAutoQ").onclick = () => {
         S.loop.aq = !S.loop.aq;
         saveState();
@@ -8209,7 +8227,7 @@
               "## EDIT",
               "Tap a loop to choose it (it still starts and stops). The wave shows it with its beats, a long line on each bar, the quantize grid as short ticks, the hits it found as marks on top, and where it is playing.",
               "- The **volume** of that loop.",
-              "- **OVERDUB** records another layer on top of it, on its next turn. **REVERSE** turns it back to front. **NORMALIZE** makes it as loud as it can be. **CLEAR THIS** empties the pad, **CLEAR ALL** every pad.",
+              "- **OVERDUB** records another layer on top of it, on its next turn (**HEAR / SILENT** beside it: SILENT keeps the loops quiet while the layer records, so a phone's speaker does not get into it). **REVERSE** turns it back to front. **NORMALIZE** makes it as loud as it can be. **CLEAR THIS** empties the pad, **CLEAR ALL** every pad.",
               "- **CROP**: drag across the wave to choose whole beats, then CROP keeps only those. The beats stay where they were in the bar, so a 3-beat loop over 4/4 drifts against the bar on purpose, always on the beat. Tap a chosen beat again to unchoose it.",
               "- **QUANTIZE** finds every hit (a strum, a clap, a note's start) and moves it to the nearest point of the **GRID**: beats, eighths, triplets or sixteenths. What follows each hit moves with it. Best on rhythmic loops; on long held notes there is little to move.",
               "- **AUTO Q** (at the top, off by default) does the same to every new loop and every new layer as it lands, on the GRID chosen here. Layers are quantized on their own, so what is already in the loop stays as it was.",
@@ -8232,7 +8250,7 @@
               "## EDIT",
               "Toca un loop para elegirlo (también se enciende y se para). La onda lo muestra con sus pulsos, una línea larga en cada compás, la rejilla de cuantizar como marcas cortas, los golpes que ha encontrado arriba, y por dónde va.",
               "- El **volumen** de ese loop.",
-              "- **OVERDUB** graba otra capa encima, en su siguiente vuelta. **REVERSE** le da la vuelta. **NORMALIZE** lo pone tan fuerte como puede. **CLEAR THIS** vacía el pad, **CLEAR ALL** todos.",
+              "- **OVERDUB** graba otra capa encima, en su siguiente vuelta (**HEAR / SILENT** a su lado: SILENT calla los loops mientras graba la capa, para que el altavoz del teléfono no se cuele). **REVERSE** le da la vuelta. **NORMALIZE** lo pone tan fuerte como puede. **CLEAR THIS** vacía el pad, **CLEAR ALL** todos.",
               "- **CROP**: arrastra por la onda para elegir pulsos enteros, y CROP deja solo esos. Los pulsos se quedan donde estaban en el compás, así que un loop de 3 pulsos sobre 4/4 se desplaza respecto al compás a propósito, siempre a tempo. Toca otra vez un pulso elegido para quitarlo.",
               "- **QUANTIZE** (cuantizar) encuentra cada golpe (un rasgueo, una palmada, el inicio de una nota) y lo mueve al punto más cercano de la **GRID** (rejilla): pulsos, corcheas, tresillos o semicorcheas. Lo que sigue a cada golpe se mueve con él. Va mejor en loops rítmicos; en notas largas hay poco que mover.",
               "- **AUTO Q** (arriba, apagado por defecto) hace lo mismo con cada loop nuevo y cada capa nueva al terminar de grabar, con la GRID elegida aquí. Las capas se cuantizan solas, así lo que ya estaba en el loop no cambia.",
