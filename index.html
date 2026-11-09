@@ -2071,7 +2071,7 @@
           <div id="nnBar"><button data-nn="abc">A B C</button><button data-nn="sol">DO RE MI</button></div>
           <div class="hint">Letters or solfège, for every app: TRACK, TUNE and SING.Pocket.</div>
           <h3 style="margin-top: 12px">MIDI device</h3>
-          <div id="midiBar"><div class="mrow"><button id="midiDev">CONNECT</button><button id="midiMap">ASSIGN</button><button id="midiClr">CLEAR</button></div><button id="midiSnd">SOUND</button></div>
+          <div id="midiBar"><div class="mrow"><button id="midiDev">CONNECT</button><button id="midiMap">ASSIGN</button><button id="midiClr">CLEAR</button><button id="midiTest" title="See what your device sends">TEST</button></div><button id="midiSnd">SOUND</button></div>
           <div class="hint">
             Experimental. The keys sound with a piano (<b>SOUND</b> turns it off, for keyboards with their own speakers).
             In SCALES the keys light the notes you play, PRACTICE listens to them instead of the microphone, and a
@@ -5112,8 +5112,11 @@
       //   An assigned control does that and nothing else (a pad assigned to an effect does not also play a note).
       // - ASSIGN walks through the actions one by one: press the control for each. On the keyboard (channel 1)
       //   C skips, E goes back, A exits; pads usually send on channel 10, so they never steer by mistake.
+      // - The sustain pedal (CC 64, unless assigned) holds notes: their MI.off waits until the pedal goes up.
+      // - TEST lists what the device sends (channels, velocity, knobs, pedal, wheels, aftertouch, clock...) and copies
+      //   a report with the first messages, to share in an issue or to replay in a test.
       // ---------------------------------------------------------------------------------------------
-      const MI = { acc: null, names: [], held: new Map(), on: null, off: null, cc: null, actions: () => [], map: {}, learn: null, down: new Map() };
+      const MI = { acc: null, names: [], held: new Map(), on: null, off: null, cc: null, actions: () => [], map: {}, learn: null, down: new Map(), sus: false, susd: new Set(), test: null };
       try {
         MI.map = JSON.parse(localStorage.getItem(MI_KEY + ".map") || "{}");
       } catch {}
@@ -5138,12 +5141,13 @@
       function midiBind() {
         MI.names = [];
         MI.acc.inputs.forEach((i) => {
-          i.onmidimessage = midiMsg;
+          i.onmidimessage = (e) => midiMsg(e, i.name);
           if (i.state !== "disconnected") MI.names.push(i.name);
         });
         midiFace();
       }
-      function midiMsg(e) {
+      function midiMsg(e, from) {
+        if (MI.test) miTestMsg(e.data, from);
         const [st, a, b] = e.data,
           cmd = st & 0xf0,
           ch = st & 15,
@@ -5155,14 +5159,123 @@
         if (MI.learn) return on || (cc && b > 0) ? miLearnMsg(key, cc, ch, a) : undefined;
         const act = MI.map[key] && MI.actions().find((x) => x.id === MI.map[key]);
         if (act) return miRun(act, key, cc, on, b);
+        if (cc && a === 64) {
+          // the sustain pedal: notes let go while it is down end when it comes up
+          MI.sus = b >= 64;
+          if (!MI.sus) {
+            MI.susd.forEach((n) => !MI.held.has(n) && MI.off && MI.off(n, ch));
+            MI.susd.clear();
+          }
+          return MI.cc && MI.cc(a, b, ch);
+        }
         if (cc) return MI.cc && MI.cc(a, b, ch);
         if (on) {
+          if (MI.susd.delete(a) && MI.off) MI.off(a, ch); // pressed again under the pedal: the old one ends first
           MI.held.set(a, b);
           if (MI.on) MI.on(a, b, ch);
         } else {
           MI.held.delete(a);
-          if (MI.off) MI.off(a, ch);
+          if (MI.sus) MI.susd.add(a);
+          else if (MI.off) MI.off(a, ch);
         }
+      }
+      // ---- TEST: what does this device send?
+      const MI_FAM = [
+        [/mpk/i, "Akai MPK", "Keys on channel 1, pads usually on channel 10, 8 knobs (CC), joystick for pitch bend and mod."],
+        [/nano|micro|korg/i, "Korg nano / micro", "Pads or keys and knobs; the KORG KONTROL editor can change what they send."],
+        [/launchkey|novation/i, "Novation Launchkey", "Two ports: the plain one plays; the DAW one is for lights and transport (later)."],
+        [/synido/i, "Synido", "Pads and knobs; banks change the notes the pads send."],
+        [/privia|casio|px-?s|cdp/i, "Casio digital piano", "88 keys with velocity and a sustain pedal; no pads or knobs."],
+      ];
+      function midiTest() {
+        if (!MI.names.length) return toast("Connect a MIDI device first");
+        MI.test = { names: MI.names.slice(), from: new Set(), ch: new Set(), lo: 127, hi: 0, notes: 0, vlo: 127, vhi: 0, off80: 0, off90: 0, cc: {}, pb: 0, cat: 0, pat: 0, pc: 0, clock: 0, tr: new Set(), sysex: 0, log: [], t0: performance.now() };
+        miTestFace();
+      }
+      function miTestMsg(d, from) {
+        const T = MI.test,
+          st = d[0],
+          cmd = st & 0xf0;
+        if (from) T.from.add(from);
+        if (T.log.length < 400 && st !== 0xf8 && st !== 0xfe) T.log.push([Math.round(performance.now() - T.t0), ...d]);
+        if (st >= 0xf0) {
+          if (st === 0xf8) T.clock++;
+          else if (st === 0xfa || st === 0xfb || st === 0xfc) T.tr.add({ 250: "start", 251: "continue", 252: "stop" }[st]);
+          else if (st === 0xf0) T.sysex++;
+        } else {
+          T.ch.add((st & 15) + 1);
+          if (cmd === 0x90 && d[2] > 0) {
+            T.notes++;
+            T.lo = Math.min(T.lo, d[1]);
+            T.hi = Math.max(T.hi, d[1]);
+            T.vlo = Math.min(T.vlo, d[2]);
+            T.vhi = Math.max(T.vhi, d[2]);
+          } else if (cmd === 0x80) T.off80++;
+          else if (cmd === 0x90) T.off90++;
+          else if (cmd === 0xb0) {
+            const k = (T.cc[d[1]] = T.cc[d[1]] || { lo: 127, hi: 0, n: 0, rel: 0 });
+            k.n++;
+            k.lo = Math.min(k.lo, d[2]);
+            k.hi = Math.max(k.hi, d[2]);
+            if ([1, 2, 3, 61, 62, 63, 65, 66, 67, 125, 126, 127].includes(d[2])) k.rel++; // relative knobs send small steps around 0 / 64
+          } else if (cmd === 0xe0) T.pb++;
+          else if (cmd === 0xd0) T.cat++;
+          else if (cmd === 0xa0) T.pat++;
+          else if (cmd === 0xc0) T.pc++;
+        }
+        clearTimeout(T.f);
+        T.f = setTimeout(miTestFace, 60);
+      }
+      const miNoteName = (n) => MI_NN[n % 12] + (Math.floor(n / 12) - 1);
+      function miTestRows() {
+        const T = MI.test,
+          nm = [...T.from].concat(T.names).join(" ") || "",
+          fam = MI_FAM.find(([re]) => re.test(nm)),
+          yes = (b, txt) => [b ? "✔" : "·", txt],
+          ccs = Object.entries(T.cc).filter(([n]) => n !== "64" && n !== "1"),
+          sus = T.cc[64],
+          mod = T.cc[1];
+        return [
+          ["◉", "Device: " + (T.names.join(", ") || "?") + (fam ? " — " + fam[1] : "")],
+          ...(fam ? [["i", fam[2]]] : []),
+          yes(T.notes, T.notes ? `Notes: ${T.notes}, ${miNoteName(T.lo)} to ${miNoteName(T.hi)}` : "Notes: play some keys or pads"),
+          yes(T.ch.size, "Channels: " + ([...T.ch].sort((a, b) => a - b).join(", ") || "—") + (T.ch.has(10) ? " (10 = pads / drums)" : "")),
+          yes(T.vhi > T.vlo, T.notes ? (T.vhi > T.vlo ? `Velocity: ${T.vlo} to ${T.vhi}` : `Velocity: always ${T.vhi} (fixed, or play softer and harder)`) : "Velocity: —"),
+          yes(T.off80 || T.off90, "Note off: " + (T.off80 && T.off90 ? "both kinds" : T.off80 ? "note-off messages" : T.off90 ? "note-on with velocity 0" : "—")),
+          yes(ccs.length, ccs.length ? "Knobs / sliders / buttons (CC): " + ccs.map(([n, k]) => `${n}${k.rel > k.n * 0.7 && k.n > 4 ? " rel" : ""} (${k.lo}–${k.hi})`).join(", ") : "Knobs: turn one"),
+          yes(sus, sus ? `Sustain pedal (CC 64): ${sus.n} moves${sus.lo === 0 && sus.hi === 127 ? "" : ` ${sus.lo}–${sus.hi}`}` : "Sustain pedal (CC 64): press it, if there is one"),
+          yes(mod, "Mod wheel (CC 1): " + (mod ? "yes" : "move it, if there is one")),
+          yes(T.pb, "Pitch bend: " + (T.pb ? "yes" : "move it, if there is one")),
+          yes(T.cat || T.pat, "Aftertouch: " + (T.cat ? "channel" : "") + (T.cat && T.pat ? " + " : "") + (T.pat ? "poly" : "") + (T.cat || T.pat ? "" : "press a key or pad harder after it sounds")),
+          yes(T.pc, "Program change: " + (T.pc ? T.pc + " sent" : "—")),
+          yes(T.clock || T.tr.size, "Clock / transport: " + (T.clock || T.tr.size ? (T.clock ? "clock " : "") + [...T.tr].join(", ") : "—")),
+        ];
+      }
+      function miTestFace() {
+        if (!MI.test) return;
+        let el = document.getElementById("miLearn");
+        if (!el) {
+          el = document.createElement("div");
+          el.id = "miLearn";
+          document.body.appendChild(el);
+        }
+        el.onclick = (e) => {
+          const b = e.target.closest("[data-mt]");
+          if (!b) return;
+          if (b.dataset.mt === "copy") {
+            const txt = miTestRows().map(([a, b]) => a + " " + b).join("\n") + "\n\nfirst messages [ms, bytes...]:\n" + JSON.stringify(MI.test.log);
+            (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject())
+              .then(() => toast("Report copied: paste it in an issue or a message"))
+              .catch(() => toast("Could not copy here"));
+          } else if (b.dataset.mt === "again") midiTest();
+          else {
+            MI.test = null;
+            el.remove();
+          }
+        };
+        el.innerHTML = `<div class="mlBox mtBox"><i>MIDI TEST · play keys and pads, turn knobs, press the pedal, move the wheels</i><ul>${miTestRows()
+          .map(([a, b]) => `<li class="${a === "✔" ? "ok" : a === "i" ? "inf" : ""}"><b>${a}</b>${b}</li>`)
+          .join("")}</ul><div class="mlB"><button data-mt="again">START AGAIN</button><button data-mt="copy">COPY REPORT</button><button data-mt="done" class="on">DONE</button></div></div>`;
       }
       function miRun(act, key, cc, on, v) {
         if (act.kind === "knob") return cc ? act.run(v / 127) : on && act.run(v / 127); // a pad on a knob: its velocity
@@ -5260,6 +5373,11 @@
 #miLearn .mlCur{color:var(--text)}
 #miLearn .mlB{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
 #miLearn .mlB button{flex:1 1 30%;min-height:40px;font:800 11px var(--mono,monospace)}
+#miLearn .mtBox{text-align:left;max-height:90vh;overflow:auto}
+#miLearn ul{list-style:none;margin:10px 0 0;padding:0;font:600 12px var(--mono,monospace);color:var(--dim)}
+#miLearn li{display:flex;gap:8px;padding:5px 0;border-top:1px solid var(--line)}
+#miLearn li b{width:14px;flex:none;text-align:center}
+#miLearn li.ok{color:var(--text)}#miLearn li.ok b{color:var(--acc)}#miLearn li.inf{font-weight:500;font-style:italic}
 .mrow,#midiBar{display:flex;gap:6px}.mrow{flex:3}.mrow button,#midiBar>button{flex:1;min-height:38px}`;
         document.head.appendChild(st);
       }
@@ -5275,11 +5393,14 @@
         }
         if (m) m.textContent = n ? `ASSIGN · ${n}` : "ASSIGN";
         if (c) c.disabled = !n;
+        const t = document.getElementById("midiTest");
+        if (t) t.disabled = !MI.names.length;
       }
       [
         ["midiDev", () => midiConnect()],
         ["midiMap", midiAssign],
         ["midiClr", midiClearMap],
+        ["midiTest", midiTest],
       ].forEach(([id, f]) => {
         const b = document.getElementById(id);
         if (b) b.onclick = f;
