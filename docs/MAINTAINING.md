@@ -71,7 +71,7 @@ app, then copy it to the other two so they stay identical.
 - `scripts/` copies the page, sets the microphone permission and makes the icons.
 - GitHub Actions (`.github/workflows/android.yml`) builds a signed APK on every push. A tag like `v1.2.0` also
   publishes a release with the APK.
-- The signing key is in the repository secrets: `ANDROID_KEYSTORE_BASE`, `ANDROID_KEYSTORE_PASSWORD`,
+- The signing key is in the repository secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
   `ANDROID_KEY_ALIAS`. Never commit a key or a password.
 - The web version is GitHub Pages, served from `main`.
 
