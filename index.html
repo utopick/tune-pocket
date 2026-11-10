@@ -2135,7 +2135,7 @@
         clearTimeout(e._t);
         e._t = setTimeout(() => e.classList.remove("show"), 1600);
       }
-      const esc = (x) => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+      const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
       const PAL = ["124,242,154", "255,179,71", "106,183,255", "255,111,165", "197,139,255", "77,224,208"];
       const PC = (i) => {
         const t = css("--chc")
@@ -6538,6 +6538,7 @@
       }
       // tempo and beats are locked while there are loops: they were recorded at this tempo
       function rhythmLocked() {
+        if (LP.rec) return toast("Finish the recording to change the tempo or the bar"), metFace(), true; // the count-in and the length were set at the old tempo
         if (!lpHas()) return false;
         toast("Clear the loops to change the tempo or the bar");
         metFace();
@@ -7074,7 +7075,7 @@
             const left = r.start - tv;
             if (left > 0) {
               const n = Math.ceil(left / beatDur() - 1e-3);
-              if (!r.overdub) el.querySelector(".nt").textContent = n;
+              if (!r.overdub) el.querySelector(".nt").textContent = Math.min(n, S.met.beats); // a count-in is one bar
               el.classList.add("count");
               el.classList.remove("rec");
               if (!r.overdub) el.querySelector(".in").textContent = "GET READY";
