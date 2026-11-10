@@ -5189,6 +5189,7 @@
       ];
       function midiTest() {
         if (!MI.names.length) return toast("Connect a MIDI device first");
+        if (MI.test) clearTimeout(MI.test.f);
         MI.test = { names: MI.names.slice(), from: new Set(), ch: new Set(), lo: 127, hi: 0, notes: 0, vlo: 127, vhi: 0, off80: 0, off90: 0, cc: {}, pb: 0, cat: 0, pat: 0, pc: 0, clock: 0, tr: new Set(), sysex: 0, log: [], t0: performance.now() };
         miTestFace();
       }
@@ -5223,8 +5224,11 @@
           else if (cmd === 0xa0) T.pat++;
           else if (cmd === 0xc0) T.pc++;
         }
-        clearTimeout(T.f);
-        T.f = setTimeout(miTestFace, 60);
+        // Refresh at most once per 60 ms; a continuous MIDI clock must not postpone the display forever.
+        if (!T.f) T.f = setTimeout(() => {
+          T.f = null;
+          if (MI.test === T) miTestFace();
+        }, 60);
       }
       const miNoteName = (n) => MI_NN[n % 12] + (Math.floor(n / 12) - 1);
       function miTestRows() {
@@ -5258,6 +5262,7 @@
           el = document.createElement("div");
           el.id = "miLearn";
           document.body.appendChild(el);
+          el.innerHTML = `<div class="mlBox mtBox"><i>MIDI TEST · play keys and pads, turn knobs, press the pedal, move the wheels</i><ul></ul><div class="mlB"><button data-mt="again">START AGAIN</button><button data-mt="copy">COPY REPORT</button><button data-mt="done" class="on">DONE</button></div></div>`;
         }
         el.onclick = (e) => {
           const b = e.target.closest("[data-mt]");
@@ -5269,13 +5274,15 @@
               .catch(() => toast("Could not copy here"));
           } else if (b.dataset.mt === "again") midiTest();
           else {
+            clearTimeout(MI.test.f);
             MI.test = null;
             el.remove();
           }
         };
-        el.innerHTML = `<div class="mlBox mtBox"><i>MIDI TEST · play keys and pads, turn knobs, press the pedal, move the wheels</i><ul>${miTestRows()
+        // Only replace report rows: clock updates must not detach buttons mid-click.
+        el.querySelector("ul").innerHTML = miTestRows()
           .map(([a, b]) => `<li class="${a === "✔" ? "ok" : a === "i" ? "inf" : ""}"><b>${a}</b>${b}</li>`)
-          .join("")}</ul><div class="mlB"><button data-mt="again">START AGAIN</button><button data-mt="copy">COPY REPORT</button><button data-mt="done" class="on">DONE</button></div></div>`;
+          .join("");
       }
       function miRun(act, key, cc, on, v) {
         if (act.kind === "knob") return cc ? act.run(v / 127) : on && act.run(v / 127); // a pad on a knob: its velocity
