@@ -70,7 +70,6 @@ app, then copy it to the other two so they stay identical.
   offline use and tries the network first, so an online visit gets the newest version. If you add a file the page needs
   at start (like `midi-device.js`), add it to the list in `sw.js`.
 - It is published by GitHub Pages from `main`, root folder. Pushing `main` publishes it; there is no build and no workflow.
-- `tests/midi-device.test.js` checks the MIDI helpers: `node tests/midi-device.test.js`.
 - The Android APK (a Capacitor wrapper, built by GitHub Actions) is retired. Its code lives in the `android-legacy`
   branch and is not updated. `index.html` still has a few lines that only run inside that wrapper (they look for
   `window.Capacitor`); they do nothing in a browser and can be deleted when convenient.
@@ -83,8 +82,11 @@ app, then copy it to the other two so they stay identical.
    `node dev-server.js`). It shows the three apps and the branch each one is on.
 3. Look at it on a phone-sized window (about 390 × 844): the apps are designed for phones first.
 4. Open the browser console. A change is not done until it shows no red errors.
-5. Automated checks so far are Playwright scripts that open each app, press its buttons and send fake MIDI.
-   Keeping them in the repository is the next step for contributors.
+5. Run the automated checks (a real Chrome driven by Selenium; about 30 s):
+   `python3 -m venv .venv && .venv/bin/pip install -r tests/requirements.txt` once, then `.venv/bin/python tests/e2e.py`.
+   They open every view and help page, feed the app hostile names, malformed songs and damaged saved settings, and check
+   that nothing runs, nothing throws and the app still starts. `tests/e2e.py` is the same file in all three apps; add a
+   test there when you fix a bug. `node tests/midi-device.test.js` checks the MIDI helpers.
 
 ## Rules of thumb
 - One file, no dependencies, no network (SING's lyrics search is the one exception). Keep it that way.

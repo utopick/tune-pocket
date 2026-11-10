@@ -110,7 +110,7 @@ TUNE.Pocket is a progressive web app: the hosted page can be installed and then 
 - `index.html` — the complete app (markup, styles, and audio code)
 - `midi-device.js` — the MIDI panel (device drawings, assign wizard)
 - `manifest.webmanifest`, `sw.js`, `icons/` — what makes it installable and offline
-- `docs/` — notes for whoever maintains it; `tests/` — a small test for the MIDI helpers
+- `docs/` — notes for whoever maintains it; `tests/` — automated checks (`tests/e2e.py`, Selenium) and a test for the MIDI helpers
 - `LICENSE` — license terms
 
 ## License

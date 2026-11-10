@@ -2543,11 +2543,8 @@
       }
       const micToggle = () => (MIC.on ? micStop() : micStart());
       function micError(code) {
-        const app = !!window.Capacitor;
         const m = {
-          NotAllowedError: app
-            ? "Microphone blocked. Allow it in Android Settings → Apps → TUNE.Pocket → Permissions → Microphone."
-            : "Microphone blocked. Allow it in the browser's site settings and reload.",
+          NotAllowedError: "Microphone blocked. Allow it in the browser's site settings and reload.",
           NotFoundError: "No microphone found.",
           NotReadableError: "The microphone is busy in another app.",
           NO_API: location.protocol === "http:" ? "The microphone needs https (or localhost)." : "This browser has no microphone support.",
@@ -8153,7 +8150,7 @@
               "- **●** turns the microphone on and off (Tuner and Detect only). It is lit while the app listens.",
               "- **▶** plays what the view has to play: the strings and a strum in the Tuner, the scale in Scales, the band in Jam, the clicks in the Metronome, every loop in the Looper. It is hidden in Detect and Tunings.",
               "## Microphone",
-              "The first time you tap **●** the phone asks for permission to use the microphone. In the Android app, if you refused it, allow it in *Settings → Apps → TUNE.Pocket → Permissions → Microphone*. The Looper asks for it the first time you record. The microphone turns off when you leave the view that uses it or switch apps; switching apps also stops the metronome and the loops.",
+              "The first time you tap **●** the phone asks for permission to use the microphone. If you refused it, allow the microphone in the browser's site settings (the icon next to the address) and reload. The Looper asks for it the first time you record. The microphone turns off when you leave the view that uses it or switch apps; switching apps also stops the metronome and the loops.",
             ],
             es: [
               "**TUNE.Pocket** es un afinador de bolsillo, detector de notas, buscador de escalas, banda para tocar encima, metrónomo y looper: la app hermana de TRACK.Pocket. Todo funciona en el teléfono; no se sube nada, y tus loops se quedan en él.",
@@ -8164,7 +8161,7 @@
               "- **●** enciende y apaga el micrófono (solo en Afinador y Detectar). Se ilumina mientras la app escucha.",
               "- **▶** toca lo que corresponde a la vista: las cuerdas y un rasgueo en el Afinador, la escala en Escalas, la banda en Jam, los clics en el Metrónomo, todos los loops en el Looper. Se oculta en Detectar y Afinaciones.",
               "## Micrófono",
-              "La primera vez que tocas **●** el teléfono pide permiso para usar el micrófono. En la app de Android, si lo rechazaste, actívalo en *Ajustes → Aplicaciones → TUNE.Pocket → Permisos → Micrófono*. El Looper lo pide la primera vez que grabas. El micrófono se apaga al salir de la vista que lo usa o al cambiar de app; cambiar de app también para el metrónomo y los loops.",
+              "La primera vez que tocas **●** el teléfono pide permiso para usar el micrófono. Si lo rechazaste, permite el micrófono en los ajustes del sitio del navegador (el icono junto a la dirección) y recarga. El Looper lo pide la primera vez que grabas. El micrófono se apaga al salir de la vista que lo usa o al cambiar de app; cambiar de app también para el metrónomo y los loops.",
             ],
           },
         },
