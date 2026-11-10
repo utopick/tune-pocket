@@ -102,7 +102,7 @@ TUNE.Pocket is a progressive web app (PWA): the hosted page can be installed on 
 2. Tap **Share**, then **Add to Home Screen**, then **Add**.
 3. Open it from the new icon. The microphone asks for permission the first time you use it.
 
-Notes: Safari on iOS has no Web MIDI, so MIDI keyboards and pads do not work there. iOS may clear the data of web apps you do not open for a few weeks, so export what you want to keep.
+Notes: Safari on iOS has no Web MIDI, so MIDI keyboards and pads do not work there. On iOS, Safari deletes the data of websites you have not used for 7 days, but an app added to the Home Screen is exempt from that rule: so install it, rather than keeping it in a Safari tab. Even so, export what you want to keep (iOS can still free storage when the phone is nearly full).
 
 ### Android
 

@@ -2177,7 +2177,8 @@
   const g = (id, label, inner) => `<g class="mdc" data-control="${id}" tabindex="0" role="button" aria-label="${esc(label)}">${inner}</g>`;
   const knob = (id, x, y, r, label) => g(id, label, `<circle class="hit" cx="${x}" cy="${y}" r="${r + 8}"/><circle class="tk" cx="${x}" cy="${y}" r="${r + 5}"/><circle class="sh" cx="${x}" cy="${y}" r="${r}"/><line class="sh" x1="${x}" y1="${y}" x2="${x}" y2="${num(y - r + 4)}" transform="rotate(40 ${x} ${y})"/>`);
   const pad = (id, x, y, s, n) => g(id, "Pad " + n, `<rect class="sh" x="${x}" y="${y}" width="${s}" height="${s}" rx="6"/><rect class="dc" x="${num(x + 5)}" y="${num(y + 5)}" width="${s - 10}" height="${s - 10}" rx="3"/><text class="nm" x="${num(x + s / 2)}" y="${num(y + s / 2 + 4)}">${n}</text>`);
-  const padGrid = (x, y, cols, count, s, gap) => Array.from({ length: count }, (_, i) => pad("p" + i, x + (i % cols) * (s + gap), y + Math.floor(i / cols) * (s + gap), s, i + 1)).join("");
+  // flip: pad 1 is on the bottom row (the MPK numbers its pads from the bottom left)
+  const padGrid = (x, y, cols, count, s, gap, flip) => Array.from({ length: count }, (_, i) => { const r = Math.floor(i / cols), rows = Math.ceil(count / cols); return pad("p" + i, x + (i % cols) * (s + gap), y + (flip ? rows - 1 - r : r) * (s + gap), s, i + 1); }).join("");
   const knobGrid = (x, y, cols, count, dx, dy, r) => Array.from({ length: count }, (_, i) => knob("c" + i, x + (i % cols) * dx, y + Math.floor(i / cols) * dy, r, "Knob " + (i + 1))).join("");
   const wheel = (x, y, w, h) => `<rect class="dc" x="${x}" y="${y}" width="${w}" height="${h}" rx="${w / 2}"/>` + [0.2, 0.35, 0.5, 0.65, 0.8].map((f) => `<line class="dc" x1="${x + 4}" x2="${x + w - 4}" y1="${num(y + h * f)}" y2="${num(y + h * f)}"/>`).join("");
   const joystick = (x, y, r) => `<circle class="dc" cx="${x}" cy="${y}" r="${r}"/><circle class="dc" cx="${x}" cy="${y}" r="${num(r * 0.5)}"/><path class="dc" d="M${x - r} ${y}h${2 * r}M${x} ${y - r}v${2 * r}"/>`;
@@ -2210,7 +2211,7 @@
     switch (p.shape) {
       case "mpk": // joystick, 4x2 pads, screen, 4x2 knobs, speaker; the keys along the bottom
         h = 290;
-        inner = joystick(62, 78, 32) + padGrid(120, 22, 4, p.pads, 54, 8) + screen(392, 34, 96, 50) + btnRow(392, 102, 3, 26, 22, 8) + knobGrid(546, 48, 4, p.knobs, 60, 64, 19) + speaker(776, 30, 38, 110) + keys(170, 100);
+        inner = joystick(62, 78, 32) + padGrid(120, 22, 4, p.pads, 54, 8, true) + screen(392, 34, 96, 50) + btnRow(392, 102, 3, 26, 22, 8) + knobGrid(546, 48, 4, p.knobs, 60, 64, 19) + speaker(776, 30, 38, 110) + keys(170, 100);
         break;
       case "lk": // wheels, screen and buttons, a row of 8 knobs over 2x8 pads, a fader; the keys at the bottom
         h = 330;
