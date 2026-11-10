@@ -2132,7 +2132,8 @@
   const PROFILES = {
     synido: { title: "Synido Scale Pocket", shape: "mini", keys: 25, base: 48, pads: 0, knobs: 1, source: "https://www.synido.com/products/scale-pocket-portable-mini-piano-midi-controller-learn-scales-play-music" },
     akai: { title: "Akai MPK mini Play mk3", shape: "mpk", keys: 25, base: 48, pads: 8, knobs: 8, cc0: 2, source: "https://www.akaipro.com/mpk-mini-play-mk3/" },
-    korgpad: { title: "Korg nanoPAD · pads", shape: "pads", keys: 0, base: 36, pads: 12, knobs: 0, source: "https://www.korg.com/us/products/computergear/nanopad2/" },
+    korgpad: { title: "Korg nanoPAD2 · pads", shape: "pads", keys: 0, base: 36, pads: 16, padCh: 0, knobs: 0, source: "https://www.korg.com/us/products/computergear/nanopad2/" },
+    korgkey: { title: "Korg nanoKEY2 · 25 keys", shape: "nkey", keys: 25, base: 48, pads: 0, knobs: 0, source: "https://www.korg.com/us/products/computergear/nanokey2/" },
     casio: { title: "Casio PX-S1100", shape: "piano", keys: 88, base: 21, pads: 0, knobs: 0, source: "https://www.casio.com/us/electronic-musical-instruments/product.PX-S1100BK/" },
     novation25: { title: "Novation Launchkey · 25 keys", shape: "lk", keys: 25, base: 48, pads: 16, knobs: 8, cc0: 21, source: "https://novationmusic.com/launchkey" },
     novation37: { title: "Novation Launchkey · 37 keys", shape: "lk", keys: 37, base: 48, pads: 16, knobs: 8, cc0: 21, source: "https://novationmusic.com/launchkey" },
@@ -2162,6 +2163,7 @@
   const guess = (s) => {
     if (/scale pocket|synido/i.test(s)) return "synido";
     if (/mpk|akai/i.test(s)) return "akai";
+    if (/nanokey/i.test(s)) return "korgkey";
     if (/nanopad|korg/i.test(s)) return "korgpad";
     if (/casio|privia|px-s|cdp/i.test(s)) return "casio";
     if (/launchkey|novation/i.test(s)) { const n = (s.match(/\b(25|37|49|61|88)\b/) || [])[1]; return "novation" + (n || 25); }
@@ -2229,9 +2231,13 @@
         h = 210;
         inner = `<circle class="dc" cx="38" cy="38" r="10"/>` + `<rect class="dc" x="92" y="33" width="130" height="10" rx="5"/><rect class="dc" x="150" y="27" width="14" height="22" rx="4"/>` + btnRow(270, 24, 6, 40, 28, 10) + keys(80, 114, 14);
         break;
-      case "pads": // pad controller: X-Y pad and 4x3 pads, no keys
-        h = 340;
-        inner = `<rect class="dc" x="44" y="34" width="200" height="272" rx="8"/><circle class="dc" cx="144" cy="170" r="14"/><path class="dc" d="M144 34v272M44 170h200"/>` + padGrid(292, 34, 4, p.pads, 84, 12);
+      case "pads": // nanoPAD2: the X-Y touch pad, six buttons over a 4x4 pad grid, no keys
+        h = 370;
+        inner = g("xy", "X-Y pad", `<rect class="sh" x="70" y="40" width="290" height="290" rx="10"/><path class="dc" d="M215 40v290M70 185h290"/><circle class="dc" cx="215" cy="185" r="16"/>`) + btnRow(430, 28, 6, 36, 20, 8) + padGrid(430, 64, 4, p.pads, 62, 8, true);
+        break;
+      case "nkey": // nanoKEY2: octave shift, pitch bend, mod and sustain buttons over 25 slim keys
+        h = 260;
+        inner = [["o-", "OCT −"], ["o+", "OCT +"], ["b-", "PITCH −"], ["b+", "PITCH +"], ["m", "MOD"], ["s", "SUSTAIN"]].map(([id, t], i) => g(id, t, `<rect class="sh" x="${40 + i * 70}" y="30" width="56" height="34" rx="6"/><text class="nm" x="${68 + i * 70}" y="52">${t}</text>`)).join("") + keys(110, 130);
         break;
     }
     return `<svg viewBox="0 0 ${W} ${h}" role="img" aria-label="${esc(p.title)} wireframe"><rect class="body" x="1" y="1" width="${W - 2}" height="${h - 2}" rx="16"/>${inner}</svg>`;
@@ -2268,7 +2274,7 @@
       const p = profOf(from), bound = Object.entries(saved[from]?.controls || {}).find(([, v]) => v.key === key)?.[0];
       if (bound) return bound;
       const [, t, ch, n] = key.match(/^([nc])(\d+):(\d+)$/) || [];
-      if (t === "n") return +ch === 9 && p.pads ? "p" + padIndex(p.pads, +n) : "";
+      if (t === "n") return +ch === (p.padCh ?? 9) && p.pads ? "p" + padIndex(p.pads, +n) : "";
       const r = t === "c" ? knobRank(seenCC[from], +n, p.cc0) : -1;
       return p.cc0 != null && r >= 0 && r < p.knobs ? "c" + r : "";
     }
@@ -2319,7 +2325,7 @@
       device = MI.names[0];
       const style = document.createElement("style"); style.textContent = css; style.id = "mdStyle"; document.head.appendChild(style);
       el = document.createElement("div"); el.id = "mdPanel";
-      el.innerHTML = `<div class="mdCard" role="dialog" aria-modal="true" aria-label="MIDI device diagram"><header><h2>MIDI DEVICE · LIVE DIAGRAM</h2><button data-do="close">DONE</button></header><div class="mdRow"><label>Input port<select id="mdSource"></select></label><label>Diagram<select id="mdProfile"></select></label></div><small>A line sketch of the layout, not to scale. Pick the model that matches yours. Keys, pads (MIDI channel 10) and knobs light up as you use them; knobs are matched in the order of their CC numbers. LEARN pins a drawn control to the real one.</small><div class="mdDevice"></div><div class="mdMap"><div class="mdRow"><strong id="mdSelected">Select a key, pad or knob</strong><label>Pocket function<select id="mdAction"></select></label><button data-do="learn">LEARN FROM HARDWARE</button><button data-do="clear">CLEAR CONTROL</button><button data-do="defaults" id="mdDefaults" title="The functions the app gives the knobs and pads before you assign anything"></button></div><div class="mdHint" id="mdHint"></div><small>Choose a diagram control and a Pocket function, then press or turn its real counterpart. Assignments are saved for this input port and this Pocket app. Unassigned keys still play normally. Click a drawn key to preview it.</small><p><a id="mdSourceLink" target="_blank" rel="noopener noreferrer">Manufacturer reference ↗</a></p></div></div>`;
+      el.innerHTML = `<div class="mdCard" role="dialog" aria-modal="true" aria-label="MIDI device diagram"><header><h2>MIDI DEVICE · LIVE DIAGRAM</h2><button data-do="close">DONE</button></header><div class="mdRow"><label>Input port<select id="mdSource"></select></label><label>Diagram<select id="mdProfile"></select></label></div><small>A line sketch of the layout, not to scale. Pick the model that matches yours. Keys, pads and knobs light up as you use them; knobs are matched in the order of their CC numbers. LEARN pins a drawn control to the real one.</small><div class="mdDevice"></div><div class="mdMap"><div class="mdRow"><strong id="mdSelected">Select a key, pad or knob</strong><label>Pocket function<select id="mdAction"></select></label><button data-do="learn">LEARN FROM HARDWARE</button><button data-do="clear">CLEAR CONTROL</button><button data-do="defaults" id="mdDefaults" title="The functions the app gives the knobs and pads before you assign anything"></button></div><div class="mdHint" id="mdHint"></div><small>Choose a diagram control and a Pocket function, then press or turn its real counterpart. Assignments are saved for this input port and this Pocket app. Unassigned keys still play normally. Click a drawn key to preview it.</small><p><a id="mdSourceLink" target="_blank" rel="noopener noreferrer">Manufacturer reference ↗</a></p></div></div>`;
       document.body.appendChild(el);
       sourceOptions();
       el.querySelector("#mdSource").onchange = (e) => { device = e.target.value; learning = false; selected = ""; draw(); };
@@ -2365,7 +2371,8 @@
       selected = id; if (!el) return;
       el.querySelectorAll(".chosen").forEach((x) => x.classList.remove("chosen"));
       el.querySelector(`[data-control="${id}"]`)?.classList.add("chosen");
-      el.querySelector("#mdSelected").textContent = id ? (id[0] === "k" ? noteName(+id.slice(1)) : id[0] === "p" ? `Pad ${+id.slice(1) + 1}` : `Knob ${+id.slice(1) + 1}`) : "Select a key, pad or knob";
+      const CTL = { j: "Joystick", xy: "X-Y pad", "o-": "Octave −", "o+": "Octave +", "b-": "Pitch −", "b+": "Pitch +", m: "Mod", s: "Sustain" };
+      el.querySelector("#mdSelected").textContent = id ? (CTL[id] || (id[0] === "k" ? noteName(+id.slice(1)) : id[0] === "p" ? `Pad ${+id.slice(1) + 1}` : `Knob ${+id.slice(1) + 1}`)) : "Select a key, pad or knob";
       const actions = MI.actions(), groups = [...new Set(actions.map((a) => a.group))];
       const action = el.querySelector("#mdAction");
       action.innerHTML = `<option value="">Unassigned · normal key</option>` + groups.map((gr) => `<optgroup label="${esc(gr)}">${actions.filter((a) => a.group === gr).map((a) => `<option value="${esc(a.id)}">${esc(a.name)}</option>`).join("")}</optgroup>`).join("");
@@ -2391,6 +2398,18 @@
     }
     const lit = (id, on) => el?.querySelector(`[data-control="${id}"]`)?.classList.toggle("lit", on);
     const blink = (id) => { lit(id, true); clearTimeout(flash.get(id)); flash.set(id, setTimeout(() => lit(id, false), 180)); };
+    // the controls that are neither keys, pads nor knobs: [control, text] for a message, or null
+    function special(p, cmd, cc, a, b, bound) {
+      if (bound) return null;
+      if (p.shape === "mpk" && (cmd === 0xe0 || (cc && a === 1))) return ["j", cmd === 0xe0 ? "Joystick · pitch bend" : `Joystick · mod (CC 1) = ${b}`];
+      if (p.shape === "pads" && cc) return ["xy", `X-Y pad · CC ${a} = ${b}`];
+      if (p.shape === "nkey") {
+        if (cmd === 0xe0) return [b >= 64 ? "b+" : "b-", "Pitch bend button"];
+        if (cc && a === 1) return ["m", `Mod button · CC 1 = ${b}`];
+        if (cc && a === 64) return ["s", `Sustain button · CC 64 = ${b}`];
+      }
+      return null;
+    }
     function observe(data, from) {
       const [st, a, b] = data, cmd = st & 0xf0;
       if (st >= 0xf0 || !from) return;
@@ -2409,7 +2428,7 @@
       const p = prof(), bound = Object.entries(record().controls).find(([, v]) => v.key === key)?.[0];
       if (noteOn || noteOff) {
         // a learned pad, else any note on channel 10 is a pad; everything else is a key
-        const id = bound && !bound.startsWith("k") ? bound : !bound && (st & 15) === 9 && p.pads ? "p" + padIndex(p.pads, a) : "";
+        const id = bound && !bound.startsWith("k") ? bound : !bound && (st & 15) === (p.padCh ?? 9) && p.pads ? "p" + padIndex(p.pads, a) : "";
         if (id) {
           lit(id, noteOn);
           if (noteOn) hint(`Pad ${+id.slice(1) + 1} · note ${a} · channel ${(st & 15) + 1}`);
@@ -2418,9 +2437,10 @@
         if (!p.keys) return;
         if (a < base || a >= base + p.keys) { base = Math.max(0, Math.min(127 - p.keys, Math.floor(a / 12) * 12)); drawDevice(); }
         lit("k" + a, noteOn);
-      } else if (cmd === 0xe0 || (cc && a === 1 && p.shape === "mpk" && !bound)) {
-        blink("j");
-        hint(cmd === 0xe0 ? "Joystick · pitch bend" : `Joystick · mod (CC 1) = ${b}`);
+      } else if (special(p, cmd, cc, a, b, bound)) {
+        const [id, text] = special(p, cmd, cc, a, b, bound);
+        blink(id);
+        hint(text);
       } else if (cc) {
         const r = bound && !bound.startsWith("k") ? bound : knobRank(seenCC[from], a, p.cc0);
         const id = typeof r === "string" ? r : r >= 0 && r < p.knobs ? "c" + r : "";
@@ -5525,7 +5545,7 @@
       // ---- TEST: what does this device send?
       const MI_FAM = [
         [/mpk/i, "Akai MPK", "Keys on channel 1, pads usually on channel 10, 8 knobs (CC), joystick for pitch bend and mod."],
-        [/nano|micro|korg/i, "Korg nano / micro", "Pads or keys and knobs; the KORG KONTROL editor can change what they send."],
+        [/nano|micro|korg/i, "Korg nano / micro", "nanoPAD2: 16 pads on channel 1 and an X-Y pad. nanoKEY2: 25 keys with octave, pitch, mod and sustain buttons. The KORG KONTROL editor can change what they send."],
         [/launchkey|novation/i, "Novation Launchkey", "Two ports: the plain one plays; the DAW one is for lights and transport (later)."],
         [/synido/i, "Synido", "Pads and knobs; banks change the notes the pads send."],
         [/privia|casio|px-?s|cdp/i, "Casio digital piano", "88 keys with velocity and a sustain pedal; no pads or knobs."],

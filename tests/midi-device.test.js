@@ -94,3 +94,18 @@ test("the starting assignment: pads and knobs do what the app says until the use
   assert.equal(gen.fallback("Some keyboard", "c0:70", true, false, 1), false);
   assert.equal(gen.fallback("Some keyboard", "n9:36", false, true, 100), true); // but its pads (8 on the generic layout) do
 });
+
+test("Korg nanoPAD2 pads (channel 1, 16 pads) and the nanoKEY2 are recognised", () => {
+  const context = { window: {}, location: { pathname: "/sing-pocket/" }, localStorage: { getItem: () => null } };
+  vm.createContext(context);
+  vm.runInContext(source, context);
+  assert.equal(context.window.pocketMidiHelpers.guess("nanoPAD2 PAD"), "korgpad");
+  assert.equal(context.window.pocketMidiHelpers.guess("nanoKEY2 KEYBOARD"), "korgkey");
+  const calls = [];
+  const MI = { names: ["nanoPAD2 PAD"], map: {}, defaults: () => ({ pads: Array.from({ length: 16 }, (_, i) => ["p" + i, "PAD " + i]) }), actions: () => Array.from({ length: 16 }, (_, i) => ({ id: "p" + i, group: "g", name: "P" + i, kind: "tap" })) };
+  const panel = context.window.createMidiPanel(MI, (a) => calls.push(a.id), () => {});
+  assert.equal(panel.fallback("nanoPAD2 PAD", "n0:36", false, true, 100), true); // pad 1 sends on channel 1
+  assert.equal(panel.fallback("nanoPAD2 PAD", "n0:51", false, true, 100), true); // pad 16
+  assert.equal(panel.fallback("nanoPAD2 PAD", "n9:36", false, true, 100), false); // channel 10 is not this model's pad channel
+  assert.deepEqual(calls, ["p0", "p15"]);
+});
