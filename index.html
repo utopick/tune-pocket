@@ -26,6 +26,15 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#0d0f12" />
+    <meta name="apple-mobile-web-app-title" content="TUNE.Pocket" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <script>
+      if ("serviceWorker" in navigator && !location.pathname.includes("/@") &&
+          ((location.protocol === "https:" && location.hostname !== "localhost") ||
+           (location.protocol === "http:" && ["localhost", "127.0.0.1"].includes(location.hostname)))) {
+        addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(console.warn));
+      }
+    </script>
     <script>
       try {
         document.documentElement.dataset.theme = localStorage.getItem("tune.theme") || "dark";
@@ -35,6 +44,7 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20108%20108%22%3E%3Crect%20width%3D%22108%22%20height%3D%22108%22%20rx%3D%2224%22%20fill%3D%22%230d0f12%22%2F%3E%3Cpath%20d%3D%22M37.70%2040.85L24.12%2040.85L24.12%2030.90L63.61%2030.90L63.61%2040.85L50.03%2040.85L50.03%2076.37L37.70%2076.37L37.70%2040.85Z%22%20fill%3D%22%23e8ecf1%22%2F%3E%3Cpath%20d%3D%22M77.60%2077.10L77.60%2077.10Q74.91%2077.10%2073.11%2075.33Q71.31%2073.56%2071.31%2070.91L71.31%2070.91Q71.31%2068.25%2073.11%2066.48Q74.91%2064.71%2077.60%2064.71L77.60%2064.71Q80.28%2064.71%2082.08%2066.48Q83.88%2068.25%2083.88%2070.91L83.88%2070.91Q83.88%2073.56%2082.08%2075.33Q80.28%2077.10%2077.60%2077.10Z%22%20fill%3D%22%23007ba7%22%2F%3E%3C%2Fsvg%3E" />
     <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABnElEQVR4nOyXv08CMRTHX6/lIAYxmKgDoz8mZ86/QBNdTJwkOjiZOKiL/4c6mDC4Ka4u/g8cK0wSRwaIiQkcRsKV2kc4gkQvnFwpA5+kSZs2ed++9vXuy2CAeHxl2WDtMyFgXw43ZaMQDly2EiHw3HEjd45TrXkTxOskEsmMICSLOkAtDhHitF7/yOGADgR/lF0T1GMCIQexaKzcan0VCaad0PYbqN/5MI7gkVUam4teycE2TB7ToJ1P1rtwWsDYZH5h0YXwbntQONMYHKEGaIb5TZ5fXELasmAUCrYNtzfXEBRfARjcsrZAJdqPAKtAjLr4IffUz4ht5+Eocwjjoj0DMwEzAdP9Ev4XnlqHVnoPWKUMtPIqW/nPtUoywFMbPRG7XSF+KMmAK4P3A/jsPrAA/OD81h8mWnjpZgGF4BH4EegpVsFUlCEHfXAUUAJ9lAy0S6AJjK3VmHRctmagUUSvBhMGYzabtWr3lxw9Gno1mZMdUO8P0Zye/DCnnggzkrhHuySHSdmWILwyxUoryjPPSj943Gi8572JbwAAAP//mVQvvgAAAAZJREFUAwA46ohLNdxkDQAAAABJRU5ErkJggg==" />
     <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAADBUlEQVR4nOzdTYoTTQCA4fq+GRQEEdy6EtEjmDmDrjyHG4/i3xFEl670DOoRdD1XEJQRbCcgor5gJtidjM/DLEKTWfWbqkpXoA4vX7k64Hf+HxDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQTocC1mtjlZHR2PPPX70cJxf/y11xtuz5y+mPsaeu3nj+ji/TCskcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQVrs9xzbW62Onj1/Mc7qyeNH5/unOtszcpDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHabFDh/9xX67d/HT77vrF+srB8YfD4w/TiwvvXo3dII65rbP43sSP179f3JE+xDGrj/ce/JrFTz7dvjP9XXz3evFErDnm8/l3A0aZ+vjzN/8l4pjJVMZ0vzf6l/WiZEHimMmmZYzTVcg0DY3liGMOn886Bvy4Sp2fOEjimMPJFp/+L9dujYWIYw7bTA0nphV2kIdgu279TH0RRo45HCx3g7chjjls8+k/OH4/FiKOOZz5Bk9DzoFp5XybbvC0kTY2d3HRvTdxzGTaYt10DJh6WnaxIo75bDQMTFnYsv+HTPf78tP7fzK/TO+59HL507L3+LjycXpi+djC27dvxhKmfbiT2FE7XZ282pGvvvsdx7473XT9tnWy/jqza49DxEGy5iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJg/QVAAD//zNlusMAAAAGSURBVAMAFBx1RSjbyR4AAAAASUVORK5CYII=" />
+    <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png" />
     <style>
       /* ===================== shared with TRACK.Pocket (base, pocket layout, themes) ===================== */
       :root { --bg: #0d0f12; --panel: #161a20; --panel2: #1d222a; --line: #2a313b; --text: #e8ecf1; --dim: #8a94a3; --acc: #7cf29a; --acc2: #ffb347; --hot: #ff5e7a; --blue: #6ab7ff; --r: 10px; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace; --ink: #082012; --ink2: #1b1000; --beat: #1a1f27; --playbg: #24402e; --playbg2: #1f5133; --wave: #0a0c0f; --scope: #ffb347; --tie: #1d2a22; --lcn: #232a35; --hi: #fff; --blink: #35404f; }
