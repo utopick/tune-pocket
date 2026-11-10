@@ -92,24 +92,46 @@ They were surprinsingly designed by Claude from some sketches, so go figure.
 
 Settings and custom tunings are stored in your browser (`localStorage`); they are not uploaded anywhere. Tunings saved by the old LFTuner load automatically. Clearing browser storage removes them.
 
-## Install it (PWA)
+## Install it as an app (PWA)
 
-TUNE.Pocket is a progressive web app: the hosted page can be installed and then runs on its own, offline. It is `index.html` plus a tiny service worker (`sw.js`, which keeps the app files for offline use), a manifest and two icons. Nothing else is downloaded, and nothing is uploaded.
+TUNE.Pocket is a progressive web app (PWA): the hosted page can be installed on the home screen or desktop, opens in its own window without browser bars, and keeps working with no connection. There is no store and no download. The first visit has to be online; after that it starts offline.
 
-- **Android:** open the page in Chrome and choose **Install app** (or **Add to Home Screen**). The first time you use the microphone, allow it when the browser asks.
-- **iPhone / iPad:** in Safari, Share ▸ **Add to Home Screen**.
-- **Computer:** Chrome or Edge show an install icon in the address bar.
-- **Updates:** the app looks for a new version whenever it is online; close and reopen it to get it.
-- **MIDI keyboards and pads:** Chrome, Edge and Chrome on Android can use them (Web MIDI). Safari and iPhone cannot. The **MIDI** panel in the options lists what the browser sees, has an assign wizard and a TEST that shows what each key sends.
-- Your data lives in the browser's storage for that site (separate from other sites and from any older Android APK). Export what you want to keep before clearing browser data.
+### iPhone and iPad (iOS)
 
-**The Android APK is retired.** It was a Capacitor wrapper of this same page; the web app now does the same job without a build or an install from outside the store. Its code is kept in the [`android-legacy`](https://github.com/utopick/tune-pocket/tree/android-legacy) branch and the old APKs stay in [Releases](https://github.com/utopick/tune-pocket/releases); neither is updated any more.
+1. Open [utopick.github.io/tune-pocket](https://utopick.github.io/tune-pocket/) in **Safari** (other iOS browsers cannot install web apps from the share menu).
+2. Tap **Share**, then **Add to Home Screen**, then **Add**.
+3. Open it from the new icon. The microphone asks for permission the first time you use it.
+
+Notes: Safari on iOS has no Web MIDI, so MIDI keyboards and pads do not work there. iOS may clear the data of web apps you do not open for a few weeks, so export what you want to keep.
+
+### Android
+
+1. Open the page in **Chrome** (Edge, Brave and Samsung Internet work too).
+2. Choose menu ⋮ ▸ **Install app** (or **Add to Home Screen**), or accept the install banner if it shows.
+3. Open it from the icon. Allow the microphone when asked; if you refused it, tap the lock icon in the address bar of a normal tab (or **Settings ▸ Apps ▸ TUNE.Pocket ▸ Permissions**).
+
+MIDI keyboards and pads over USB or Bluetooth work in Chrome (Web MIDI).
+
+### Desktop (Windows, macOS, Linux, ChromeOS)
+
+1. Open the page in **Chrome** or **Edge** and click the install icon at the right end of the address bar (or menu ▸ **Install TUNE.Pocket**).
+2. It opens in its own window and can be pinned to the taskbar or dock.
+3. Firefox and Safari on desktop can use the page in a tab, but do not install it; Firefox also has Web MIDI, Safari does not.
+
+### Good to know
+
+- **Updates:** whenever it is online the app fetches the newest version; close and reopen it to run it.
+- **Your data** lives in the browser's storage for this site (the installed app and a tab of the same browser share it). Export songs and recordings you want to keep before clearing browser data or switching device.
+- **The Android APK is retired.** It was a Capacitor wrapper of this same page; the PWA does the same job without a build. The code stays in the [`android-legacy`](https://github.com/utopick/tune-pocket/tree/android-legacy) branch and the old APKs in [Releases](https://github.com/utopick/tune-pocket/releases); neither gets updates.
+
+### Why is there a service worker (`sw.js`)?
+
+Browsers only allow an app to work offline, and only offer to install it, if the site registers a **service worker**: a small script that sits between the page and the network. This one does a single job: on the first visit it saves the app's own files (`index.html`, the manifest and the icons) in the browser's cache, and afterwards it answers from that cache when you are offline. It asks the network first, so when you are online you always get the latest version. It cannot be part of `index.html`, because browsers load it as a separate file, and it never touches your songs, recordings, microphone or MIDI, and sends nothing anywhere.
 
 ## Files
 
-- `index.html` — the complete app (markup, styles, and audio code)
-- `midi-device.js` — the MIDI panel (device drawings, assign wizard)
-- `manifest.webmanifest`, `sw.js`, `icons/` — what makes it installable and offline
+- `index.html` — the complete app (markup, styles, audio code and the MIDI panel)
+- `manifest.webmanifest`, `sw.js`, `icons/` — what makes it installable and offline (see above)
 - `docs/` — notes for whoever maintains it; `tests/` — automated checks (`tests/e2e.py`, Selenium) and a test for the MIDI helpers
 - `LICENSE` — license terms
 

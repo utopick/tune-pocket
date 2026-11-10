@@ -1,7 +1,7 @@
 // One worker per GitHub Pages project path. Keep the app shell available offline.
 const SCOPE = self.registration.scope;
 const CACHE = "pocket-pwa-" + new URL(SCOPE).pathname.replace(/\W/g, "-") + "v1";
-const ASSETS = ["./", "index.html", "midi-device.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
+const ASSETS = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
 const PATHS = new Set(ASSETS.map((name) => new URL(name, SCOPE).pathname));
 
 self.addEventListener("install", (event) => {

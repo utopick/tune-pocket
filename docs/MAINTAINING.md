@@ -7,7 +7,7 @@ find your way before you change anything. It describes `main`, the installable w
 TUNE.Pocket is a tuner, a note detector, scales and chords (with voicings for fretted instruments and piano), a circle of fifths, a jam band, a metronome and a looper. It runs in any modern browser and installs as a web app (PWA).
 
 ## The one-file rule
-The whole app is **one file: `index.html`** (plus `midi-device.js` for the MIDI panel, and `sw.js`, `manifest.webmanifest` and `icons/` that make it installable) (about 9,200 lines). There is no build step, no framework and no
+The whole app is **one file: `index.html`** (the MIDI panel is its own `<script id="midi-device">` block inside it, identical in the three apps; `sw.js`, `manifest.webmanifest` and `icons/` only make it installable) (about 9,200 lines). There is no build step, no framework and no
 dependencies to install, so anyone can open it, read it and change it.
 - Inside, in this order:
   - a comment at the top that lists the layout of the file and every storage key (read it first)
@@ -67,8 +67,8 @@ app, then copy it to the other two so they stay identical.
 
 ## The web app (PWA) and the Android leftovers
 - `manifest.webmanifest`, `sw.js` and `icons/` make the page installable. The service worker keeps the app files for
-  offline use and tries the network first, so an online visit gets the newest version. If you add a file the page needs
-  at start (like `midi-device.js`), add it to the list in `sw.js`.
+  offline use and tries the network first, so an online visit gets the newest version. If the page ever needs a new
+  file at start, add it to the list in `sw.js`. When you change the MIDI panel, change it in all three apps.
 - It is published by GitHub Pages from `main`, root folder. Pushing `main` publishes it; there is no build and no workflow.
 - The Android APK (a Capacitor wrapper, built by GitHub Actions) is retired. Its code lives in the `android-legacy`
   branch and is not updated. `index.html` still has a few lines that only run inside that wrapper (they look for

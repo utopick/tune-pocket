@@ -79,7 +79,7 @@ class Common(Page):
         self.open(); self.tour(); self.assertClean()
 
     def test_installable_files_are_served(self):
-        for f in ("manifest.webmanifest", "sw.js", "midi-device.js", "icons/icon-192.png", "icons/icon-512.png"):
+        for f in ("manifest.webmanifest", "sw.js", "icons/icon-192.png", "icons/icon-512.png"):
             with urllib.request.urlopen(BASE + f) as r: self.assertEqual(r.status, 200, f)
         m = json.load(urllib.request.urlopen(BASE + "manifest.webmanifest"))
         for k in ("name", "start_url", "icons"): self.assertIn(k, m)

@@ -3,7 +3,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
-const source = fs.readFileSync(require.resolve("../midi-device.js"), "utf8");
+// the panel lives in index.html, in <script id="midi-device">
+const source = fs.readFileSync(require.resolve("../index.html"), "utf8").match(/<script id="midi-device">([\s\S]*?)<\/script>/)[1];
 
 test("learned bindings route only on their own input and Pocket app", () => {
   const storage = new Map();

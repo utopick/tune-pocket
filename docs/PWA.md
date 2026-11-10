@@ -2,11 +2,11 @@
 
 The site is https://utopick.github.io/tune-pocket/ and is served from `main`, root folder (Settings ▸ Pages ▸ Deploy from a branch ▸ `main` / `(root)`). There is no Pages workflow.
 
-Files that make it a PWA: `manifest.webmanifest`, `sw.js`, `icons/icon-192.png`, `icons/icon-512.png`, and the registration code in `index.html`. The worker caches only the app shell (including `midi-device.js`) for offline use and tries the network first, so online visits get updates. Microphone, MIDI hardware and third-party resources (SING's lyrics search) are never cached.
+Files that make it a PWA: `manifest.webmanifest`, `sw.js`, `icons/icon-192.png`, `icons/icon-512.png`, and the registration code in `index.html`. The worker caches only the app shell for offline use and tries the network first, so online visits get updates. Microphone, MIDI hardware and third-party resources (SING's lyrics search) are never cached.
 
 ## Checking a release
 
-1. After pushing `main`, check that `/tune-pocket/`, `/manifest.webmanifest`, `/sw.js`, `/midi-device.js` and `/icons/icon-192.png` return 200 over HTTPS.
+1. After pushing `main`, check that `/tune-pocket/`, `/manifest.webmanifest`, `/sw.js` and `/icons/icon-192.png` return 200 over HTTPS.
 2. In Chrome DevTools ▸ Application, look at Manifest, Service Workers and Cache Storage. Visit once online, then reload offline.
 3. Install from the Chrome menu or address bar (Android, desktop). On iPhone/iPad use Safari ▸ Share ▸ Add to Home Screen. Allow the microphone and MIDI when the browser asks. Web MIDI does not exist in Safari/iOS.
 
