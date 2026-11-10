@@ -26,6 +26,15 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#0d0f12" />
+    <meta name="apple-mobile-web-app-title" content="TUNE.Pocket" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <script>
+      if ("serviceWorker" in navigator && !location.pathname.includes("/@") &&
+          ((location.protocol === "https:" && location.hostname !== "localhost") ||
+           (location.protocol === "http:" && ["localhost", "127.0.0.1"].includes(location.hostname)))) {
+        addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(console.warn));
+      }
+    </script>
     <script>
       try {
         document.documentElement.dataset.theme = localStorage.getItem("tune.theme") || "dark";
@@ -35,6 +44,7 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20108%20108%22%3E%3Crect%20width%3D%22108%22%20height%3D%22108%22%20rx%3D%2224%22%20fill%3D%22%230d0f12%22%2F%3E%3Cpath%20d%3D%22M37.70%2040.85L24.12%2040.85L24.12%2030.90L63.61%2030.90L63.61%2040.85L50.03%2040.85L50.03%2076.37L37.70%2076.37L37.70%2040.85Z%22%20fill%3D%22%23e8ecf1%22%2F%3E%3Cpath%20d%3D%22M77.60%2077.10L77.60%2077.10Q74.91%2077.10%2073.11%2075.33Q71.31%2073.56%2071.31%2070.91L71.31%2070.91Q71.31%2068.25%2073.11%2066.48Q74.91%2064.71%2077.60%2064.71L77.60%2064.71Q80.28%2064.71%2082.08%2066.48Q83.88%2068.25%2083.88%2070.91L83.88%2070.91Q83.88%2073.56%2082.08%2075.33Q80.28%2077.10%2077.60%2077.10Z%22%20fill%3D%22%23007ba7%22%2F%3E%3C%2Fsvg%3E" />
     <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABnElEQVR4nOyXv08CMRTHX6/lIAYxmKgDoz8mZ86/QBNdTJwkOjiZOKiL/4c6mDC4Ka4u/g8cK0wSRwaIiQkcRsKV2kc4gkQvnFwpA5+kSZs2ed++9vXuy2CAeHxl2WDtMyFgXw43ZaMQDly2EiHw3HEjd45TrXkTxOskEsmMICSLOkAtDhHitF7/yOGADgR/lF0T1GMCIQexaKzcan0VCaad0PYbqN/5MI7gkVUam4teycE2TB7ToJ1P1rtwWsDYZH5h0YXwbntQONMYHKEGaIb5TZ5fXELasmAUCrYNtzfXEBRfARjcsrZAJdqPAKtAjLr4IffUz4ht5+Eocwjjoj0DMwEzAdP9Ev4XnlqHVnoPWKUMtPIqW/nPtUoywFMbPRG7XSF+KMmAK4P3A/jsPrAA/OD81h8mWnjpZgGF4BH4EegpVsFUlCEHfXAUUAJ9lAy0S6AJjK3VmHRctmagUUSvBhMGYzabtWr3lxw9Gno1mZMdUO8P0Zye/DCnnggzkrhHuySHSdmWILwyxUoryjPPSj943Gi8572JbwAAAP//mVQvvgAAAAZJREFUAwA46ohLNdxkDQAAAABJRU5ErkJggg==" />
     <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAIAAACyr5FlAAADBUlEQVR4nOzdTYoTTQCA4fq+GRQEEdy6EtEjmDmDrjyHG4/i3xFEl670DOoRdD1XEJQRbCcgor5gJtidjM/DLEKTWfWbqkpXoA4vX7k64Hf+HxDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQTocC1mtjlZHR2PPPX70cJxf/y11xtuz5y+mPsaeu3nj+ji/TCskcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQVrs9xzbW62Onj1/Mc7qyeNH5/unOtszcpDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHSRwkcZDEQRIHabFDh/9xX67d/HT77vrF+srB8YfD4w/TiwvvXo3dII65rbP43sSP179f3JE+xDGrj/ce/JrFTz7dvjP9XXz3evFErDnm8/l3A0aZ+vjzN/8l4pjJVMZ0vzf6l/WiZEHimMmmZYzTVcg0DY3liGMOn886Bvy4Sp2fOEjimMPJFp/+L9dujYWIYw7bTA0nphV2kIdgu279TH0RRo45HCx3g7chjjls8+k/OH4/FiKOOZz5Bk9DzoFp5XybbvC0kTY2d3HRvTdxzGTaYt10DJh6WnaxIo75bDQMTFnYsv+HTPf78tP7fzK/TO+59HL507L3+LjycXpi+djC27dvxhKmfbiT2FE7XZ282pGvvvsdx7473XT9tnWy/jqza49DxEGy5iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJgyQOkjhI4iCJg/QVAAD//zNlusMAAAAGSURBVAMAFBx1RSjbyR4AAAAASUVORK5CYII=" />
+    <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png" />
     <style>
       /* ===================== shared with TRACK.Pocket (base, pocket layout, themes) ===================== */
       :root { --bg: #0d0f12; --panel: #161a20; --panel2: #1d222a; --line: #2a313b; --text: #e8ecf1; --dim: #8a94a3; --acc: #7cf29a; --acc2: #ffb347; --hot: #ff5e7a; --blue: #6ab7ff; --r: 10px; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace; --ink: #082012; --ink2: #1b1000; --beat: #1a1f27; --playbg: #24402e; --playbg2: #1f5133; --wave: #0a0c0f; --scope: #ffb347; --tie: #1d2a22; --lcn: #232a35; --hi: #fff; --blink: #35404f; }
@@ -2071,7 +2081,7 @@
           <div id="nnBar"><button data-nn="abc">A B C</button><button data-nn="sol">DO RE MI</button></div>
           <div class="hint">Letters or solfège, for every app: TRACK, TUNE and SING.Pocket.</div>
           <h3 style="margin-top: 12px">MIDI device</h3>
-          <div id="midiBar"><div class="mrow"><button id="midiDev">CONNECT</button><button id="midiMap">ASSIGN</button><button id="midiClr">CLEAR</button><button id="midiTest" title="See what your device sends">TEST</button></div><button id="midiSnd">SOUND</button></div>
+          <div id="midiBar"><div class="mrow"><button id="midiDev">CONNECT</button><button id="midiMap">ASSIGN</button><button id="midiClr">CLEAR</button><button id="midiTest" title="See what your device sends">TEST</button><button id="midiView" title="Live device diagram and assignments">DEVICE</button></div><button id="midiSnd">SOUND</button></div>
           <div class="hint">
             Experimental. The keys sound with a piano (<b>SOUND</b> turns it off, for keyboards with their own speakers).
             In SCALES the keys light the notes you play, PRACTICE listens to them instead of the microphone, and a
@@ -2109,6 +2119,7 @@
     </div>
     <div id="toast"></div>
 
+    <script src="midi-device.js"></script>
     <script>
       "use strict";
       // ======================================================================
@@ -2124,7 +2135,7 @@
         clearTimeout(e._t);
         e._t = setTimeout(() => e.classList.remove("show"), 1600);
       }
-      const esc = (x) => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+      const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
       const PAL = ["124,242,154", "255,179,71", "106,183,255", "255,111,165", "197,139,255", "77,224,208"];
       const PC = (i) => {
         const t = css("--chc")
@@ -2342,6 +2353,18 @@
         met: { bpm: 100, beats: 4, sub: 1, snd: "click", accent: true, vol: 0.8 }, // metronome (the looper keeps its time)
         loop: { bars: 2, sync: -1, latch: true, grid: 1, aq: false }, // looper: new loop length in bars, recording delay in ms (-1 = auto), FX latch, quantize grid
       };
+      // Safety net: an error while the page starts is most often a damaged or old saved setting. Once per session, the
+      // settings are kept aside (as tune.state.bad) and the app starts with its defaults, instead of failing on every launch.
+      addEventListener("load", () => (window.__up = 1));
+      addEventListener("error", () => {
+        if (window.__up || sessionStorage.getItem("tune.reset")) return;
+        sessionStorage.setItem("tune.reset", "1");
+        try {
+          localStorage.setItem("tune.state.bad", localStorage.getItem("tune.state") || "");
+          localStorage.removeItem("tune.state");
+        } catch {}
+        location.reload();
+      });
       let customTunings = [];
       try {
         customTunings = JSON.parse(localStorage.getItem("customTunings") || "[]");
@@ -5117,6 +5140,7 @@
       //   a report with the first messages, to share in an issue or to replay in a test.
       // ---------------------------------------------------------------------------------------------
       const MI = { acc: null, names: [], held: new Map(), on: null, off: null, cc: null, actions: () => [], map: {}, learn: null, down: new Map(), sus: false, susd: new Set(), test: null };
+      const midiPanel = createMidiPanel(MI, miRun, (data, from) => midiMsg({ data }, from));
       try {
         MI.map = JSON.parse(localStorage.getItem(MI_KEY + ".map") || "{}");
       } catch {}
@@ -5147,6 +5171,7 @@
         midiFace();
       }
       function midiMsg(e, from) {
+        midiPanel.observe(e.data, from);
         if (MI.test) miTestMsg(e.data, from);
         const [st, a, b] = e.data,
           cmd = st & 0xf0,
@@ -5157,6 +5182,7 @@
         if (!on && !off && !cc) return;
         const key = (cc ? "c" : "n") + ch + ":" + a;
         if (MI.learn) return on || (cc && b > 0) ? miLearnMsg(key, cc, ch, a) : undefined;
+        if (midiPanel.route(from, key, cc, on, b)) return;
         const act = MI.map[key] && MI.actions().find((x) => x.id === MI.map[key]);
         if (act) return miRun(act, key, cc, on, b);
         if (cc && a === 64) {
@@ -5189,7 +5215,8 @@
       ];
       function midiTest() {
         if (!MI.names.length) return toast("Connect a MIDI device first");
-        MI.test = { names: MI.names.slice(), from: new Set(), ch: new Set(), lo: 127, hi: 0, notes: 0, vlo: 127, vhi: 0, off80: 0, off90: 0, cc: {}, pb: 0, cat: 0, pat: 0, pc: 0, clock: 0, tr: new Set(), sysex: 0, log: [], t0: performance.now() };
+        if (MI.test) clearTimeout(MI.test.f);
+        MI.test = { names: MI.names.slice(), from: new Set(), ch: new Set(), lo: 127, hi: 0, notes: 0, keys: new Set(), vlo: 127, vhi: 0, off80: 0, off90: 0, cc: {}, pb: 0, cat: 0, pat: 0, pc: 0, clock: 0, tr: new Set(), sysex: 0, log: [], t0: performance.now() };
         miTestFace();
       }
       function miTestMsg(d, from) {
@@ -5206,6 +5233,7 @@
           T.ch.add((st & 15) + 1);
           if (cmd === 0x90 && d[2] > 0) {
             T.notes++;
+            T.keys.add(d[1]);
             T.lo = Math.min(T.lo, d[1]);
             T.hi = Math.max(T.hi, d[1]);
             T.vlo = Math.min(T.vlo, d[2]);
@@ -5223,8 +5251,11 @@
           else if (cmd === 0xa0) T.pat++;
           else if (cmd === 0xc0) T.pc++;
         }
-        clearTimeout(T.f);
-        T.f = setTimeout(miTestFace, 60);
+        // Refresh at most once per 60 ms; a continuous MIDI clock must not postpone the display forever.
+        if (!T.f) T.f = setTimeout(() => {
+          T.f = null;
+          if (MI.test === T) miTestFace();
+        }, 60);
       }
       const miNoteName = (n) => MI_NN[n % 12] + (Math.floor(n / 12) - 1);
       function miTestRows() {
@@ -5238,7 +5269,7 @@
         return [
           ["◉", "Device: " + (T.names.join(", ") || "?") + (fam ? " — " + fam[1] : "")],
           ...(fam ? [["i", fam[2]]] : []),
-          yes(T.notes, T.notes ? `Notes: ${T.notes}, ${miNoteName(T.lo)} to ${miNoteName(T.hi)}` : "Notes: play some keys or pads"),
+          yes(T.notes, T.notes ? `Notes: ${T.keys.size} different (${T.notes} presses), ${miNoteName(T.lo)} to ${miNoteName(T.hi)}` : "Notes: play some keys or pads"),
           yes(T.ch.size, "Channels: " + ([...T.ch].sort((a, b) => a - b).join(", ") || "—") + (T.ch.has(10) ? " (10 = pads / drums)" : "")),
           yes(T.vhi > T.vlo, T.notes ? (T.vhi > T.vlo ? `Velocity: ${T.vlo} to ${T.vhi}` : `Velocity: always ${T.vhi} (fixed, or play softer and harder)`) : "Velocity: —"),
           yes(T.off80 || T.off90, "Note off: " + (T.off80 && T.off90 ? "both kinds" : T.off80 ? "note-off messages" : T.off90 ? "note-on with velocity 0" : "—")),
@@ -5258,6 +5289,7 @@
           el = document.createElement("div");
           el.id = "miLearn";
           document.body.appendChild(el);
+          el.innerHTML = `<div class="mlBox mtBox"><i>MIDI TEST · play keys and pads, turn knobs, press the pedal, move the wheels</i><ul></ul><div class="mlB"><button data-mt="again">START AGAIN</button><button data-mt="copy">COPY REPORT</button><button data-mt="done" class="on">DONE</button></div></div>`;
         }
         el.onclick = (e) => {
           const b = e.target.closest("[data-mt]");
@@ -5269,13 +5301,15 @@
               .catch(() => toast("Could not copy here"));
           } else if (b.dataset.mt === "again") midiTest();
           else {
+            clearTimeout(MI.test.f);
             MI.test = null;
             el.remove();
           }
         };
-        el.innerHTML = `<div class="mlBox mtBox"><i>MIDI TEST · play keys and pads, turn knobs, press the pedal, move the wheels</i><ul>${miTestRows()
-          .map(([a, b]) => `<li class="${a === "✔" ? "ok" : a === "i" ? "inf" : ""}"><b>${a}</b>${b}</li>`)
-          .join("")}</ul><div class="mlB"><button data-mt="again">START AGAIN</button><button data-mt="copy">COPY REPORT</button><button data-mt="done" class="on">DONE</button></div></div>`;
+        // Only replace report rows: clock updates must not detach buttons mid-click.
+        el.querySelector("ul").innerHTML = miTestRows()
+          .map(([a, b]) => `<li class="${a === "✔" ? "ok" : a === "i" ? "inf" : ""}"><b>${a}</b>${String(b).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";")}</li>`)
+          .join("");
       }
       function miRun(act, key, cc, on, v) {
         if (act.kind === "knob") return cc ? act.run(v / 127) : on && act.run(v / 127); // a pad on a knob: its velocity
@@ -5378,7 +5412,7 @@
 #miLearn li{display:flex;gap:8px;padding:5px 0;border-top:1px solid var(--line)}
 #miLearn li b{width:14px;flex:none;text-align:center}
 #miLearn li.ok{color:var(--text)}#miLearn li.ok b{color:var(--acc)}#miLearn li.inf{font-weight:500;font-style:italic}
-.mrow,#midiBar{display:flex;gap:6px}.mrow{flex:3}.mrow button,#midiBar>button{flex:1;min-height:38px}`;
+.mrow,#midiBar{display:flex;gap:6px}.mrow{flex:3;flex-wrap:wrap}.mrow button,#midiBar>button{flex:1 1 68px;min-height:38px}`;
         document.head.appendChild(st);
       }
       // the buttons in OPTIONS (#midiDev, #midiMap, #midiClr)
@@ -5395,12 +5429,15 @@
         if (c) c.disabled = !n;
         const t = document.getElementById("midiTest");
         if (t) t.disabled = !MI.names.length;
+        const v = document.getElementById("midiView");
+        if (v) v.disabled = !MI.names.length;
       }
       [
         ["midiDev", () => midiConnect()],
         ["midiMap", midiAssign],
         ["midiClr", midiClearMap],
         ["midiTest", midiTest],
+        ["midiView", () => midiPanel.open()],
       ].forEach(([id, f]) => {
         const b = document.getElementById(id);
         if (b) b.onclick = f;
@@ -6501,6 +6538,7 @@
       }
       // tempo and beats are locked while there are loops: they were recorded at this tempo
       function rhythmLocked() {
+        if (LP.rec) return toast("Finish the recording to change the tempo or the bar"), metFace(), true; // the count-in and the length were set at the old tempo
         if (!lpHas()) return false;
         toast("Clear the loops to change the tempo or the bar");
         metFace();
@@ -7037,7 +7075,7 @@
             const left = r.start - tv;
             if (left > 0) {
               const n = Math.ceil(left / beatDur() - 1e-3);
-              if (!r.overdub) el.querySelector(".nt").textContent = n;
+              if (!r.overdub) el.querySelector(".nt").textContent = Math.min(n, S.met.beats); // a count-in is one bar
               el.classList.add("count");
               el.classList.remove("rec");
               if (!r.overdub) el.querySelector(".in").textContent = "GET READY";

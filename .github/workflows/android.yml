@@ -85,7 +85,7 @@ jobs:
             npm run android:apk
             cp native/app/build/outputs/apk/debug/app-debug.apk "out/${n}-${v}-${GITHUB_RUN_NUMBER}-debug.apk"
           fi
-          cp ../index.html "out/${n}-${v}.html"
+          cp www/index.html "out/${n}-${v}.html"
 
       - uses: actions/upload-artifact@v4
         with:
