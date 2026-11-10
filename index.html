@@ -2131,7 +2131,7 @@
   // cc0 = the CC number of knob 1 when the model is known (its knobs are cc0, cc0 + 1 ...); without it knobs go by rank
   const PROFILES = {
     synido: { title: "Synido Scale Pocket", shape: "mini", keys: 25, base: 48, pads: 0, knobs: 1, source: "https://www.synido.com/products/scale-pocket-portable-mini-piano-midi-controller-learn-scales-play-music" },
-    akai: { title: "Akai MPK mini Play mk3", shape: "mpk", keys: 25, base: 48, pads: 8, knobs: 8, cc0: 1, source: "https://www.akaipro.com/mpk-mini-play-mk3/" },
+    akai: { title: "Akai MPK mini Play mk3", shape: "mpk", keys: 25, base: 48, pads: 8, knobs: 8, cc0: 2, source: "https://www.akaipro.com/mpk-mini-play-mk3/" },
     korgpad: { title: "Korg nanoPAD · pads", shape: "pads", keys: 0, base: 36, pads: 12, knobs: 0, source: "https://www.korg.com/us/products/computergear/nanopad2/" },
     casio: { title: "Casio PX-S1100", shape: "piano", keys: 88, base: 21, pads: 0, knobs: 0, source: "https://www.casio.com/us/electronic-musical-instruments/product.PX-S1100BK/" },
     novation25: { title: "Novation Launchkey · 25 keys", shape: "lk", keys: 25, base: 48, pads: 16, knobs: 8, cc0: 21, source: "https://novationmusic.com/launchkey" },
@@ -2181,7 +2181,8 @@
   const padGrid = (x, y, cols, count, s, gap, flip) => Array.from({ length: count }, (_, i) => { const r = Math.floor(i / cols), rows = Math.ceil(count / cols); return pad("p" + i, x + (i % cols) * (s + gap), y + (flip ? rows - 1 - r : r) * (s + gap), s, i + 1); }).join("");
   const knobGrid = (x, y, cols, count, dx, dy, r) => Array.from({ length: count }, (_, i) => knob("c" + i, x + (i % cols) * dx, y + Math.floor(i / cols) * dy, r, "Knob " + (i + 1))).join("");
   const wheel = (x, y, w, h) => `<rect class="dc" x="${x}" y="${y}" width="${w}" height="${h}" rx="${w / 2}"/>` + [0.2, 0.35, 0.5, 0.65, 0.8].map((f) => `<line class="dc" x1="${x + 4}" x2="${x + w - 4}" y1="${num(y + h * f)}" y2="${num(y + h * f)}"/>`).join("");
-  const joystick = (x, y, r) => `<circle class="dc" cx="${x}" cy="${y}" r="${r}"/><circle class="dc" cx="${x}" cy="${y}" r="${num(r * 0.5)}"/><path class="dc" d="M${x - r} ${y}h${2 * r}M${x} ${y - r}v${2 * r}"/>`;
+  // the joystick is a control of its own ("j"): pitch bend and the mod wheel CC 1 light it, never a knob
+  const joystick = (x, y, r) => g("j", "Joystick", `<circle class="hit" cx="${x}" cy="${y}" r="${r + 6}"/><circle class="sh" cx="${x}" cy="${y}" r="${r}"/><circle class="dc" cx="${x}" cy="${y}" r="${num(r * 0.5)}"/><path class="dc" d="M${x - r} ${y}h${2 * r}M${x} ${y - r}v${2 * r}"/>`);
   const btn = (x, y, w, h) => `<rect class="dc" x="${x}" y="${y}" width="${w}" height="${h}" rx="4"/>`;
   const btnRow = (x, y, n, w, h, gap) => Array.from({ length: n }, (_, i) => btn(x + i * (w + gap), y, w, h)).join("");
   const screen = (x, y, w, h) => `<rect class="dc" x="${x}" y="${y}" width="${w}" height="${h}" rx="4"/><path class="dc" d="M${x + 8} ${y + h * 0.35}h${w * 0.5}M${x + 8} ${y + h * 0.65}h${w * 0.3}"/>`;
@@ -2346,10 +2347,13 @@
         if (!p.keys) return;
         if (a < base || a >= base + p.keys) { base = Math.max(0, Math.min(127 - p.keys, Math.floor(a / 12) * 12)); drawDevice(); }
         lit("k" + a, noteOn);
+      } else if (cmd === 0xe0 || (cc && a === 1 && p.shape === "mpk" && !bound)) {
+        blink("j");
+        hint(cmd === 0xe0 ? "Joystick · pitch bend" : `Joystick · mod (CC 1) = ${b}`);
       } else if (cc) {
         const r = bound && !bound.startsWith("k") ? bound : knobRank(seenCC[from], a, p.cc0);
         const id = typeof r === "string" ? r : r >= 0 && r < p.knobs ? "c" + r : "";
-        if (id) { blink(id); hint(`Knob ${+id.slice(1) + 1} · CC ${a} = ${b}`); }
+        if (id) { blink(id); hint(id === "j" ? `Joystick · CC ${a} = ${b}` : `Knob ${+id.slice(1) + 1} · CC ${a} = ${b}`); }
       }
     }
     function route(from, key, cc, on, value) {
@@ -8384,6 +8388,8 @@
       // ======================================================================
       // help manual (EN / ES), same format as TRACK.Pocket: "## " heading, "- " list item, **bold**, *dim*
       // ======================================================================
+      // The version of the app: change it here (and add its notes to the last help section, "What's new").
+      const APP_VERSION = "2.3.0";
       const HELP = [
         {
           id: "start",
@@ -8715,6 +8721,28 @@
             ],
           },
         },
+          {
+            id: "new",
+            t: { en: "What's new", es: "Novedades" },
+            b: {
+              en: [
+                "## Version 2.3.0",
+                "- **Install it:** the app is now a web app (PWA). Add it to the Home Screen (iPhone: Safari ▸ Share; Android and desktop: Chrome ▸ Install app) and it opens like an app and works offline. The Android APK is retired.",
+                "- **Looper:** the tempo and the bar length are locked while a recording counts in or runs, and the count-in never shows more than one bar (it once showed hundreds).",
+                "- **MIDI:** the DEVICE view draws your controller (Akai MPK, Launchkey, Synido, Casio, nanoPAD) and lights its keys, pads, knobs and joystick as you play; TEST counts different keys, not presses; the same five buttons (ASSIGN, CLEAR, TEST, DEVICE, SOUND) in all three apps, and SOUND turns the app's own sound off for keyboards with speakers.",
+                "- **Safer and sturdier:** files are checked before they open and names are cleaned (a crafted file could run code), and a damaged setting no longer stops the app from starting.",
+                "Older versions: see *Releases* on GitHub.",
+              ],
+              es: [
+                "## Versión 2.3.0",
+                "- **Instálala:** la app ahora es una web app (PWA). Añádela a la pantalla de inicio (iPhone: Safari ▸ Compartir; Android y escritorio: Chrome ▸ Instalar app) y se abre como una app y funciona sin conexión. El APK de Android se retira.",
+                "- **Looper:** el tempo y la longitud del compás se bloquean mientras una grabación cuenta o graba, y la cuenta nunca muestra más de un compás (una vez mostró cientos).",
+                "- **MIDI:** la vista DEVICE dibuja tu controlador (Akai MPK, Launchkey, Synido, Casio, nanoPAD) e ilumina sus teclas, pads, potes y joystick al tocar; TEST cuenta teclas distintas, no pulsaciones; los mismos cinco botones (ASSIGN, CLEAR, TEST, DEVICE, SOUND) en las tres apps, y SOUND apaga el sonido de la app para teclados con altavoces.",
+                "- **Más segura y robusta:** los archivos se comprueban antes de abrirse y los nombres se limpian (un archivo manipulado podía ejecutar código), y un ajuste dañado ya no impide que la app arranque.",
+                "Versiones anteriores: mira *Releases* en GitHub.",
+              ],
+            },
+          },
       ];
       const HELPUI = {
         en: {
@@ -9350,7 +9378,7 @@
       function helpRender() {
         const L = HLANG,
           U = HELPUI[L];
-        $("#hTitle").textContent = "TUNE.Pocket · " + U.title;
+        $("#hTitle").textContent = "TUNE.Pocket · " + U.title + " · v" + APP_VERSION;
         $("#hClose").title = U.close;
         $$("#help [data-lg]").forEach((b) => b.classList.toggle("on", b.dataset.lg === L));
         $("#hNav").innerHTML = HELP.map((x) => `<button data-hs="${x.id}">${x.t[L]}</button>`).join("");
