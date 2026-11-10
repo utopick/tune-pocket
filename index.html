@@ -987,53 +987,85 @@
         position: absolute;
         inset: 0;
       }
-      .dia .wone .body.rec {
-        fill: #d9c49a;
+      /* the wireframe, in the keyboard drawings' style: outlines, glowing covered holes, tags with a line */
+      .dia .wone svg,
+      .dia .wch svg {
+        display: block;
       }
-      .dia .wone .body.whi {
-        fill: #9aa3ad;
-      }
-      .dia .wone .head {
-        fill: #24353b;
-      }
-      .dia .wone .lab {
-        fill: #15110c;
-      }
-      .dia .wone .hof {
-        fill: #20180f;
-        stroke: rgba(0, 0, 0, 0.5);
-        stroke-width: 1.5;
-      }
-      .dia .wone .hon {
-        fill: var(--acc);
-        filter: drop-shadow(0 0 7px var(--acc));
-      }
-      .dia .wone .back {
-        fill: none;
-        stroke: #15110c;
+      .wf .wb {
+        fill: var(--panel);
+        stroke: var(--dim);
         stroke-width: 2;
-        stroke-dasharray: 4 3;
+        stroke-linejoin: round;
       }
-      .dia .wone .wl {
+      .wf .wd {
+        fill: none;
+        stroke: var(--line);
+        stroke-width: 1.4;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .wf .wo {
+        fill: var(--bg);
+        stroke: var(--dim);
+        stroke-width: 1.6;
+      }
+      .wf .wc {
+        fill: color-mix(in srgb, var(--acc) 35%, transparent);
+        stroke: var(--acc);
+        stroke-width: 2;
+        filter: drop-shadow(0 0 5px var(--acc));
+      }
+      .wf .wh {
+        fill: var(--panel);
+        stroke: var(--acc2);
+        stroke-width: 1.8;
+      }
+      .wf .wk {
+        fill: none;
+        stroke: var(--dim);
+        stroke-width: 1.4;
+        stroke-dasharray: 3 3;
+      }
+      .wf .wl {
+        fill: none;
+        stroke: var(--blue);
+        stroke-width: 1.1;
+        opacity: 0.8;
+      }
+      .wf .wl.r {
+        stroke: var(--acc2);
+      }
+      .wf .wt rect {
+        fill: var(--panel2);
+        stroke: var(--blue);
+        stroke-width: 1.3;
+      }
+      .wf .wt text {
+        fill: var(--blue);
         font: 700 12px var(--mono);
-        fill: var(--dim);
+        text-anchor: middle;
       }
-      .dia .wone .wl.on {
-        fill: var(--acc);
+      .wf .wt.r rect {
+        stroke: var(--acc2);
       }
-      .dia .wone .wn {
+      .wf .wt.r text {
+        fill: var(--acc2);
+      }
+      .wf .wn {
         font: 900 54px var(--mono);
-        fill: var(--text);
+        fill: var(--acc);
+        text-anchor: middle;
       }
-      .dia .wone .wn.root {
+      .wf .wn.root {
         fill: var(--ok);
       }
-      .dia .wone .ws {
+      .wf .ws {
         font: 700 11px var(--mono);
         fill: var(--dim);
         letter-spacing: 0.5px;
       }
-      .dia .wone .ws.hot {
+      .wf .ws.hot {
         fill: var(--hot);
       }
       /* jam: the chords of the part playing */
@@ -1075,48 +1107,44 @@
         position: absolute;
         inset: 26px 4px 4px;
         display: flex;
+        flex-direction: column;
         justify-content: center;
         gap: 2px;
       }
       .dia .wch {
-        flex: 0 0 auto;
+        flex: 1 1 0;
+        max-height: 58px;
+        min-height: 0;
         display: flex;
-        flex-direction: column;
         align-items: center;
-        gap: 4px;
-        padding: 4px 0;
+        gap: 6px;
+        padding: 0 6px;
         border-radius: 6px;
         cursor: pointer;
         border: 1px solid transparent;
       }
       .dia .wch b {
-        font: 900 12px var(--mono);
+        flex: none;
+        width: 44px;
+        font: 900 14px var(--mono);
       }
       .dia .wch.root b {
         color: var(--ok);
       }
+      .dia .wch.pass b {
+        color: var(--blue);
+      }
+      .dia .wch svg {
+        flex: 1;
+        min-width: 0;
+        height: 100%;
+      }
       .dia .wch i {
+        flex: none;
+        width: 16px;
         font-style: normal;
-        font: 700 9px var(--mono);
+        font: 700 11px var(--mono);
         color: var(--hot);
-      }
-      .dia .wch .body.rec {
-        fill: #d9c49a;
-      }
-      .dia .wch .body.whi {
-        fill: #9aa3ad;
-      }
-      .dia .wch .hc {
-        fill: #15110c;
-      }
-      .dia .wch .ho {
-        fill: #f6f1e4;
-        stroke: #15110c;
-        stroke-width: 1.2;
-      }
-      .dia .wch .tl {
-        font: 700 8px var(--mono);
-        fill: var(--dim);
       }
       .dia .wch.lit {
         background: color-mix(in srgb, var(--hi) 25%, transparent);
@@ -5148,6 +5176,26 @@
         const w = $("#dia .wone");
         if (w) w.innerHTML = windOne(w.clientWidth, w.clientHeight);
       }
+      // The drawing is 380 x 470 and scales to the box. Left hand tags (blue) on the left, right hand (amber) on the right, only for the
+      // holes to cover. rec: the thumb hole at the back, then 7 front holes (the last two double). Tin whistle: 6 holes.
+      const WF = { H: 470, cx: 190, top: 34, bot: 438 };
+      const wfHoles = (rec) => (rec ? [150, ...Array.from({ length: 7 }, (_, k) => 180 + k * 34 + (k >= 5 ? 6 : 0))] : Array.from({ length: 6 }, (_, k) => 150 + k * 44 + (k >= 3 ? 18 : 0)));
+      function wfTube(rec, cx) {
+        const { top, bot } = WF;
+        if (rec)
+          return `<path class="wb" d="M${cx - 9} ${top} h18 l6 40 L${cx + 17} 118 L${cx + 15} ${bot - 36} q8 8 1 36 h-${2 * 13 + 6} q-7 -28 1 -36 L${cx - 17} 118 L${cx - 15} ${top + 40} z"/>` +
+            `<rect class="wd" x="${cx - 8}" y="${top + 52}" width="16" height="12" rx="2"/><path class="wd" d="M${cx - 8} ${top + 64}l16 -8M${cx - 15} ${top + 40}h30M${cx - 14} 118h28M${cx - 14} ${bot - 36}h28"/>`;
+        return `<path class="wb" d="M${cx - 8} ${top} h16 l6 34 v${bot - top - 44} q0 10 -10 10 h-${2 * 14 - 20} q-10 0 -10 -10 v-${bot - top - 44} z"/>` +
+          `<path class="wd" d="M${cx - 14} ${top + 34}h28M${cx - 14} 112h28"/><rect class="wd" x="${cx - 7}" y="${top + 46}" width="14" height="12" rx="2"/><path class="wd" d="M${cx - 7} ${top + 58}l14 -8"/>`;
+      }
+      // one hole: st "1" covered, "0" open, "h" half
+      function wfHole(rec, cx, y, i, st) {
+        const r = rec ? 9 : 10;
+        if (rec && i === 0) return `<circle class="wk" cx="${cx}" cy="${y}" r="${r + 3}"/><circle class="${st === "0" ? "wo" : "wc"}" cx="${cx}" cy="${y}" r="${r - 3}"/>`;
+        if (rec && i >= 6) return `<circle class="${st === "0" ? "wo" : "wc"}" cx="${cx - 5}" cy="${y}" r="6.5"/><circle class="${st === "1" ? "wc" : "wo"}" cx="${cx + 6}" cy="${y}" r="4.5"/>`;
+        if (st === "h") return `<circle class="wh" cx="${cx}" cy="${y}" r="${r}"/><path class="wc" d="M${cx} ${y - r}A${r} ${r} 0 0 0 ${cx} ${y + r}Z"/>`;
+        return `<circle class="${st === "1" ? "wc" : "wo"}" cx="${cx}" cy="${y}" r="${r}"/>`;
+      }
       function windOne(W, H) {
         const up = scaleUp(),
           low = stringMidis()[0],
@@ -5156,47 +5204,31 @@
         if (windM == null || !inSet(windM) || !fingering(S.inst, windM - low)) windM = up[0].m;
         const m = windM,
           fg = fingering(S.inst, m - low),
-          bw = Math.min(88, W * 0.2),
-          y0 = 14,
-          IH = H - y0 - 14 - bw * 0.12,
-          cx = Math.min(W * 0.34, W / 2 - 40),
-          headH = IH * 0.16,
-          hy0 = y0 + headH + IH * 0.1,
-          hy1 = y0 + IH * 0.95,
-          front = rec ? 7 : 6,
-          sp = (hy1 - hy0) / (front - 1 + 0.6),
-          yOf = (j) => hy0 + sp * (j + (j >= 3 ? 0.6 : 0)),
-          r = Math.min(bw * 0.3, sp * 0.36),
-          holes = [...fg.holes],
+          { cx } = WF,
+          ys = wfHoles(rec),
           NAMES = rec ? ["thumb", "L1", "L2", "L3", "R1", "R2", "R3", "R4"] : ["L1", "L2", "L3", "R1", "R2", "R3"],
-          a = bw * 0.42,
-          q = bw * 0.12;
-        let g = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><g data-m="${m}" data-k="one" style="cursor:pointer">`;
-        g += `<path d="M${cx - a} ${y0} h${2 * a} l${bw / 2 - a} ${headH} v${IH - headH} q0 ${q} -${q} ${q} h-${bw - 2 * q} q-${q} 0 -${q} -${q} v-${IH - headH} z" class="body ${rec ? "rec" : "whi"}"/>`;
-        if (!rec) g += `<path d="M${cx - a} ${y0} h${2 * a} l${bw / 2 - a} ${headH} h-${bw} z" class="head"/>`;
-        g += `<rect x="${cx - bw * 0.18}" y="${y0 + headH * 0.62}" width="${bw * 0.36}" height="${headH * 0.22}" rx="2" class="lab"/>`;
-        const hole = (x, y, rad, st) =>
-          st === "h"
-            ? `<circle cx="${x}" cy="${y}" r="${rad}" class="hof"/><path d="M${x} ${y - rad}A${rad} ${rad} 0 0 0 ${x} ${y + rad}Z" class="hon"/>`
-            : `<circle cx="${x}" cy="${y}" r="${rad}" class="${st === "1" ? "hon" : "hof"}"/>`;
-        holes.forEach((st, i) => {
-          const thumb = rec && i === 0,
-            y = thumb ? hy0 - sp * 0.85 : yOf(rec ? i - 1 : i),
-            rr = thumb ? r * 0.85 : r;
-          if (thumb) g += `<circle cx="${cx}" cy="${y}" r="${rr}" class="back"/>` + (st === "0" ? "" : hole(cx, y, rr * 0.8, st));
-          else if (rec && i >= 6) g += hole(cx - rr * 0.42, y, rr * 0.55, st === "0" ? "0" : "1") + hole(cx + rr * 0.55, y, rr * 0.4, st === "1" ? "1" : "0");
-          else g += hole(cx, y, rr, st);
-          g += `<text x="${cx - bw / 2 - 10}" y="${y + 4}" text-anchor="end" class="wl${st === "0" ? "" : " on"}">${NAMES[i]}</text>`;
-          if (thumb) g += `<text x="${cx - bw / 2 - 10}" y="${y + 18}" text-anchor="end" class="ws">at the back</text>`;
-        });
-        const tx = cx + bw / 2 + (W - cx - bw / 2) / 2,
+          holes = [...fg.holes],
           closed = holes.filter((x) => x !== "0").length,
           half = holes.includes("h");
-        g += `<text x="${tx}" y="${H * 0.38}" text-anchor="middle" class="wn${pcOf(m) === rootPc() ? " root" : ""}">${noteName(m)}</text>`;
-        g += `<text x="${tx}" y="${H * 0.38 + 26}" text-anchor="middle" class="ws">${closed} OF ${holes.length} COVERED</text>`;
-        if (half) g += `<text x="${tx}" y="${H * 0.38 + 44}" text-anchor="middle" class="ws">${rec && holes[0] === "h" ? "PINCH THE THUMB HOLE" : "◐ HALF COVER"}</text>`;
-        g += `<text x="${tx}" y="${H * 0.38 + (half ? 62 : 44)}" text-anchor="middle" class="ws${fg.over ? " hot" : ""}">${fg.over ? "＋ BLOW HARDER" : "NORMAL BREATH"}</text>`;
-        return g + "</g></svg>";
+        let lines = "",
+          tags = "",
+          body = wfTube(rec, cx);
+        holes.forEach((st, i) => {
+          body += wfHole(rec, cx, ys[i], i, st);
+          if (st === "0") return; // only the holes to cover get a tag
+          const left = NAMES[i] === "thumb" || NAMES[i][0] === "L",
+            x0 = left ? 8 : 380 - 8 - 72;
+          lines += `<path class="wl${left ? "" : " r"}" d="M${left ? x0 + 72 : x0} ${ys[i]}H${left ? cx - 28 : cx + 28}"/>`;
+          tags += `<g class="wt${left ? "" : " r"}"><rect x="${x0}" y="${ys[i] - 11}" width="72" height="22" rx="11"/><text x="${x0 + 36}" y="${ys[i] + 4.5}">${NAMES[i]}${st === "h" ? " ◐" : ""}</text></g>`;
+        });
+        const info = [`${closed} OF ${holes.length} COVERED`, half ? (rec && holes[0] === "h" ? "PINCH THE THUMB HOLE" : "◐ HALF COVER") : "", fg.over ? "＋ BLOW HARDER" : "NORMAL BREATH"].filter(Boolean);
+        return (
+          `<svg class="wf" viewBox="0 0 380 ${WF.H}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid meet"><g data-m="${m}" data-k="one" style="cursor:pointer">` +
+          lines + body + tags +
+          `<text class="wn${pcOf(m) === rootPc() ? " root" : ""}" x="62" y="64">${noteName(m)}</text><text class="ws" x="62" y="86" text-anchor="middle">${rec ? "RECORDER" : "TIN WHISTLE"}</text>` +
+          info.map((t, i) => `<text class="ws${t.startsWith("＋") ? " hot" : ""}" x="372" y="${52 + i * 17}" text-anchor="end">${t}</text>`).join("") +
+          `</g></svg>`
+        );
       }
       const noteName = (m) => plain(NOTE_NAMES[pcOf(m)]) + (Math.floor(Math.round(m) / 12) - 1);
       // one fingering chart per note of the scale, side by side
@@ -5204,36 +5236,30 @@
         const up = scaleUp(),
           low = stringMidis()[0],
           rec = S.inst === "recorder",
-          cw = Math.min(64, (W - 10) / Math.max(1, up.length) - 2),
-          holes = rec ? 8 : 6;
+          n = rec ? 8 : 6;
         if (!up.length) return `<div class="msg show">This scale is out of this instrument's range: try OCTAVE</div>`;
+        const xs = Array.from({ length: n }, (_, i) => 70 + i * (200 / (n - 1)) + (rec && i >= 6 ? 4 : 0));
         let h = `<div class="wind">`;
-        up.forEach((n) => {
-          const fg = fingering(S.inst, n.m - low),
-            hh = Math.min(40, (H - 90) / (holes + 1.5)),
-            r = Math.min(cw * 0.2, hh * 0.36);
-          let svg = `<svg viewBox="0 0 ${cw} ${hh * (holes + 1.4)}" width="${cw}" height="${hh * (holes + 1.4)}">`;
-          // the body of the instrument, mouthpiece at the top
-          svg += `<rect x="${cw / 2 - r * 1.6}" y="0" width="${r * 3.2}" height="${hh * (holes + 1.4)}" rx="${r * 1.2}" class="${rec ? "body rec" : "body whi"}"/>`;
+        up.forEach((nt) => {
+          const fg = fingering(S.inst, nt.m - low);
+          let svg = `<svg class="wf" viewBox="0 0 300 40" preserveAspectRatio="xMidYMid meet">`;
+          // the mouthpiece on the left, the tube to the right; the recorder's thumb hole sits above the body
+          svg += `<path class="wb" d="M4 17h34l6 -3H290q6 0 6 6v4q0 6 -6 6H44l-6 -3H4z"/><path class="wd" d="M30 14v12"/>`;
           [...fg.holes].forEach((st, i) => {
-            const thumb = rec && i === 0,
-              y = hh * (i + 0.9) + (rec && i > 3 ? hh * 0.3 : 0) + (!rec && i > 2 ? hh * 0.3 : 0),
-              x = thumb ? cw / 2 - r * 1.35 : cw / 2,
-              rr = thumb ? r * 0.75 : r,
-              dbl = rec && i >= 6;
-            const hole = (cx, rad, s) =>
-              s === "h"
-                ? `<circle cx="${cx}" cy="${y}" r="${rad}" class="ho"/><path d="M${cx} ${y - rad}A${rad} ${rad} 0 0 0 ${cx} ${y + rad}Z" class="hc"/>`
-                : `<circle cx="${cx}" cy="${y}" r="${rad}" class="${s === "1" ? "hc" : "ho"}"/>`;
-            if (dbl) {
-              // a double hole: half-closing it means covering the bigger of the pair
-              svg += hole(x - rr * 0.45, rr * 0.55, st === "0" ? "0" : "1") + hole(x + rr * 0.55, rr * 0.4, st === "1" ? "1" : "0");
-            } else svg += hole(x, rr, st) + (thumb ? `<text x="${x}" y="${y - rr - 2}" text-anchor="middle" class="tl">T</text>` : "");
+            const x = xs[i],
+              thumb = rec && i === 0,
+              y = thumb ? 6 : 23,
+              dbl = rec && i >= 6,
+              r = thumb ? 3.6 : dbl ? 3.6 : 5,
+              c = (cls, cx, rr) => `<circle class="${cls}" cx="${cx}" cy="${y}" r="${rr}"/>`;
+            if (thumb) svg += c(st === "0" ? "wo" : "wc", x, r);
+            else if (dbl) svg += c(st === "0" ? "wo" : "wc", x - 3, 3.6) + c(st === "1" ? "wc" : "wo", x + 4, 2.6);
+            else if (st === "h") svg += `<circle class="wh" cx="${x}" cy="${y}" r="${r}"/><path class="wc" d="M${x} ${y - r}A${r} ${r} 0 0 0 ${x} ${y + r}Z"/>`;
+            else svg += c(st === "1" ? "wc" : "wo", x, r);
           });
-          svg += `</svg>`;
-          h += `<div class="wch${pcOf(n.m) === rootPc() ? " root" : ""}${isPass(n.m) ? " pass" : ""}" data-k="${n.k}" data-m="${n.m}"><b>${noteName(n.m)}</b>${svg}<i>${fg.over ? "＋ blow" : "&nbsp;"}</i></div>`;
+          h += `<div class="wch${pcOf(nt.m) === rootPc() ? " root" : ""}${isPass(nt.m) ? " pass" : ""}" data-k="${nt.k}" data-m="${nt.m}"><b>${noteName(nt.m)}</b>${svg}</svg><i>${fg.over ? "＋" : ""}</i></div>`;
         });
-        return h + `</div><div class="kbl">${rec ? "T = thumb hole at the back · ◐ = half covered" : "◐ = half covered · ＋ = blow harder"}</div>`;
+        return h + `</div><div class="kbl">${rec ? "dot above = thumb hole · " : ""}◐ half · ＋ blow harder</div>`;
       }
 
       // ---- lighting and playing
@@ -8727,6 +8753,7 @@
             b: {
               en: [
                 "## Version 2.3.0",
+                "- **Recorder and tin whistle:** redrawn as wireframes like the MIDI controllers. The big instrument has tags with a line only for the holes to cover (left hand in blue, right hand in amber) and the note large at the top. The chart of every note shows the instrument held sideways, one row per note.",
                 "- **Install it:** the app is now a web app (PWA). Add it to the Home Screen (iPhone: Safari ▸ Share; Android and desktop: Chrome ▸ Install app) and it opens like an app and works offline. The Android APK is retired.",
                 "- **Looper:** the tempo and the bar length are locked while a recording counts in or runs, and the count-in never shows more than one bar (it once showed hundreds).",
                 "- **MIDI:** the DEVICE view draws your controller (Akai MPK, Launchkey, Synido, Casio, nanoPAD) and lights its keys, pads, knobs and joystick as you play; TEST counts different keys, not presses; the same five buttons (ASSIGN, CLEAR, TEST, DEVICE, SOUND) in all three apps, and SOUND turns the app's own sound off for keyboards with speakers.",
@@ -8735,6 +8762,7 @@
               ],
               es: [
                 "## Versión 2.3.0",
+                "- **Flauta dulce y tin whistle:** redibujadas como esquemas, igual que los controladores MIDI. El instrumento grande lleva etiquetas con una línea solo en los agujeros que hay que tapar (mano izquierda en azul, derecha en ámbar) y la nota grande arriba. El gráfico de todas las notas muestra el instrumento de lado, una fila por nota.",
                 "- **Instálala:** la app ahora es una web app (PWA). Añádela a la pantalla de inicio (iPhone: Safari ▸ Compartir; Android y escritorio: Chrome ▸ Instalar app) y se abre como una app y funciona sin conexión. El APK de Android se retira.",
                 "- **Looper:** el tempo y la longitud del compás se bloquean mientras una grabación cuenta o graba, y la cuenta nunca muestra más de un compás (una vez mostró cientos).",
                 "- **MIDI:** la vista DEVICE dibuja tu controlador (Akai MPK, Launchkey, Synido, Casio, nanoPAD) e ilumina sus teclas, pads, potes y joystick al tocar; TEST cuenta teclas distintas, no pulsaciones; los mismos cinco botones (ASSIGN, CLEAR, TEST, DEVICE, SOUND) en las tres apps, y SOUND apaga el sonido de la app para teclados con altavoces.",
