@@ -59,3 +59,38 @@ test("pads and knobs are matched without learning", () => {
   assert.equal(guess("MPK mini Play mk3"), "akai");
   assert.equal(guess("nanoPAD2"), "korgpad");
 });
+
+test("the starting assignment: pads and knobs do what the app says until the user changes it", () => {
+  const storage = new Map();
+  const context = { window: {}, location: { pathname: "/track-pocket/" }, localStorage: { getItem: (k) => storage.get(k), setItem: (k, v) => storage.set(k, v) } };
+  vm.createContext(context);
+  vm.runInContext(source, context);
+  const calls = [];
+  const MI = {
+    names: ["MPK mini Play mk3"], map: {},
+    defaults: () => ({ knobs: [["vol0", "VOL CH1"], ["bpm", "BPM"]], pads: [["live0", "PAT A"]], padText: "DRUM" }),
+    actions: () => ["vol0", "bpm", "live0", "other"].map((id) => ({ id, group: "g", name: id.toUpperCase(), kind: "tap" })),
+  };
+  const dev = "MPK mini Play mk3";
+  const panel = context.window.createMidiPanel(MI, (a) => calls.push(a.id), () => {});
+  panel.observe([0xb0, 2, 64], dev); // the first CC the MPK knob sends: knob 1
+  assert.equal(panel.fallback(dev, "c0:2", true, false, 64), true);
+  assert.equal(panel.fallback(dev, "c0:3", true, false, 64), true);
+  assert.equal(panel.fallback(dev, "c0:4", true, false, 64), false); // knob 3 has no default
+  assert.equal(panel.fallback(dev, "n9:36", false, true, 100), true); // pad 1 (channel 10)
+  assert.equal(panel.fallback(dev, "n9:37", false, true, 100), false); // a label only: it plays as a note
+  assert.equal(panel.fallback(dev, "n0:36", false, true, 100), false); // a key, not a pad
+  assert.deepEqual(calls, ["vol0", "bpm", "live0"]);
+  // the user's own assignment wins, and the action is not also on its default control
+  MI.map["c0:9"] = "bpm";
+  assert.equal(panel.fallback(dev, "c0:3", true, false, 64), false);
+  // CLEAR turns every default off
+  panel.defaultsOff();
+  assert.equal(panel.fallback(dev, "c0:2", true, false, 64), false);
+  assert.equal(panel.fallback(dev, "n9:36", false, true, 100), false);
+  // a model with unknown knob numbers gets no knob defaults
+  const gen = context.window.createMidiPanel({ ...MI, names: ["Some keyboard"] }, (a) => calls.push(a.id), () => {});
+  gen.observe([0xb0, 70, 1], "Some keyboard");
+  assert.equal(gen.fallback("Some keyboard", "c0:70", true, false, 1), false);
+  assert.equal(gen.fallback("Some keyboard", "n9:36", false, true, 100), true); // but its pads (8 on the generic layout) do
+});
