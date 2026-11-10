@@ -5204,7 +5204,7 @@
       function midiTest() {
         if (!MI.names.length) return toast("Connect a MIDI device first");
         if (MI.test) clearTimeout(MI.test.f);
-        MI.test = { names: MI.names.slice(), from: new Set(), ch: new Set(), lo: 127, hi: 0, notes: 0, vlo: 127, vhi: 0, off80: 0, off90: 0, cc: {}, pb: 0, cat: 0, pat: 0, pc: 0, clock: 0, tr: new Set(), sysex: 0, log: [], t0: performance.now() };
+        MI.test = { names: MI.names.slice(), from: new Set(), ch: new Set(), lo: 127, hi: 0, notes: 0, keys: new Set(), vlo: 127, vhi: 0, off80: 0, off90: 0, cc: {}, pb: 0, cat: 0, pat: 0, pc: 0, clock: 0, tr: new Set(), sysex: 0, log: [], t0: performance.now() };
         miTestFace();
       }
       function miTestMsg(d, from) {
@@ -5221,6 +5221,7 @@
           T.ch.add((st & 15) + 1);
           if (cmd === 0x90 && d[2] > 0) {
             T.notes++;
+            T.keys.add(d[1]);
             T.lo = Math.min(T.lo, d[1]);
             T.hi = Math.max(T.hi, d[1]);
             T.vlo = Math.min(T.vlo, d[2]);
@@ -5256,7 +5257,7 @@
         return [
           ["◉", "Device: " + (T.names.join(", ") || "?") + (fam ? " — " + fam[1] : "")],
           ...(fam ? [["i", fam[2]]] : []),
-          yes(T.notes, T.notes ? `Notes: ${T.notes}, ${miNoteName(T.lo)} to ${miNoteName(T.hi)}` : "Notes: play some keys or pads"),
+          yes(T.notes, T.notes ? `Notes: ${T.keys.size} different (${T.notes} presses), ${miNoteName(T.lo)} to ${miNoteName(T.hi)}` : "Notes: play some keys or pads"),
           yes(T.ch.size, "Channels: " + ([...T.ch].sort((a, b) => a - b).join(", ") || "—") + (T.ch.has(10) ? " (10 = pads / drums)" : "")),
           yes(T.vhi > T.vlo, T.notes ? (T.vhi > T.vlo ? `Velocity: ${T.vlo} to ${T.vhi}` : `Velocity: always ${T.vhi} (fixed, or play softer and harder)`) : "Velocity: —"),
           yes(T.off80 || T.off90, "Note off: " + (T.off80 && T.off90 ? "both kinds" : T.off80 ? "note-off messages" : T.off90 ? "note-on with velocity 0" : "—")),
