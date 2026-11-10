@@ -2353,6 +2353,18 @@
         met: { bpm: 100, beats: 4, sub: 1, snd: "click", accent: true, vol: 0.8 }, // metronome (the looper keeps its time)
         loop: { bars: 2, sync: -1, latch: true, grid: 1, aq: false }, // looper: new loop length in bars, recording delay in ms (-1 = auto), FX latch, quantize grid
       };
+      // Safety net: an error while the page starts is most often a damaged or old saved setting. Once per session, the
+      // settings are kept aside (as tune.state.bad) and the app starts with its defaults, instead of failing on every launch.
+      addEventListener("load", () => (window.__up = 1));
+      addEventListener("error", () => {
+        if (window.__up || sessionStorage.getItem("tune.reset")) return;
+        sessionStorage.setItem("tune.reset", "1");
+        try {
+          localStorage.setItem("tune.state.bad", localStorage.getItem("tune.state") || "");
+          localStorage.removeItem("tune.state");
+        } catch {}
+        location.reload();
+      });
       let customTunings = [];
       try {
         customTunings = JSON.parse(localStorage.getItem("customTunings") || "[]");
@@ -5296,7 +5308,7 @@
         };
         // Only replace report rows: clock updates must not detach buttons mid-click.
         el.querySelector("ul").innerHTML = miTestRows()
-          .map(([a, b]) => `<li class="${a === "✔" ? "ok" : a === "i" ? "inf" : ""}"><b>${a}</b>${b}</li>`)
+          .map(([a, b]) => `<li class="${a === "✔" ? "ok" : a === "i" ? "inf" : ""}"><b>${a}</b>${String(b).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";")}</li>`)
           .join("");
       }
       function miRun(act, key, cc, on, v) {
