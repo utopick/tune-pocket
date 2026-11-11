@@ -2176,7 +2176,8 @@
   const PROFILES = {
     synido: { title: "Synido Scale Pocket", shape: "mini", keys: 25, base: 48, pads: 0, knobs: 1, source: "https://www.synido.com/products/scale-pocket-portable-mini-piano-midi-controller-learn-scales-play-music" },
     akai: { title: "Akai MPK mini Play mk3", shape: "mpk", keys: 25, base: 48, pads: 8, knobs: 8, cc0: 2, source: "https://www.akaipro.com/mpk-mini-play-mk3/" },
-    korgpad: { title: "Korg nanoPAD · pads", shape: "pads", keys: 0, base: 36, pads: 12, knobs: 0, source: "https://www.korg.com/us/products/computergear/nanopad2/" },
+    korgpad: { title: "Korg nanoPAD2 · pads", shape: "pads", keys: 0, base: 36, pads: 16, padCh: 0, knobs: 0, source: "https://www.korg.com/us/products/computergear/nanopad2/" },
+    korgkey: { title: "Korg nanoKEY2 · 25 keys", shape: "nkey", keys: 25, base: 48, pads: 0, knobs: 0, source: "https://www.korg.com/us/products/computergear/nanokey2/" },
     casio: { title: "Casio PX-S1100", shape: "piano", keys: 88, base: 21, pads: 0, knobs: 0, source: "https://www.casio.com/us/electronic-musical-instruments/product.PX-S1100BK/" },
     novation25: { title: "Novation Launchkey · 25 keys", shape: "lk", keys: 25, base: 48, pads: 16, knobs: 8, cc0: 21, source: "https://novationmusic.com/launchkey" },
     novation37: { title: "Novation Launchkey · 37 keys", shape: "lk", keys: 37, base: 48, pads: 16, knobs: 8, cc0: 21, source: "https://novationmusic.com/launchkey" },
@@ -2196,13 +2197,17 @@
 #mdPanel .mdc.lit .sh{fill:#38d5fb55;stroke:#38d5fb}#mdPanel .mdc.lit{filter:drop-shadow(0 0 6px #38d5fb)}#mdPanel .mdc.chosen .sh{stroke:#ffbf52;stroke-width:3}
 #mdPanel .mdKey{fill:#1b232d;stroke:#9fb2c6;stroke-width:1;cursor:pointer;outline:none}#mdPanel .mdBlack{fill:#090d12}#mdPanel .mdKey:focus-visible{stroke:#69ccfa;stroke-width:2}
 #mdPanel .mdKey.lit{fill:#38d5fb;filter:drop-shadow(0 0 5px #38d5fb)}#mdPanel .mdKey.chosen{stroke:#ffbf52;stroke-width:3}
-#mdPanel .mdMap{border-top:1px solid #647486;padding-top:10px}#mdPanel .mdMap select{max-width:100%;min-width:200px}#mdPanel .mdHint{min-height:1.5em;color:#ffce84}`;
+#mdPanel .mdMap{border-top:1px solid #647486;padding-top:10px}#mdPanel .mdMap select{max-width:100%;min-width:200px}#mdPanel .mdHint{min-height:1.5em;color:#ffce84}
+#mdPanel .mdDevice{overflow-x:auto}#mdPanel .mdDevice svg{min-width:720px}
+#mdPanel .tg path{fill:none;stroke:#ffbf52;stroke-width:1.1;opacity:.75}#mdPanel .tg rect{fill:#1a2029;stroke:#ffbf52;stroke-width:1.2}#mdPanel .tg text{fill:#ffd28a;font:700 11.5px system-ui;text-anchor:middle;pointer-events:none}
+#mdPanel .mdc .sh{fill:#141a22}#mdPanel .tg.info path{stroke:#647486}#mdPanel .tg.info rect{stroke:#647486}#mdPanel .tg.info text{fill:#9fb2c6}`;
   const storageKey = "pocket.midi.devices.v1." + location.pathname.split("/").filter(Boolean)[0];
   const load = () => { try { return JSON.parse(localStorage.getItem(storageKey) || "{}"); } catch { return {}; } };
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const guess = (s) => {
     if (/scale pocket|synido/i.test(s)) return "synido";
     if (/mpk|akai/i.test(s)) return "akai";
+    if (/nanokey/i.test(s)) return "korgkey";
     if (/nanopad|korg/i.test(s)) return "korgpad";
     if (/casio|privia|px-s|cdp/i.test(s)) return "casio";
     if (/launchkey|novation/i.test(s)) { const n = (s.match(/\b(25|37|49|61|88)\b/) || [])[1]; return "novation" + (n || 25); }
@@ -2270,9 +2275,13 @@
         h = 210;
         inner = `<circle class="dc" cx="38" cy="38" r="10"/>` + `<rect class="dc" x="92" y="33" width="130" height="10" rx="5"/><rect class="dc" x="150" y="27" width="14" height="22" rx="4"/>` + btnRow(270, 24, 6, 40, 28, 10) + keys(80, 114, 14);
         break;
-      case "pads": // pad controller: X-Y pad and 4x3 pads, no keys
-        h = 340;
-        inner = `<rect class="dc" x="44" y="34" width="200" height="272" rx="8"/><circle class="dc" cx="144" cy="170" r="14"/><path class="dc" d="M144 34v272M44 170h200"/>` + padGrid(292, 34, 4, p.pads, 84, 12);
+      case "pads": // nanoPAD2: the X-Y touch pad, six buttons over a 4x4 pad grid, no keys
+        h = 370;
+        inner = g("xy", "X-Y pad", `<rect class="sh" x="70" y="40" width="290" height="290" rx="10"/><path class="dc" d="M215 40v290M70 185h290"/><circle class="dc" cx="215" cy="185" r="16"/>`) + btnRow(430, 28, 6, 36, 20, 8) + padGrid(430, 64, 4, p.pads, 62, 8, true);
+        break;
+      case "nkey": // nanoKEY2: octave shift, pitch bend, mod and sustain buttons over 25 slim keys
+        h = 260;
+        inner = [["o-", "OCT −"], ["o+", "OCT +"], ["b-", "PITCH −"], ["b+", "PITCH +"], ["m", "MOD"], ["s", "SUSTAIN"]].map(([id, t], i) => g(id, t, `<rect class="sh" x="${40 + i * 70}" y="30" width="56" height="34" rx="6"/><text class="nm" x="${68 + i * 70}" y="52">${t}</text>`)).join("") + keys(110, 130);
         break;
     }
     return `<svg viewBox="0 0 ${W} ${h}" role="img" aria-label="${esc(p.title)} wireframe"><rect class="body" x="1" y="1" width="${W - 2}" height="${h - 2}" rx="16"/>${inner}</svg>`;
@@ -2285,6 +2294,68 @@
     const persist = () => localStorage.setItem(storageKey, JSON.stringify(saved));
     const record = () => (saved[device] = saved[device] || { profile: guess(device), map: {}, controls: {} });
     const prof = () => PROFILES[profile] || PROFILES.generic;
+    // ---- the starting assignment: what a control does before anyone assigns it (the app lists it in MI.defaults)
+    const defs = () => (typeof MI.defaults === "function" ? MI.defaults() : MI.defaults) || {};
+    const profOf = (from) => PROFILES[saved[from]?.profile || guess(from)] || PROFILES.generic;
+    const shortName = (id) => String((MI.actions().find((x) => x.id === id) || { name: id }).name).replace("VOLUME ", "VOL ").slice(0, 12);
+    // [action id, label] a model gives control id (a pad "p3", a knob "c1"), or null. Knobs need a known first CC.
+    function factory(p, id) {
+      const d = defs(), i = +id.slice(1);
+      if (id[0] === "p" && p.pads) return d.pads?.[i] || (d.padText ? ["", d.padText + " " + (i + 1)] : null);
+      if (id[0] === "c" && p.knobs && p.cc0 != null) return d.knobs?.[i] || null;
+      return null;
+    }
+    function effective(dev, p, id) {
+      const r = saved[dev], c = r?.controls?.[id];
+      if (c && "action" in c) return c.action ? [c.action, shortName(c.action)] : null; // the user's own choice
+      if (r?.defaults === false) return null;
+      const f = factory(p, id);
+      if (!f) return null;
+      const taken = f[0] && (Object.values(r?.map || {}).includes(f[0]) || Object.values(MI.map || {}).includes(f[0]) || Object.entries(r?.controls || {}).some(([k, v]) => k !== id && v.action === f[0]));
+      return taken ? null : f; // an action the user put on another control is not also on this one
+    }
+    function controlOf(from, key) {
+      const p = profOf(from), bound = Object.entries(saved[from]?.controls || {}).find(([, v]) => v.key === key)?.[0];
+      if (bound) return bound;
+      const [, t, ch, n] = key.match(/^([nc])(\d+):(\d+)$/) || [];
+      if (t === "n") return +ch === (p.padCh ?? 9) && p.pads ? "p" + padIndex(p.pads, +n) : "";
+      const r = t === "c" ? knobRank(seenCC[from], +n, p.cc0) : -1;
+      return p.cc0 != null && r >= 0 && r < p.knobs ? "c" + r : "";
+    }
+    // a control nobody assigned, doing what its model's starting assignment says
+    function fallback(from, key, cc, on, value) {
+      const e = effective(from, profOf(from), controlOf(from, key)), action = e && e[0] && MI.actions().find((a) => a.id === e[0]);
+      if (!action) return false;
+      run(action, from + "/" + key, cc, on, value);
+      return true;
+    }
+    function defaultsOff() {
+      MI.names.forEach((n) => { saved[n] = saved[n] || { profile: guess(n), map: {}, controls: {} }; saved[n].defaults = false; });
+      persist();
+      if (el) { drawDevice(); select(selected); }
+    }
+    // a tag with a line to each control that has a function, above the drawing (two rows when there are many)
+    function tags(svg) {
+      const p = prof(), items = [], d = defs();
+      svg.querySelectorAll('[data-control^="p"],[data-control^="c"]').forEach((n) => {
+        const e = effective(device, p, n.dataset.control);
+        if (!e || !e[1]) return;
+        const b = n.getBBox();
+        items.push({ x: b.x + b.width / 2, y: b.y, t: e[1], on: !!e[0] });
+      });
+      items.sort((a, b) => a.x - b.x || a.y - b.y);
+      const h = svg.viewBox.baseVal.height, rows = items.length > 8 ? 2 : 1, T = items.length ? rows * 26 + 10 : 0, B = p.keys && d.keys ? 38 : 0;
+      if (!T && !B) return;
+      let out = "";
+      const tag = (x, y, t, wmax) => { const w = Math.min(t.length * 7 + 14, wmax); return `<rect x="${num(x - w / 2)}" y="${y}" width="${num(w)}" height="19" rx="9"/><text x="${num(x)}" y="${y + 13.5}">${esc(t)}</text>`; };
+      items.forEach((it, i) => {
+        const sx = items.length > 1 ? 50 + (i * (W - 100)) / (items.length - 1) : W / 2, ty = -T + 6 + (rows === 2 ? (i % 2) * 26 : 0), ym = ty + 19 + 8;
+        out += `<g class="tg${it.on ? "" : " info"}"><path d="M${num(it.x)} ${num(it.y)}V${num(Math.max(ym, ty + 20))}L${num(sx)} ${ty + 19}"/>${tag(sx, ty, it.t.slice(0, 12), 2 * ((W - 100) / Math.max(1, items.length - 1)) - 6)}</g>`;
+      });
+      if (B) out += `<g class="tg info"><path d="M${W / 2} ${h - 2}V${h + 10}"/>${tag(W / 2, h + 10, "KEYS · " + d.keys, 260)}</g>`;
+      svg.setAttribute("viewBox", `0 ${-T} ${W} ${h + T + B}`);
+      svg.querySelector(".body").insertAdjacentHTML("afterend", out);
+    }
     function sourceOptions() {
       if (!el) return;
       const sel = el.querySelector("#mdSource");
@@ -2298,7 +2369,7 @@
       device = MI.names[0];
       const style = document.createElement("style"); style.textContent = css; style.id = "mdStyle"; document.head.appendChild(style);
       el = document.createElement("div"); el.id = "mdPanel";
-      el.innerHTML = `<div class="mdCard" role="dialog" aria-modal="true" aria-label="MIDI device diagram"><header><h2>MIDI DEVICE · LIVE DIAGRAM</h2><button data-do="close">DONE</button></header><div class="mdRow"><label>Input port<select id="mdSource"></select></label><label>Diagram<select id="mdProfile"></select></label></div><small>A line sketch of the layout, not to scale. Pick the model that matches yours. Keys, pads (MIDI channel 10) and knobs light up as you use them; knobs are matched in the order of their CC numbers. LEARN pins a drawn control to the real one.</small><div class="mdDevice"></div><div class="mdMap"><div class="mdRow"><strong id="mdSelected">Select a key, pad or knob</strong><label>Pocket function<select id="mdAction"></select></label><button data-do="learn">LEARN FROM HARDWARE</button><button data-do="clear">CLEAR CONTROL</button></div><div class="mdHint" id="mdHint"></div><small>Choose a diagram control and a Pocket function, then press or turn its real counterpart. Assignments are saved for this input port and this Pocket app. Unassigned keys still play normally. Click a drawn key to preview it.</small><p><a id="mdSourceLink" target="_blank" rel="noopener noreferrer">Manufacturer reference ↗</a></p></div></div>`;
+      el.innerHTML = `<div class="mdCard" role="dialog" aria-modal="true" aria-label="MIDI device diagram"><header><h2>MIDI DEVICE · LIVE DIAGRAM</h2><button data-do="close">DONE</button></header><div class="mdRow"><label>Input port<select id="mdSource"></select></label><label>Diagram<select id="mdProfile"></select></label></div><small>A line sketch of the layout, not to scale. Pick the model that matches yours. Keys, pads and knobs light up as you use them; knobs are matched in the order of their CC numbers. LEARN pins a drawn control to the real one.</small><div class="mdDevice"></div><div class="mdMap"><div class="mdRow"><strong id="mdSelected">Select a key, pad or knob</strong><label>Pocket function<select id="mdAction"></select></label><button data-do="learn">LEARN FROM HARDWARE</button><button data-do="clear">CLEAR CONTROL</button><button data-do="defaults" id="mdDefaults" title="The functions the app gives the knobs and pads before you assign anything"></button></div><div class="mdHint" id="mdHint"></div><small>Choose a diagram control and a Pocket function, then press or turn its real counterpart. Assignments are saved for this input port and this Pocket app. Unassigned keys still play normally. Click a drawn key to preview it.</small><p><a id="mdSourceLink" target="_blank" rel="noopener noreferrer">Manufacturer reference ↗</a></p></div></div>`;
       document.body.appendChild(el);
       sourceOptions();
       el.querySelector("#mdSource").onchange = (e) => { device = e.target.value; learning = false; selected = ""; draw(); };
@@ -2312,6 +2383,7 @@
         if (action === "close") close();
         if (action === "learn" && selected) { learning = true; hint("Now press the matching hardware control on " + device + "."); }
         if (action === "clear" && selected) { clearAssignment(selected); hint("Assignment removed."); }
+        if (action === "defaults") { const r = record(); r.defaults = r.defaults === false; persist(); drawDevice(); select(selected); }
       };
       el.onkeydown = (e) => {
         const control = (e.key === "Enter" || e.key === " ") && e.target.closest?.("[data-control]");
@@ -2332,17 +2404,23 @@
       hint("Listening to " + device + ". Press a key, a pad or turn a knob to see it light up.");
     }
     function drawDevice() {
-      if (el) el.querySelector(".mdDevice").innerHTML = schematic(prof(), base);
+      if (!el) return;
+      const box = el.querySelector(".mdDevice");
+      box.innerHTML = schematic(prof(), base);
+      tags(box.querySelector("svg"));
+      const b = el.querySelector("#mdDefaults");
+      if (b) b.textContent = "DEFAULTS " + (record().defaults === false ? "OFF" : "ON");
     }
     function select(id) {
       selected = id; if (!el) return;
       el.querySelectorAll(".chosen").forEach((x) => x.classList.remove("chosen"));
       el.querySelector(`[data-control="${id}"]`)?.classList.add("chosen");
-      el.querySelector("#mdSelected").textContent = id ? (id[0] === "k" ? noteName(+id.slice(1)) : id[0] === "p" ? `Pad ${+id.slice(1) + 1}` : `Knob ${+id.slice(1) + 1}`) : "Select a key, pad or knob";
+      const CTL = { j: "Joystick", xy: "X-Y pad", "o-": "Octave −", "o+": "Octave +", "b-": "Pitch −", "b+": "Pitch +", m: "Mod", s: "Sustain" };
+      el.querySelector("#mdSelected").textContent = id ? (CTL[id] || (id[0] === "k" ? noteName(+id.slice(1)) : id[0] === "p" ? `Pad ${+id.slice(1) + 1}` : `Knob ${+id.slice(1) + 1}`)) : "Select a key, pad or knob";
       const actions = MI.actions(), groups = [...new Set(actions.map((a) => a.group))];
       const action = el.querySelector("#mdAction");
       action.innerHTML = `<option value="">Unassigned · normal key</option>` + groups.map((gr) => `<optgroup label="${esc(gr)}">${actions.filter((a) => a.group === gr).map((a) => `<option value="${esc(a.id)}">${esc(a.name)}</option>`).join("")}</optgroup>`).join("");
-      action.value = id ? (record().controls[id]?.action || "") : "";
+      action.value = id ? (effective(device, prof(), id)?.[0] || "") : "";
       action.disabled = !id;
       const binding = id && record().controls[id]?.key;
       hint(binding ? `Hardware: ${binding} · ${action.value ? "assigned" : "normal"}` : id ? "Choose a function and press LEARN to bind the real control." : "Select a drawn control to assign it.");
@@ -2364,6 +2442,18 @@
     }
     const lit = (id, on) => el?.querySelector(`[data-control="${id}"]`)?.classList.toggle("lit", on);
     const blink = (id) => { lit(id, true); clearTimeout(flash.get(id)); flash.set(id, setTimeout(() => lit(id, false), 180)); };
+    // the controls that are neither keys, pads nor knobs: [control, text] for a message, or null
+    function special(p, cmd, cc, a, b, bound) {
+      if (bound) return null;
+      if (p.shape === "mpk" && (cmd === 0xe0 || (cc && a === 1))) return ["j", cmd === 0xe0 ? "Joystick · pitch bend" : `Joystick · mod (CC 1) = ${b}`];
+      if (p.shape === "pads" && cc) return ["xy", `X-Y pad · CC ${a} = ${b}`];
+      if (p.shape === "nkey") {
+        if (cmd === 0xe0) return [b >= 64 ? "b+" : "b-", "Pitch bend button"];
+        if (cc && a === 1) return ["m", `Mod button · CC 1 = ${b}`];
+        if (cc && a === 64) return ["s", `Sustain button · CC 64 = ${b}`];
+      }
+      return null;
+    }
     function observe(data, from) {
       const [st, a, b] = data, cmd = st & 0xf0;
       if (st >= 0xf0 || !from) return;
@@ -2382,7 +2472,7 @@
       const p = prof(), bound = Object.entries(record().controls).find(([, v]) => v.key === key)?.[0];
       if (noteOn || noteOff) {
         // a learned pad, else any note on channel 10 is a pad; everything else is a key
-        const id = bound && !bound.startsWith("k") ? bound : !bound && (st & 15) === 9 && p.pads ? "p" + padIndex(p.pads, a) : "";
+        const id = bound && !bound.startsWith("k") ? bound : !bound && (st & 15) === (p.padCh ?? 9) && p.pads ? "p" + padIndex(p.pads, a) : "";
         if (id) {
           lit(id, noteOn);
           if (noteOn) hint(`Pad ${+id.slice(1) + 1} · note ${a} · channel ${(st & 15) + 1}`);
@@ -2391,9 +2481,10 @@
         if (!p.keys) return;
         if (a < base || a >= base + p.keys) { base = Math.max(0, Math.min(127 - p.keys, Math.floor(a / 12) * 12)); drawDevice(); }
         lit("k" + a, noteOn);
-      } else if (cmd === 0xe0 || (cc && a === 1 && p.shape === "mpk" && !bound)) {
-        blink("j");
-        hint(cmd === 0xe0 ? "Joystick · pitch bend" : `Joystick · mod (CC 1) = ${b}`);
+      } else if (special(p, cmd, cc, a, b, bound)) {
+        const [id, text] = special(p, cmd, cc, a, b, bound);
+        blink(id);
+        hint(text);
       } else if (cc) {
         const r = bound && !bound.startsWith("k") ? bound : knobRank(seenCC[from], a, p.cc0);
         const id = typeof r === "string" ? r : r >= 0 && r < p.knobs ? "c" + r : "";
@@ -2406,7 +2497,7 @@
       run(action, from + "/" + key, cc, on, value);
       return true;
     }
-    return { open, close, observe, route };
+    return { open, close, observe, route, fallback, defaultsOff };
   }
   window.createMidiPanel = createMidiPanel;
   window.pocketMidiHelpers = { padIndex, knobRank, guess };
@@ -5472,6 +5563,7 @@
         if (midiPanel.route(from, key, cc, on, b)) return;
         const act = MI.map[key] && MI.actions().find((x) => x.id === MI.map[key]);
         if (act) return miRun(act, key, cc, on, b);
+        if (midiPanel.fallback(from, key, cc, on, b)) return; // the model's starting assignment
         if (cc && a === 64) {
           // the sustain pedal: notes let go while it is down end when it comes up
           MI.sus = b >= 64;
@@ -5495,7 +5587,7 @@
       // ---- TEST: what does this device send?
       const MI_FAM = [
         [/mpk/i, "Akai MPK", "Keys on channel 1, pads usually on channel 10, 8 knobs (CC), joystick for pitch bend and mod."],
-        [/nano|micro|korg/i, "Korg nano / micro", "Pads or keys and knobs; the KORG KONTROL editor can change what they send."],
+        [/nano|micro|korg/i, "Korg nano / micro", "nanoPAD2: 16 pads on channel 1 and an X-Y pad. nanoKEY2: 25 keys with octave, pitch, mod and sustain buttons. The KORG KONTROL editor can change what they send."],
         [/launchkey|novation/i, "Novation Launchkey", "Two ports: the plain one plays; the DAW one is for lights and transport (later)."],
         [/synido/i, "Synido", "Pads and knobs; banks change the notes the pads send."],
         [/privia|casio|px-?s|cdp/i, "Casio digital piano", "88 keys with velocity and a sustain pedal; no pads or knobs."],
@@ -5653,6 +5745,7 @@
       }
       function midiClearMap() {
         MI.map = {};
+        midiPanel.defaultsOff();
         miSave();
         midiFace();
         toast("MIDI assignments cleared: the pads and knobs play notes again");
@@ -5748,6 +5841,13 @@
           .query({ name: "midi" })
           .then((p) => p.state === "granted" && midiConnect(true))
           .catch(() => {});
+      // What the controls do before anyone assigns anything: [action id, label on the diagram]. An empty id is a label only
+      // (the keys play the piano as always). The user's own ASSIGN, LEARN and DEFAULTS off take precedence.
+      MI.defaults = () => ({
+        keys: "PLAY THE PIANO",
+        knobs: [["bpm", "TEMPO"]],
+        pads: JFX.map(([id, n]) => ["jfx:" + id, n.toUpperCase().slice(0, 12)]),
+      });
       MI.actions = () => [
         { id: "scale", group: "Scales", name: "SCALE / STRUM", kind: "tap", run: () => $("#sUp").click() },
         { id: "arp", group: "Scales", name: "ARPEGGIO", kind: "tap", run: () => $("#sArp").click() },
@@ -8773,6 +8873,7 @@
                 "## Version 2.3.0",
                 "- **Install it:** the app is now a web app (PWA). Add it to the Home Screen (iPhone: Safari ▸ Share; Android and desktop: Chrome ▸ Install app) and it opens like an app and works offline. The welcome note and **OPTIONS** have an **INSTALL** button that knows when the app is already installed. The Android APK is retired.",
                 "- **Looper:** the tempo and the bar length are locked while a recording counts in or runs, and the count-in never shows more than one bar (it once showed hundreds).",
+                "- **MIDI starting assignment:** known controllers (Akai MPK, Launchkey…) now start with a function on each knob and pad, shown as tags with a line on the DEVICE drawing: the pads hold the JAM effects (Flanger, Filter, Echo…) and knob 1 sets the tempo, and the keys play the piano as always. ASSIGN, LEARN and the **DEFAULTS** switch in DEVICE change it, and CLEAR turns it off.",
                 "- **MIDI:** the DEVICE view draws your controller (Akai MPK, Launchkey, Synido, Casio, nanoPAD) and lights its keys, pads, knobs and joystick as you play; TEST counts different keys, not presses; the same five buttons (ASSIGN, CLEAR, TEST, DEVICE, SOUND) in all three apps, and SOUND turns the app's own sound off for keyboards with speakers.",
                 "- **Safer and sturdier:** files are checked before they open and names are cleaned (a crafted file could run code), and a damaged setting no longer stops the app from starting.",
                 "- **Recorder and tin whistle:** redrawn as wireframes like the MIDI controllers. The big instrument has tags with a line only for the holes to cover (left hand in blue, right hand in amber) and the note large at the top. The chart of every note shows the instrument held sideways, one row per note.",
@@ -8782,6 +8883,7 @@
                 "## Versión 2.3.0",
                 "- **Instálala:** la app ahora es una web app (PWA). Añádela a la pantalla de inicio (iPhone: Safari ▸ Compartir; Android y escritorio: Chrome ▸ Instalar app) y se abre como una app y funciona sin conexión. La nota de bienvenida y **OPTIONS** tienen un botón **INSTALL** que sabe si la app ya está instalada. El APK de Android se retira.",
                 "- **Looper:** el tempo y la longitud del compás se bloquean mientras una grabación cuenta o graba, y la cuenta nunca muestra más de un compás (una vez mostró cientos).",
+                "- **Asignación MIDI inicial:** los controladores conocidos (Akai MPK, Launchkey…) empiezan con una función en cada pote y pad, mostrada como etiquetas con una línea en el dibujo de DEVICE: los pads mantienen los efectos del JAM (Flanger, Filtro, Eco…) y el pote 1 ajusta el tempo, y las teclas tocan el piano como siempre. ASSIGN, LEARN y el interruptor **DEFAULTS** de DEVICE la cambian, y CLEAR la desactiva.",
                 "- **MIDI:** la vista DEVICE dibuja tu controlador (Akai MPK, Launchkey, Synido, Casio, nanoPAD) e ilumina sus teclas, pads, potes y joystick al tocar; TEST cuenta teclas distintas, no pulsaciones; los mismos cinco botones (ASSIGN, CLEAR, TEST, DEVICE, SOUND) en las tres apps, y SOUND apaga el sonido de la app para teclados con altavoces.",
                 "- **Más segura y robusta:** los archivos se comprueban antes de abrirse y los nombres se limpian (un archivo manipulado podía ejecutar código), y un ajuste dañado ya no impide que la app arranque.",
                 "- **Flauta dulce y tin whistle:** redibujadas como esquemas, igual que los controladores MIDI. El instrumento grande lleva etiquetas con una línea solo en los agujeros que hay que tapar (mano izquierda en azul, derecha en ámbar) y la nota grande arriba. El gráfico de todas las notas muestra el instrumento de lado, una fila por nota.",
