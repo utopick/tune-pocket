@@ -1171,6 +1171,93 @@
         outline: 2px solid var(--hot);
         outline-offset: -2px;
       }
+      /* jam: the lower part rotates between a waveform, a piano and drum pads */
+      #jLow {
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      #jLow[data-m="def"] {
+        flex: 1;
+        min-height: 56px;
+      }
+      #jWave {
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+        border-radius: var(--r);
+        background: var(--wave);
+      }
+      #jLow:not([data-m="def"]) #jWave,
+      #jKeys[hidden],
+      #jDrums[hidden] {
+        display: none;
+      }
+      #jKeys {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        height: 170px;
+      }
+      .jkbar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex: none;
+      }
+      .jkbar button {
+        flex: none;
+        min-height: 30px;
+        padding: 0 10px;
+        font-size: 11px;
+      }
+      .jkbar b {
+        flex: 1;
+        text-align: center;
+        font: 800 12px var(--mono);
+        color: var(--dim);
+      }
+      .jkb {
+        position: relative;
+        flex: 1;
+        display: flex;
+        touch-action: none;
+        user-select: none;
+      }
+      .jkw {
+        flex: 1;
+        position: relative;
+        background: var(--text);
+        border: 1px solid var(--bg);
+        border-radius: 0 0 5px 5px;
+        color: var(--bg);
+        font: 800 9px var(--mono);
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding-bottom: 4px;
+      }
+      .jkk {
+        position: absolute;
+        top: 0;
+        height: 60%;
+        width: 4.6%;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 0 0 4px 4px;
+        z-index: 2;
+      }
+      .jkw.on,
+      .jkk.on {
+        background: var(--acc);
+        box-shadow: 0 0 8px var(--acc);
+      }
+      #jDrums {
+        height: 170px;
+        grid-template-columns: repeat(4, 1fr);
+        grid-auto-rows: 1fr;
+      }
       /* jam: effects pads and the sounds panel */
       .jp {
         display: flex;
@@ -2011,14 +2098,23 @@
           <div class="prow"><label class="dd"><span id="kitTxt"></span><select id="jKit" title="Drum kit"></select></label></div>
           <div class="prow"><label class="dd"><span id="jbTxt"></span><select id="jBassI" title="Bass instrument"></select></label></div>
           <div class="prow"><label class="dd"><span id="jcTxt"></span><select id="jChordI" title="Chord instrument"></select></label></div>
+          <div class="prow"><label class="dd"><span id="jlTxt"></span><select id="jLeadI" title="The instrument the keys play (the piano on screen and a MIDI keyboard)"></select></label></div>
         </div>
         <div class="jp" data-jp="fx" hidden>
           <div class="pads" id="jFx"></div>
           <div class="prow"><button id="jLatch">LATCH<i>TAP ON / OFF</i></button><button id="jFxOff">ALL OFF<i>EFFECTS</i></button></div>
         </div>
+        <div id="jLow" data-m="def">
+          <canvas id="jWave"></canvas>
+          <div id="jKeys" hidden>
+            <div class="jkbar"><button id="jOctD" title="An octave lower">OCT −</button><b id="jOctT"></b><button id="jOctU" title="An octave higher">OCT +</button></div>
+            <div class="jkb" id="jKb"></div>
+          </div>
+          <div class="pads" id="jDrums" hidden></div>
+        </div>
         <div class="prow rib">
           <button id="jPlay"></button><button id="jTap"></button><button id="jMinor"></button><button id="jSnd"></button
-          ><button id="jFxB"></button>
+          ><button id="jFxB"></button><button id="jKbd" title="Rotate the lower part: waveform, piano, drum pads"></button>
         </div>
       </section>
 
@@ -2324,6 +2420,7 @@
     }
     // a control nobody assigned, doing what its model's starting assignment says
     function fallback(from, key, cc, on, value) {
+      if (MI.holdDefaults && MI.holdDefaults()) return false; // the app is using the pads and keys for something on screen
       const e = effective(from, profOf(from), controlOf(from, key)), action = e && e[0] && MI.actions().find((a) => a.id === e[0]);
       if (!action) return false;
       run(action, from + "/" + key, cc, on, value);
@@ -2497,7 +2594,9 @@
       run(action, from + "/" + key, cc, on, value);
       return true;
     }
-    return { open, close, observe, route, fallback, defaultsOff };
+    // is this note-on from one of the controller's pads (its pad channel) and not from a key?
+    const isPad = (from, ch) => { const p = profOf(from); return !!p.pads && ch === (p.padCh ?? 9); };
+    return { open, close, observe, route, fallback, defaultsOff, isPad };
   }
   window.createMidiPanel = createMidiPanel;
   window.pocketMidiHelpers = { padIndex, knobRank, guess };
@@ -5574,6 +5673,7 @@
           return MI.cc && MI.cc(a, b, ch);
         }
         if (cc) return MI.cc && MI.cc(a, b, ch);
+        MI.pad = midiPanel.isPad(from, ch); // an app can treat the pads and the keys of a controller differently
         if (on) {
           if (MI.susd.delete(a) && MI.off) MI.off(a, ch); // pressed again under the pedal: the old one ends first
           MI.held.set(a, b);
@@ -5869,6 +5969,7 @@
       const miVoices = new Map();
       function miSound(n, v) {
         if (!MI.sound()) return;
+        if (S.view === "jam") return jamLeadOn(n, v);
         getCtx().then((c) => {
           const g = c.createGain();
           g.gain.value = 0.35 + (v / 127) * 0.75;
@@ -5887,7 +5988,15 @@
       }
       // SCALES: a key lights its note; PRACTICE takes the exact note; a held chord is named and shown
       let miChordT = 0;
+      // the pads start as JAM effects only in the JAM view (the looper has its own effects, and the drum pads take them)
+      MI.holdDefaults = () => S.view !== "jam" || jLow === "drums";
       MI.on = (n, v) => {
+        const fx = miFxFor(n);
+        if (fx) {
+          if ((fx.jam ? S.jam.latch : S.loop.latch) === false) miFx.set(n, fx);
+          return fx.jam ? midiJamFx(fx.id, true) : midiLoopFx(fx.id, true);
+        }
+        if (S.view === "jam" && jLow === "drums") return jamDrum(((n - (MI.pad ? 36 : 48)) % JDRUMS.length + JDRUMS.length) % JDRUMS.length, v);
         miSound(n, v);
         if (S.view !== "scl") return;
         if (PR.on) {
@@ -5900,6 +6009,11 @@
         miChordT = setTimeout(midiChord, 70); // the notes of a chord arrive a few milliseconds apart
       };
       MI.off = (n) => {
+        if (miFx.has(n)) {
+          const f = miFx.get(n);
+          miFx.delete(n);
+          return f.jam ? midiJamFx(f.id, false) : midiLoopFx(f.id, false);
+        }
         const g = miVoices.get(n);
         if (g) (miVoices.delete(n), miRelease(g));
       };
@@ -6094,6 +6208,9 @@
         $("#kitTxt").innerHTML = `<i>DRUM KIT</i>${TK.KITS[S.jam.snd.kit]}`;
         $("#jbTxt").innerHTML = `<i>BASS</i>${esc(TK.instObj(+S.jam.snd.bass).name)}`;
         $("#jcTxt").innerHTML = `<i>CHORDS</i>${esc(TK.instObj(+S.jam.snd.chord).name)}`;
+        if (!$("#jLeadI").options.length) $("#jLeadI").innerHTML = instOptions();
+        $("#jLeadI").value = jLeadIdx();
+        $("#jlTxt").innerHTML = `<i>KEYS PLAY</i>${esc(TK.instObj(jLeadIdx()).name)}`;
         // effects
         $("#jFx").innerHTML = JFX.map(
           ([id, n, h], i) =>
@@ -6109,21 +6226,23 @@
         J.g.bass.gain.value = S.jam.mix.bass;
         J.g.chord.gain.value = S.jam.mix.chord;
       }
+      function jamGraph(c) {
+        if (J.g) return;
+        const comp = c.createDynamicsCompressor();
+        comp.threshold.value = -10;
+        comp.ratio.value = 4;
+        comp.connect(c.destination);
+        J.an = c.createAnalyser(); // read by the backdrop
+        J.an.fftSize = 2048;
+        comp.connect(J.an);
+        J.fx = TK.buildFxChain(c);
+        J.fx.out.connect(comp);
+        J.g = { drums: c.createGain(), bass: c.createGain(), chord: c.createGain(), lead: c.createGain() }; // lead: the keys, through the same effects
+        Object.values(J.g).forEach((g) => g.connect(J.fx.in));
+      }
       async function jamStart() {
         const c = await getCtx();
-        if (!J.g) {
-          const comp = c.createDynamicsCompressor();
-          comp.threshold.value = -10;
-          comp.ratio.value = 4;
-          comp.connect(c.destination);
-          J.an = c.createAnalyser(); // read by the backdrop
-          J.an.fftSize = 2048;
-          comp.connect(J.an);
-          J.fx = TK.buildFxChain(c);
-          J.fx.out.connect(comp);
-          J.g = { drums: c.createGain(), bass: c.createGain(), chord: c.createGain() };
-          Object.values(J.g).forEach((g) => g.connect(J.fx.in));
-        }
+        jamGraph(c);
         jamMix();
         jamFx();
         J.on = true;
@@ -6285,6 +6404,152 @@
       };
       addEventListener("pointerup", jUp);
       addEventListener("pointercancel", jUp);
+      // ---- JAM, the lower part: a waveform (when nothing else is open), a piano and drum pads. The keys play the "keys" instrument through
+      // the jam effects, on screen and from a MIDI keyboard.
+      let jLow = "def",
+        jOct = 0;
+      function jLeadIdx() {
+        return S.jam.lead != null && TK.instObj(+S.jam.lead) != null ? +S.jam.lead : tkIndex("Piano");
+      }
+      function jamLeadOn(n, v) {
+        getCtx().then((c) => {
+          jamGraph(c);
+          const g = c.createGain();
+          g.gain.value = 0.35 + (v / 127) * 0.75;
+          g.connect(J.g.lead);
+          TK.voice(c, g, jLeadIdx(), n, c.currentTime + 0.005, 6, 0.8);
+          const old = miVoices.get(n);
+          if (old) miRelease(old);
+          miVoices.set(n, g);
+        });
+      }
+      function jamLeadOff(n) {
+        const g = miVoices.get(n);
+        if (g) (miVoices.delete(n), miRelease(g));
+      }
+      const JDRUMS = [["KICK", 0], ["SNARE", 1], ["RIM", 2], ["HAT", 3], ["OPEN HAT", 4], ["TOM HI", 5], ["TOM LO", 6], ["CRASH", 8]];
+      function jamDrum(i, v = 100) {
+        getCtx().then((c) => {
+          jamGraph(c);
+          jamMix();
+          TK.drum(c, J.g.drums, JDRUMS[i % JDRUMS.length][1], c.currentTime + 0.005, 0.5 + (v / 127) * 0.5);
+        });
+        $$(`#jDrums [data-d="${i % JDRUMS.length}"]`).forEach((e) => (e.classList.add("ok"), setTimeout(() => e.classList.remove("ok"), 120)));
+      }
+      function jKeysBuild() {
+        const base = 48 + jOct * 12,
+          W = [0, 2, 4, 5, 7, 9, 11];
+        let w = "",
+          b = "";
+        for (let o = 0; o < 2; o++)
+          W.forEach((iv, i) => {
+            const m = base + o * 12 + iv,
+              idx = o * 7 + i;
+            w += `<div class="jkw" data-m="${m}">${iv === 0 ? noteName(m) : ""}</div>`;
+            if ([0, 2, 5, 7, 9].includes(iv)) b += `<div class="jkk" data-m="${m + 1}" style="left:calc(${((idx + 1) * 100) / 14}% - 2.3%)"></div>`;
+          });
+        $("#jKb").innerHTML = w + b;
+        $("#jOctT").textContent = noteName(base) + " – " + noteName(base + 24);
+      }
+      const jDown = new Map();
+      $("#jKb").addEventListener("pointerdown", (e) => {
+        const k = e.target.closest("[data-m]");
+        if (!k) return;
+        e.preventDefault();
+        k.setPointerCapture && k.setPointerCapture(e.pointerId);
+        const m = +k.dataset.m;
+        jDown.set(e.pointerId, m);
+        k.classList.add("on");
+        jamLeadOn(m, 100);
+      });
+      const jKeyUp = (e) => {
+        const m = jDown.get(e.pointerId);
+        if (m == null) return;
+        jDown.delete(e.pointerId);
+        $$(`#jKb [data-m="${m}"]`).forEach((k) => k.classList.remove("on"));
+        jamLeadOff(m);
+      };
+      addEventListener("pointerup", jKeyUp);
+      addEventListener("pointercancel", jKeyUp);
+      $("#jOctD").onclick = () => ((jOct = Math.max(-2, jOct - 1)), jKeysBuild());
+      $("#jOctU").onclick = () => ((jOct = Math.min(2, jOct + 1)), jKeysBuild());
+      $("#jDrums").innerHTML = JDRUMS.map(([n], i) => `<div class="sq has" data-d="${i}" style="--ccrgb:${PC(i)};--v:.3"><span class="nt sm">${n}</span></div>`).join("");
+      $("#jDrums").addEventListener("pointerdown", (e) => {
+        const d = e.target.closest("[data-d]");
+        if (d) (e.preventDefault(), jamDrum(+d.dataset.d));
+      });
+      function jLowFace() {
+        $("#jLow").dataset.m = jLow;
+        $("#jKeys").hidden = jLow !== "keys";
+        $("#jDrums").hidden = jLow !== "drums";
+        if (jLow === "keys") jKeysBuild();
+        ribFace();
+        jWaveKick();
+      }
+      $("#jKbd").onclick = () => {
+        jLow = { def: "keys", keys: "drums", drums: "def" }[jLow];
+        jLowFace();
+        toast(jLow === "keys" ? "Piano: tap the keys, or play a MIDI keyboard" : jLow === "drums" ? "Drum pads: tap them, or play a MIDI keyboard's pads and keys" : "Back to the waveform");
+      };
+      // the filler: the sound of the jam when it plays, a slow wave when it does not
+      let jWaveRaf = 0;
+      function jWaveKick() {
+        if (jWaveRaf || S.view !== "jam" || jLow !== "def") return;
+        const draw = (t) => {
+          jWaveRaf = 0;
+          if (S.view !== "jam" || jLow !== "def") return;
+          const cv = $("#jWave"),
+            r = cv.getBoundingClientRect(),
+            d = Math.min(2, devicePixelRatio || 1),
+            w = Math.max(2, Math.round(r.width * d)),
+            h = Math.max(2, Math.round(r.height * d));
+          if (cv.width !== w || cv.height !== h) ((cv.width = w), (cv.height = h));
+          const g = cv.getContext("2d"),
+            N = 96;
+          let data = null;
+          if (J.an) {
+            data = new Float32Array(J.an.fftSize);
+            J.an.getFloatTimeDomainData(data);
+          }
+          g.clearRect(0, 0, w, h);
+          const col = css("--acc"),
+            step = w / N;
+          g.fillStyle = col;
+          for (let i = 0; i < N; i++) {
+            let a;
+            if (data && data.some((x) => Math.abs(x) > 0.002)) {
+              let pk = 0;
+              const per = Math.floor(data.length / N);
+              for (let k = i * per; k < (i + 1) * per; k++) pk = Math.max(pk, Math.abs(data[k]));
+              a = Math.min(1, pk * 2.2);
+            } else a = 0.08 + 0.07 * (1 + Math.sin(t / 700 + i * 0.35)) * (0.6 + 0.4 * Math.sin(i * 0.11 + t / 2300));
+            const bh = Math.max(2 * d, a * h * 0.9);
+            g.globalAlpha = 0.35 + a * 0.6;
+            g.fillRect(i * step + step * 0.15, (h - bh) / 2, Math.max(1, step * 0.7), bh);
+          }
+          g.globalAlpha = 1;
+          jWaveRaf = requestAnimationFrame(draw);
+        };
+        jWaveRaf = requestAnimationFrame(draw);
+      }
+      // While the jam effects (or the looper's) are open the MIDI pads and keys play them (pad 1 is the first effect, the keys count from
+      // C3). With the piano open the keys still play the piano and only the pads are effects, and with the drum pads open both play drums.
+      const miFx = new Map();
+      function miFxFor(n) {
+        const jam = S.view === "jam" && jPanel === "fx",
+          loop = S.view === "loop" && LP.panel === "fx";
+        if (!jam && !loop) return null;
+        if (jam && (jLow === "drums" || (jLow === "keys" && !MI.pad))) return null;
+        const list = jam ? JFX : LFX;
+        return { jam, id: list[(((n - (MI.pad ? 36 : 48)) % list.length) + list.length) % list.length][0] };
+      }
+      function midiLoopFx(id, on) {
+        getCtx().then((c) => {
+          lpGraph(c);
+          if (S.loop.latch !== false) return on && lpFxSet(id, !lpFx(id));
+          lpFxSet(id, on);
+        });
+      }
       $("#jLatch").onclick = () => {
         S.jam.latch = S.jam.latch === false;
         $("#jLatch").classList.toggle("on", S.jam.latch);
@@ -6293,6 +6558,7 @@
       };
       $("#jFxOff").onclick = () => [...S.jam.fx].forEach((id) => jamFxSet(id, false));
       // SOUNDS
+      $("#jLeadI").onchange = (e) => ((S.jam.lead = +e.target.value), renderJam(), saveState());
       $("#jKit").onchange = (e) => ((S.jam.snd.kit = +e.target.value), renderJam(), saveState());
       $("#jBassI").onchange = (e) => ((S.jam.snd.bass = +e.target.value), renderJam(), saveState());
       $("#jChordI").onchange = (e) => ((S.jam.snd.chord = +e.target.value), renderJam(), saveState());
@@ -8013,6 +8279,7 @@
         if (v === "scl") requestAnimationFrame(drawDia);
         if (v === "met") metRender();
         if (v === "loop") lpRender();
+        if (v === "jam") jWaveKick();
         if (v !== "loop") lpMicClose(); // the metronome and the loops keep playing in the other views
         rhythmKick();
         if (v !== "tun" && v !== "det" && v !== "scl" && MIC.on) micStop(); // the mic only runs where it is shown
@@ -8035,6 +8302,9 @@
         minor: IC('<path d="M9 18V6l9-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="15.5" cy="16" r="2.5"/>'),
         snd: IC('<path d="M4 14h4v6H4zM10 9h4v11h-4zM16 4h4v16h-4z"/>'),
         fx: IC('<path d="M5 12a7 7 0 0 1 14 0M8 12a4 4 0 0 1 8 0"/><circle cx="12" cy="12" r="1.5"/><path d="M12 14v6"/>'),
+        keys: IC('<rect x="3" y="5" width="18" height="14" rx="1"/><path d="M8 5v9M13 5v9M18 5v9"/>'),
+        pads: IC('<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>'),
+        wave: IC('<path d="M3 12h2l2-6 3 12 3-9 2 3h6"/>'),
         loop: IC('<path d="M18 8a7 7 0 1 0 1.5 6"/><path d="M19 3v5h-5"/>'),
         rec: IC('<circle cx="12" cy="12" r="6" fill="currentColor"/>'),
         edit: IC('<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>'),
@@ -8092,6 +8362,7 @@
         }
         rib("jSnd", "snd", "SOUNDS", jPanel === "snd");
         rib("jFxB", "fx", "FX" + (S.jam.fx.length ? " · " + S.jam.fx.length : ""), jPanel === "fx");
+        rib("jKbd", jLow === "keys" ? "keys" : jLow === "drums" ? "pads" : "wave", jLow === "keys" ? "PIANO" : jLow === "drums" ? "DRUMS" : "WAVE", jLow !== "def");
         rib("jPlay", J.on ? "stop" : "play", J.on ? "STOP" : "PLAY", J.on);
         rib("jTap", "tap", "TAP TEMPO");
         rib("jMinor", "minor", S.jam.minor ? "MINOR" : "MAJOR", S.jam.minor);
@@ -8682,6 +8953,7 @@
               "**SOUNDS** picks the drum kit, the bass and the chord instrument from TRACK.Pocket's whole list. Each style pad loads a fitting set; change it after.",
               "## FX",
               "**FX** is a live effects board on the whole band: filters, lo-fi, drive, flanger, echo, reverb, radio and rhythmic gates. With **LATCH** on, a tap turns an effect on or off; with it off, an effect plays only while you hold its pad. **ALL OFF** clears them. Tap SOUNDS or FX again to go back to the mixer.",
+              "**PIANO / DRUMS / WAVE** (the last button of the bottom row) rotates the empty space under the controls: a waveform of the band (a slow wave when it is stopped), a **piano** of two octaves (**OCT −** and **OCT +** move it) and **drum pads**. The keys play the instrument chosen in **SOUNDS ▸ KEYS PLAY**, through the same effects, and a MIDI keyboard plays it too. While the **FX** pads are open the MIDI pads and keys play the effects, except with the piano open (the pads play effects and the keys the piano) or the drum pads open (both play drums). The same goes for the effects of the looper.",
             ],
             es: [
               "Una banda de batería, bajo y acordes para practicar encima, con los instrumentos de TRACK.Pocket. Toca un pad de **estilo** para arrancarla; toca **▶** o **STOP** para pararla.",
@@ -8696,6 +8968,7 @@
               "**SOUNDS** elige la batería, el bajo y el instrumento de acordes de toda la lista de TRACK.Pocket. Cada estilo carga un conjunto adecuado; cámbialo después.",
               "## FX",
               "**FX** es una mesa de efectos en directo sobre toda la banda: filtros, lo-fi, saturación, flanger, eco, reverb, radio y puertas rítmicas. Con **LATCH** activo, un toque enciende o apaga un efecto; sin él, el efecto suena solo mientras mantienes el pad. **ALL OFF** los quita. Toca SOUNDS o FX otra vez para volver al mezclador.",
+              "**PIANO / DRUMS / WAVE** (el último botón de la barra de abajo) rota el espacio vacío bajo los controles: una forma de onda de la banda (una onda lenta si está parada), un **piano** de dos octavas (**OCT −** y **OCT +** lo mueven) y **pads de batería**. Las teclas tocan el instrumento elegido en **SOUNDS ▸ KEYS PLAY**, con los mismos efectos, y un teclado MIDI lo toca también. Con los pads de **FX** abiertos, los pads y teclas MIDI tocan los efectos, salvo con el piano abierto (los pads tocan efectos y las teclas el piano) o con los pads de batería abiertos (ambos tocan la batería). Igual con los efectos del looper.",
             ],
           },
         },
@@ -8871,6 +9144,7 @@
             b: {
               en: [
                 "## Version 2.3.0",
+                "- **JAM keys:** the empty space of the JAM view shows a waveform and rotates to a **piano** and **drum pads** (the last button of the bottom row). A new **KEYS PLAY** instrument in SOUNDS sets what the keys play, on screen and from a MIDI keyboard, through the jam effects. When the effects of the JAM or the looper are open, the MIDI pads and keys play them.",
                 "- **Install it:** the app is now a web app (PWA). Add it to the Home Screen (iPhone: Safari ▸ Share; Android and desktop: Chrome ▸ Install app) and it opens like an app and works offline. The welcome note and **OPTIONS** have an **INSTALL** button that knows when the app is already installed. The Android APK is retired.",
                 "- **Looper:** the tempo and the bar length are locked while a recording counts in or runs, and the count-in never shows more than one bar (it once showed hundreds).",
                 "- **MIDI starting assignment:** known controllers (Akai MPK, Launchkey…) now start with a function on each knob and pad, shown as tags with a line on the DEVICE drawing: the pads hold the JAM effects (Flanger, Filter, Echo…) and knob 1 sets the tempo, and the keys play the piano as always. ASSIGN, LEARN and the **DEFAULTS** switch in DEVICE change it, and CLEAR turns it off.",
@@ -8881,6 +9155,7 @@
               ],
               es: [
                 "## Versión 2.3.0",
+                "- **Teclas del JAM:** el espacio vacío del JAM muestra una forma de onda y rota a un **piano** y **pads de batería** (el último botón de la barra de abajo). Un nuevo instrumento **KEYS PLAY** en SOUNDS elige lo que tocan las teclas, en pantalla y desde un teclado MIDI, con los efectos del jam. Con los efectos del JAM o del looper abiertos, los pads y teclas MIDI los tocan.",
                 "- **Instálala:** la app ahora es una web app (PWA). Añádela a la pantalla de inicio (iPhone: Safari ▸ Compartir; Android y escritorio: Chrome ▸ Instalar app) y se abre como una app y funciona sin conexión. La nota de bienvenida y **OPTIONS** tienen un botón **INSTALL** que sabe si la app ya está instalada. El APK de Android se retira.",
                 "- **Looper:** el tempo y la longitud del compás se bloquean mientras una grabación cuenta o graba, y la cuenta nunca muestra más de un compás (una vez mostró cientos).",
                 "- **Asignación MIDI inicial:** los controladores conocidos (Akai MPK, Launchkey…) empiezan con una función en cada pote y pad, mostrada como etiquetas con una línea en el dibujo de DEVICE: los pads mantienen los efectos del JAM (Flanger, Filtro, Eco…) y el pote 1 ajusta el tempo, y las teclas tocan el piano como siempre. ASSIGN, LEARN y el interruptor **DEFAULTS** de DEVICE la cambian, y CLEAR la desactiva.",
