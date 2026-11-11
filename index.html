@@ -13,6 +13,7 @@
   localStorage keys
     tune.theme      dark | light | demo | term | dungeon | dmg
     tune.lang       help language (en | es)                 tune.welcome    "1" once the first-visit dialog was closed
+    tune.audioIn    { dev: input device id ("" = default microphone), ch: mix | L | R }
     tune.state      { inst, tun, a4, view, auto, scl, jam, cof, met: { bpm, beats, sub, snd, accent, vol }, loop: { bars, sync, latch, grid, aq } }
     customTunings   [{ name, instrument, strings: ["E2" | "82.41", ...] }]  (key kept from LFTuner so old tunings load)
 -->
@@ -2127,6 +2128,22 @@
             chord you hold is named and shown on your instrument. <b>ASSIGN</b> ties pads, buttons and knobs to the
             scale and JAM buttons, the JAM effects, the metronome and the tempo. Chrome, Edge or Firefox; not Safari.
           </div>
+          <h3 style="margin-top: 12px">Audio input</h3>
+          <div class="row"><select id="ainDev" title="Which input the tuner and the looper listen to" style="flex: 1"></select></div>
+          <div class="row">
+            <select id="ainCh" title="Which channel of the input to use" style="flex: 1"><option value="mix">Both channels</option><option value="L">Left (input 1)</option><option value="R">Right (input 2)</option></select>
+            <button id="ainTest" title="Open the input and see its level, note and settings">TEST</button>
+          </div>
+          <div id="ainBox" hidden>
+            <div id="ainMeter" style="height: 14px; border: 1px solid var(--line); border-radius: 7px; overflow: hidden"><i id="ainLvl" style="display: block; height: 100%; width: 0; background: var(--acc)"></i></div>
+            <div id="ainNote" style="font: 900 28px/1.3 var(--mono); text-align: center">--</div>
+            <pre id="ainInfo" class="hint" style="white-space: pre-wrap; margin: 0"></pre>
+          </div>
+          <div class="hint">
+            Plug a guitar or any instrument into a USB audio interface (or the phone's adapter) and pick it here. The tuner and the looper
+            then listen to it directly, with no echo cancelling, noise reduction or gain control, instead of the microphone. TEST shows the level, the note
+            and what the browser really gave: channels, sample rate and latency.
+          </div>
           <h3 style="margin-top: 12px">Install as an app</h3>
           <div class="row">
             <button id="instBtn" style="flex: 1" title="Install the app: its own window on your home screen or computer, and it works offline"></button>
@@ -2893,21 +2910,106 @@
         });
       }
 
+      // the audio input: the default microphone, or a chosen device (an audio interface with an instrument plugged in), always raw
+      const AIN = Object.assign({ dev: "", ch: "mix" }, (() => { try { return JSON.parse(localStorage.getItem("tune.audioIn")) || {}; } catch { return {}; } })());
+      const ainSave = () => localStorage.setItem("tune.audioIn", JSON.stringify({ dev: AIN.dev, ch: AIN.ch }));
+      const ainOpen = () =>
+        navigator.mediaDevices
+          .getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: { ideal: 2 }, ...(AIN.dev ? { deviceId: { exact: AIN.dev } } : {}) }, video: false })
+          .catch((e) => {
+            if (AIN.dev && (e.name === "OverconstrainedError" || e.name === "NotFoundError")) {
+              // the chosen device is unplugged: go back to the default input
+              AIN.dev = "";
+              ainSave();
+              ainFace();
+              toast("That input is not connected. Using the default one.");
+              return ainOpen();
+            }
+            throw e;
+          });
+      // the node to listen to: the whole stream, or one channel of it
+      function ainTap(c, src) {
+        if (AIN.ch === "mix" || (src.channelCount || 1) < 2) return src;
+        const sp = c.createChannelSplitter(2);
+        src.connect(sp);
+        const g = c.createGain();
+        sp.connect(g, AIN.ch === "R" ? 1 : 0);
+        return g;
+      }
+      async function ainList() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+        const ds = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "audioinput");
+        $("#ainDev").innerHTML = '<option value="">Default microphone</option>' + ds.filter((d) => d.deviceId && d.deviceId !== "default").map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || "Input " + (i + 1))}</option>`).join("");
+        ainFace();
+      }
+      function ainFace() {
+        $("#ainDev").value = AIN.dev;
+        if ($("#ainDev").value !== AIN.dev) $("#ainDev").value = "";
+        $("#ainCh").value = AIN.ch;
+      }
+      const AT = { on: false };
+      async function ainTestStop() {
+        AT.on = false;
+        cancelAnimationFrame(AT.raf);
+        if (AT.stream) AT.stream.getTracks().forEach((t) => t.stop());
+        AT.stream = null;
+        $("#ainTest").classList.remove("on");
+        $("#ainTest").textContent = "TEST";
+      }
+      async function ainTest() {
+        if (AT.on) return ainTestStop();
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return micError("NO_API");
+        if (MIC.on) micStop();
+        try {
+          const c = await getCtx();
+          AT.stream = await ainOpen();
+          c.resume().catch(() => {});
+          const src = c.createMediaStreamSource(AT.stream),
+            an = c.createAnalyser(),
+            buf = new Float32Array(4096);
+          an.fftSize = 4096;
+          ainTap(c, src).connect(an);
+          AT.on = true;
+          $("#ainTest").classList.add("on");
+          $("#ainTest").textContent = "STOP";
+          $("#ainBox").hidden = false;
+          await ainList(); // the names appear once the browser has allowed the input
+          const t = AT.stream.getAudioTracks()[0],
+            st = t.getSettings(),
+            yn = (v) => (v === false ? "off" : v === true ? "ON" : "?");
+          $("#ainInfo").textContent =
+            `${t.label}\nchannels ${st.channelCount || "?"} · ${Math.round(c.sampleRate)} Hz · input latency ${st.latency != null ? Math.round(st.latency * 1000) + " ms" : "?"} · output ${Math.round((c.outputLatency || c.baseLatency || 0) * 1000)} ms\n` +
+            `echo cancel ${yn(st.echoCancellation)} · noise reduction ${yn(st.noiseSuppression)} · auto gain ${yn(st.autoGainControl)}`;
+          const loop = () => {
+            if (!AT.on) return;
+            an.getFloatTimeDomainData(buf);
+            const d = detectPitch(buf, c.sampleRate);
+            let pk = 0;
+            for (let i = 0; i < buf.length; i++) pk = Math.max(pk, Math.abs(buf[i]));
+            $("#ainLvl").style.width = Math.min(100, Math.round(Math.sqrt(pk) * 100)) + "%";
+            $("#ainLvl").style.background = pk > 0.97 ? "var(--bad, #e55)" : "var(--acc)";
+            $("#ainNote").textContent = d.hz > 0 ? noteName(Math.round(hzToMidi(d.hz))) + " " + d.hz.toFixed(1) + " Hz" : pk > 0.97 ? "TOO LOUD" : "--";
+            AT.raf = requestAnimationFrame(loop);
+          };
+          loop();
+        } catch (e) {
+          ainTestStop();
+          micError(e.name || "UNKNOWN");
+        }
+      }
+
       const MIC = { on: false, stream: null, an: null, buf: new Float32Array(4096), raf: 0 };
       async function micStart() {
         if (MIC.on) return;
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return micError("NO_API");
         try {
           const c = await getCtx();
-          MIC.stream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-            video: false,
-          });
+          MIC.stream = await ainOpen();
           await c.resume().catch(() => {}); // iOS / Android can suspend the context during the permission prompt
           const src = c.createMediaStreamSource(MIC.stream);
           MIC.an = c.createAnalyser();
           MIC.an.fftSize = 4096;
-          src.connect(MIC.an);
+          ainTap(c, src).connect(MIC.an);
           MIC.on = true;
           micFace();
           MIC.raf = requestAnimationFrame(micLoop);
@@ -7180,10 +7282,7 @@
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return micError("NO_API"), false;
         try {
           const c = await getCtx();
-          LP.stream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-            video: false,
-          });
+          LP.stream = await ainOpen();
           await c.resume().catch(() => {});
           LP.src = c.createMediaStreamSource(LP.stream);
           LP.chunks = [];
@@ -7205,7 +7304,7 @@
           }
           LP.sink = c.createGain();
           LP.sink.gain.value = 0;
-          LP.src.connect(LP.cap);
+          ainTap(c, LP.src).connect(LP.cap);
           LP.cap.connect(LP.sink);
           LP.sink.connect(c.destination);
           return true;
@@ -8871,6 +8970,7 @@
             b: {
               en: [
                 "## Version 2.3.0",
+                "- **Audio input (OPTIONS):** pick a USB audio interface (or any input) and the tuner and the looper listen to it directly, raw, instead of the microphone, with a channel choice (left, right, both). TEST shows the level, the note and what the browser really gave: channels, sample rate, latency.",
                 "- **Install it:** the app is now a web app (PWA). Add it to the Home Screen (iPhone: Safari ▸ Share; Android and desktop: Chrome ▸ Install app) and it opens like an app and works offline. The welcome note and **OPTIONS** have an **INSTALL** button that knows when the app is already installed. The Android APK is retired.",
                 "- **Looper:** the tempo and the bar length are locked while a recording counts in or runs, and the count-in never shows more than one bar (it once showed hundreds).",
                 "- **MIDI starting assignment:** known controllers (Akai MPK, Launchkey…) now start with a function on each knob and pad, shown as tags with a line on the DEVICE drawing: the pads hold the JAM effects (Flanger, Filter, Echo…) and knob 1 sets the tempo, and the keys play the piano as always. ASSIGN, LEARN and the **DEFAULTS** switch in DEVICE change it, and CLEAR turns it off.",
@@ -8881,6 +8981,7 @@
               ],
               es: [
                 "## Versión 2.3.0",
+                "- **Entrada de audio (OPCIONES):** elige una interfaz de audio USB (o cualquier entrada) y el afinador y el looper la escuchan directamente, sin procesar, en vez del micrófono, con elección de canal (izquierdo, derecho, ambos). PRUEBA muestra el nivel, la nota y lo que el navegador entrega de verdad: canales, frecuencia de muestreo y latencia.",
                 "- **Instálala:** la app ahora es una web app (PWA). Añádela a la pantalla de inicio (iPhone: Safari ▸ Compartir; Android y escritorio: Chrome ▸ Instalar app) y se abre como una app y funciona sin conexión. La nota de bienvenida y **OPTIONS** tienen un botón **INSTALL** que sabe si la app ya está instalada. El APK de Android se retira.",
                 "- **Looper:** el tempo y la longitud del compás se bloquean mientras una grabación cuenta o graba, y la cuenta nunca muestra más de un compás (una vez mostró cientos).",
                 "- **Asignación MIDI inicial:** los controladores conocidos (Akai MPK, Launchkey…) empiezan con una función en cada pote y pad, mostrada como etiquetas con una línea en el dibujo de DEVICE: los pads mantienen los efectos del JAM (Flanger, Filtro, Eco…) y el pote 1 ajusta el tempo, y las teclas tocan el piano como siempre. ASSIGN, LEARN y el interruptor **DEFAULTS** de DEVICE la cambian, y CLEAR la desactiva.",
@@ -9646,6 +9747,12 @@
       }
       $("#instBtn").onclick = () => pwaRun(false);
       $("#wInst").onclick = () => pwaRun(true);
+      $("#ainDev").onchange = () => ((AIN.dev = $("#ainDev").value), ainSave(), toast(AIN.dev ? "Input chosen. Restart the tuner or the looper to use it." : "Default microphone"));
+      $("#ainCh").onchange = () => ((AIN.ch = $("#ainCh").value), ainSave());
+      $("#ainTest").onclick = ainTest;
+      ainFace();
+      ainList();
+      navigator.mediaDevices && navigator.mediaDevices.addEventListener && navigator.mediaDevices.addEventListener("devicechange", ainList);
       addEventListener("pocketinstall", () => {
         PWA.ev = window.pocketInstall;
         pwaFace();
