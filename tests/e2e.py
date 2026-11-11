@@ -127,6 +127,19 @@ class Tune(Page):
         self.js("localStorage.setItem('customTunings', JSON.stringify([{name: arguments[0], instrument: 'guitar', strings: ['E2','A2']}]))", EVIL % "tuning")
         self.reopen(); self.tour(); self.js("renderSaved && renderSaved()"); self.assertClean()
 
+    def test_circle_of_fifths_chords_fit_every_instrument(self):
+        self.open()
+        got = self.js("""const out = {};
+          for (const i of [...document.querySelectorAll('#inst option')].map(o => o.value)) {
+            S.inst = i; const ms = stringMidis(), lo = Math.min(...ms), hi = Math.max(...ms) + (KIND(i) === 'wind' ? 19 - (Math.max(...ms) - lo) : 12); let bad = 0, n = 0;
+            for (const minor of [false, true]) for (let k = 0; k < 12; k++) for (const sev of [false, true])
+              for (const ch of cofChords(k, minor)) for (const [m] of cofVoicing(ch, cofIvs(ch, sev, cofDom(ch, minor)), 1.6)) { n++; if (i !== 'piano' && (m < lo || m > hi)) bad++; }
+            out[i] = [bad, n > 0];
+          } return out""")
+        for inst, (bad, any_) in got.items():
+            with self.subTest(inst): self.assertEqual((bad, any_), (0, True))
+        self.assertGreaterEqual(len(got), 8)
+
     def test_damaged_settings_do_not_stop_the_app(self):
         bad = [{"view": "zzz"}, {"inst": "zzz"}, {"tun": 99}, {"a4": "abc"}, {"a4": 0}, {"jam": {"mix": None}}, {"scl": {"root": 99, "type": 99}}]
         self.open()
