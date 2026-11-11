@@ -30,6 +30,14 @@
     <meta name="apple-mobile-web-app-title" content="TUNE.Pocket" />
     <link rel="manifest" href="manifest.webmanifest" />
     <script>
+      // the browser's install prompt can come before the app has started: keep it for the INSTALL buttons
+      addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        window.pocketInstall = e;
+        dispatchEvent(new Event("pocketinstall"));
+      });
+    </script>
+    <script>
       if ("serviceWorker" in navigator && !location.pathname.includes("/@") &&
           ((location.protocol === "https:" && location.hostname !== "localhost") ||
            (location.protocol === "http:" && ["localhost", "127.0.0.1"].includes(location.hostname)))) {
@@ -207,6 +215,8 @@
       @media (prefers-reduced-motion: reduce) {
         html[data-theme="term"] .mark .t::after { animation: none; }
       }
+      #instBtn { width: 100%; }
+      #instBtn:disabled { opacity: 0.6; color: var(--text); }
       #help, #welcome { position: fixed; inset: 0; z-index: 80; background: rgba(0, 0, 0, 0.62); display: flex; justify-content: center; }
       #help[hidden], #welcome[hidden] { display: none; }
       .hp { width: 100%; max-width: 600px; height: 100%; background: var(--bg); display: flex; flex-direction: column; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
@@ -2117,6 +2127,11 @@
             chord you hold is named and shown on your instrument. <b>ASSIGN</b> ties pads, buttons and knobs to the
             scale and JAM buttons, the JAM effects, the metronome and the tempo. Chrome, Edge or Firefox; not Safari.
           </div>
+          <h3 style="margin-top: 12px">Install as an app</h3>
+          <div class="row">
+            <button id="instBtn" style="flex: 1" title="Install the app: its own window on your home screen or computer, and it works offline"></button>
+          </div>
+          <div class="hint" id="instHint"></div>
         </div>
         <div class="prow" id="setTabs">
           <button data-fpb="edit"><i>NEW · EDIT</i>TUNINGS</button>
@@ -2143,7 +2158,8 @@
         <h2>Welcome to TUNE.Pocket · Bienvenida</h2>
         <p id="wEn"></p>
         <p id="wEs"></p>
-        <div class="wb"><button id="wOpen" class="on"></button><button id="wOk"></button></div>
+        <p class="hint" id="wInstHint" hidden style="white-space: pre-line"></p>
+        <div class="wb"><button id="wOpen" class="on"></button><button id="wOk"></button><button id="wInst" hidden style="flex: 1 1 100%" title="Install the app on your device · Instalar la app en tu dispositivo"></button></div>
       </div>
     </div>
     <div id="toast"></div>
@@ -8713,6 +8729,7 @@
               "**THEME** has the six looks shared with TRACK.Pocket. On a wide screen the background is animated and moves with the band or the microphone.",
               "## Options",
               "**OPTIONS** → **Note names**: letters (**A B C**) or solfège (**Do Re Mi**). The choice is shared with TRACK.Pocket and SING.Pocket.",
+              "**OPTIONS** → **Install**: adds TUNE.Pocket to your home screen or apps, with its own window and working offline. The **INSTALL** button (here and in the welcome note) says **INSTALLED** when you already run it as an app; on iPhone it shows the Safari ▸ Share ▸ Add to Home Screen steps.",
               "Tunings and settings are kept on this device. Tunings saved by the old LFTuner app are loaded automatically.",
             ],
             es: [
@@ -8725,6 +8742,7 @@
               "**THEME** tiene los seis aspectos que comparte con TRACK.Pocket. En pantallas anchas el fondo está animado y se mueve con la banda o el micrófono.",
               "## Opciones",
               "**OPTIONS** → **Note names**: letras (**A B C**) o solfeo (**Do Re Mi**). La elección se comparte con TRACK.Pocket y SING.Pocket.",
+              "**OPTIONS** → **Install**: añade TUNE.Pocket a tu pantalla de inicio o a tus aplicaciones, con su propia ventana y funcionando sin conexión. El botón **INSTALL** (aquí y en la nota de bienvenida) dice **INSTALLED** si ya la usas como app; en iPhone muestra los pasos Safari ▸ Compartir ▸ Añadir a pantalla de inicio.",
               "Las afinaciones y ajustes se guardan en este dispositivo. Las afinaciones guardadas en la antigua app LFTuner se cargan automáticamente.",
             ],
           },
@@ -8753,7 +8771,7 @@
             b: {
               en: [
                 "## Version 2.3.0",
-                "- **Install it:** the app is now a web app (PWA). Add it to the Home Screen (iPhone: Safari ▸ Share; Android and desktop: Chrome ▸ Install app) and it opens like an app and works offline. The Android APK is retired.",
+                "- **Install it:** the app is now a web app (PWA). Add it to the Home Screen (iPhone: Safari ▸ Share; Android and desktop: Chrome ▸ Install app) and it opens like an app and works offline. The welcome note and **OPTIONS** have an **INSTALL** button that knows when the app is already installed. The Android APK is retired.",
                 "- **Looper:** the tempo and the bar length are locked while a recording counts in or runs, and the count-in never shows more than one bar (it once showed hundreds).",
                 "- **MIDI:** the DEVICE view draws your controller (Akai MPK, Launchkey, Synido, Casio, nanoPAD) and lights its keys, pads, knobs and joystick as you play; TEST counts different keys, not presses; the same five buttons (ASSIGN, CLEAR, TEST, DEVICE, SOUND) in all three apps, and SOUND turns the app's own sound off for keyboards with speakers.",
                 "- **Safer and sturdier:** files are checked before they open and names are cleaned (a crafted file could run code), and a damaged setting no longer stops the app from starting.",
@@ -8762,7 +8780,7 @@
               ],
               es: [
                 "## Versión 2.3.0",
-                "- **Instálala:** la app ahora es una web app (PWA). Añádela a la pantalla de inicio (iPhone: Safari ▸ Compartir; Android y escritorio: Chrome ▸ Instalar app) y se abre como una app y funciona sin conexión. El APK de Android se retira.",
+                "- **Instálala:** la app ahora es una web app (PWA). Añádela a la pantalla de inicio (iPhone: Safari ▸ Compartir; Android y escritorio: Chrome ▸ Instalar app) y se abre como una app y funciona sin conexión. La nota de bienvenida y **OPTIONS** tienen un botón **INSTALL** que sabe si la app ya está instalada. El APK de Android se retira.",
                 "- **Looper:** el tempo y la longitud del compás se bloquean mientras una grabación cuenta o graba, y la cuenta nunca muestra más de un compás (una vez mostró cientos).",
                 "- **MIDI:** la vista DEVICE dibuja tu controlador (Akai MPK, Launchkey, Synido, Casio, nanoPAD) e ilumina sus teclas, pads, potes y joystick al tocar; TEST cuenta teclas distintas, no pulsaciones; los mismos cinco botones (ASSIGN, CLEAR, TEST, DEVICE, SOUND) en las tres apps, y SOUND apaga el sonido de la app para teclados con altavoces.",
                 "- **Más segura y robusta:** los archivos se comprueban antes de abrirse y los nombres se limpian (un archivo manipulado podía ejecutar código), y un ajuste dañado ya no impide que la app arranque.",
@@ -8779,6 +8797,7 @@
           wb: "Tap the **TUNE.** logo (top left), or **HELP** in the Tunings view, at any time to open the help manual: it explains every view and button.",
           wopen: "Open the manual",
           wok: "Got it",
+          winst: "Install the app",
         },
         es: {
           title: "Ayuda",
@@ -8786,6 +8805,7 @@
           wb: "Toca el logo **TUNE.** (arriba a la izquierda), o **HELP** en la vista de afinaciones, en cualquier momento para abrir el manual de ayuda: explica cada vista y cada botón.",
           wopen: "Abrir el manual",
           wok: "Entendido",
+          winst: "Instalar la app",
         },
       };
       let HLANG = "en";
@@ -9460,6 +9480,82 @@
       addEventListener("keydown", (e) => {
         if (e.key === "Escape" && !$("#help").hidden) closeHelp();
       });
+      // ======================================================================
+      // INSTALL (OPTIONS and the first-visit note): the browser's own install dialog where there is one (Chrome, Edge,
+      // Android), the Share-menu steps on iPhone, and "installed" when it already runs as an app. The same block is in the
+      // three apps; the head script keeps the browser's install event (it can fire before this point).
+      // ======================================================================
+      const PWA = { ev: window.pocketInstall || null, done: false };
+      const pwaApp = () =>
+        matchMedia("(display-mode: standalone), (display-mode: minimal-ui), (display-mode: window-controls-overlay)").matches ||
+        navigator.standalone === true;
+      const pwaIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      const pwaState = () => (PWA.done || pwaApp() ? "done" : PWA.ev ? "prompt" : pwaIOS() ? "ios" : "menu");
+      const PWA_T = {
+        done: {
+          b: "INSTALLED ✓",
+          h: "Installed: it opens in its own window and works offline.",
+          t: "Already installed: open it from your home screen or apps",
+        },
+        prompt: {
+          b: "INSTALL",
+          h: "Adds it to your home screen or apps: its own window, no browser bars, and it works offline.",
+          t: "Install cancelled",
+        },
+        ios: {
+          b: "HOW TO INSTALL",
+          h: "iPhone and iPad: in Safari tap Share, then Add to Home Screen. An installed app also keeps its saved data longer.",
+          t: "Safari ▸ Share ▸ Add to Home Screen",
+          w: ["On iPhone: Safari ▸ Share ▸ Add to Home Screen.", "En iPhone: Safari ▸ Compartir ▸ Añadir a pantalla de inicio."],
+        },
+        menu: {
+          b: "HOW TO INSTALL",
+          h: "Use your browser's menu: Install app (Chrome, Edge, Android) or Add to Home Screen. Firefox and Safari on a computer cannot install it. If you already installed it, open it from there.",
+          t: "Use your browser's menu: Install app / Add to Home Screen",
+        },
+      };
+      const pwaWLabel = () => HELPUI[HLANG].winst;
+      function pwaFace() {
+        const st = pwaState(),
+          t = PWA_T[st];
+        $("#instBtn").textContent = t.b;
+        $("#instBtn").disabled = st === "done";
+        $("#instBtn").classList.toggle("on", st === "prompt");
+        $("#instHint").textContent = t.h;
+        $("#wInst").textContent = pwaWLabel();
+        $("#wInst").hidden = st === "done" || st === "menu"; // the first-visit note only offers what can be done from it
+        if (st !== "ios") $("#wInstHint").hidden = true;
+      }
+      async function pwaRun(fromWelcome) {
+        const st = pwaState();
+        if (st === "prompt") {
+          const ev = PWA.ev;
+          PWA.ev = null; // the browser's event works once
+          try {
+            ev.prompt();
+            if ((await ev.userChoice).outcome === "accepted") PWA.done = true;
+            else toast(PWA_T.prompt.t);
+          } catch {}
+          pwaFace();
+        } else if (st === "ios" && fromWelcome) {
+          $("#wInstHint").textContent = PWA_T.ios.w.join("\n"); // the toast would sit under the note
+          $("#wInstHint").hidden = false;
+        } else toast(PWA_T[st].t);
+      }
+      $("#instBtn").onclick = () => pwaRun(false);
+      $("#wInst").onclick = () => pwaRun(true);
+      addEventListener("pocketinstall", () => {
+        PWA.ev = window.pocketInstall;
+        pwaFace();
+      });
+      addEventListener("appinstalled", () => {
+        PWA.done = true;
+        PWA.ev = null;
+        pwaFace();
+        toast("Installed: open it from your home screen or apps");
+      });
+      matchMedia("(display-mode: standalone)").addEventListener("change", pwaFace);
+      pwaFace();
       // first visit: a short note in both languages pointing at the manual
       function welcome() {
         $("#wEn").innerHTML = hfmt(HELPUI.en.wb);
@@ -9467,6 +9563,7 @@
         $("#wOpen").textContent = HELPUI[HLANG].wopen;
         $("#wOk").textContent = HELPUI[HLANG].wok;
         $("#welcome").hidden = false;
+        pwaFace();
       }
       function welcomeDone(open) {
         $("#welcome").hidden = true;
