@@ -2530,12 +2530,12 @@
       const $ = (s) => document.querySelector(s),
         $$ = (s) => [...document.querySelectorAll(s)];
       const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-      function toast(t) {
+      function toast(t, ms = 1600) {
         const e = $("#toast");
         e.textContent = t;
         e.classList.add("show");
         clearTimeout(e._t);
-        e._t = setTimeout(() => e.classList.remove("show"), 1600);
+        e._t = setTimeout(() => e.classList.remove("show"), ms);
       }
       const esc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
       const PAL = ["124,242,154", "255,179,71", "106,183,255", "255,111,165", "197,139,255", "77,224,208"];
@@ -2919,6 +2919,13 @@
       // the app's own gain for the current input, in dB, kept per device: raw inputs (no browser gain control) can be very quiet
       const ainDb = () => { const v = +AIN.gains[AIN.dev || "default"]; return Number.isFinite(v) ? Math.max(-12, Math.min(24, v)) : 0; };
       const AING = new Set(); // the gain nodes in use, so the slider is heard at once
+      // iPhone and iPad (WebKit) open the built-in microphone whatever was chosen: compare what was asked with what was opened
+      const ainOther = (st) => !!(AIN.dev && st && st.deviceId && st.deviceId !== AIN.dev);
+      const ainOtherTxt = "The browser opened a different input than the one chosen (on iPhone and iPad it is always the built-in microphone, and the sound moves to the device while listening: an Apple limitation)";
+      const ainCheck = (s) => {
+        if (ainOther(s.getAudioTracks()[0] && s.getAudioTracks()[0].getSettings())) toast(ainOtherTxt, 6000);
+        return s;
+      };
       const ainOpen = () =>
         navigator.mediaDevices
           .getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: { ideal: 2 }, ...(AIN.dev ? { deviceId: { exact: AIN.dev } } : {}) }, video: false })
@@ -2932,7 +2939,8 @@
               return ainOpen();
             }
             throw e;
-          });
+          })
+          .then(ainCheck);
       // the node to listen to: the whole stream, or one channel of it
       function ainTap(c, src) {
         const g = c.createGain();
@@ -2995,7 +3003,8 @@
             yn = (v) => (v === false ? "off" : v === true ? "ON" : "?");
           $("#ainInfo").textContent =
             `${t.label}\nchannels ${st.channelCount || "?"} · ${Math.round(c.sampleRate)} Hz · input latency ${st.latency != null ? Math.round(st.latency * 1000) + " ms" : "?"} · output ${Math.round((c.outputLatency || c.baseLatency || 0) * 1000)} ms\n` +
-            `echo cancel ${yn(st.echoCancellation)} · noise reduction ${yn(st.noiseSuppression)} · auto gain ${yn(st.autoGainControl)}`;
+            `echo cancel ${yn(st.echoCancellation)} · noise reduction ${yn(st.noiseSuppression)} · auto gain ${yn(st.autoGainControl)}` +
+            (ainOther(st) ? "\n⚠ " + ainOtherTxt : "");
           const loop = () => {
             if (!AT.on) return;
             an.getFloatTimeDomainData(buf);
@@ -3065,6 +3074,7 @@
           yn = (v) => (v === false ? "off" : v === true ? "ON (bad for instruments)" : "?");
         return [
           ["◉", "Input: " + (rig.track.label || "?")],
+          ...(ainOther(st) ? [["✘", ainOtherTxt]] : []),
           [st.channelCount >= 2 ? "✔" : "·", `Channels: ${st.channelCount || "?"}${st.channelCount >= 2 ? "" : " (a mono stream: browsers may mix or hide the other inputs)"}`],
           ["i", `Sample rate ${Math.round(rig.c.sampleRate)} Hz · reported input latency ${st.latency != null ? Math.round(st.latency * 1000) + " ms" : "?"} · output ${Math.round((rig.c.outputLatency || 0) * 1000)} ms · base ${Math.round(rig.c.baseLatency * 1000)} ms`],
           [!st.echoCancellation && !st.noiseSuppression && !st.autoGainControl ? "✔" : "✘", `Processing: echo cancel ${yn(st.echoCancellation)}, noise reduction ${yn(st.noiseSuppression)}, auto gain ${yn(st.autoGainControl)}`],
@@ -3182,10 +3192,13 @@
             const med = got[got.length >> 1];
             AIN.lat = Math.round(med);
             ainSave();
+            S.loop.sync = Math.min(500, AIN.lat); // iPhone/iPad 80-130 ms, Chrome on Android up to ~350 ms: no desktop clamp
+            saveState();
+            lpFace();
             AR.rows.lat = [
               ["✔", `Round trip: ${ms(med)} (best ${ms(got[0])}, worst ${ms(got[got.length - 1])}, heard ${got.length} of ${N} clicks)`],
               [got[got.length - 1] - got[0] < 12 ? "✔" : "·", `Jitter: ${ms(got[got.length - 1] - got[0])}` + (got[got.length - 1] - got[0] < 12 ? " (steady)" : " (uneven: the looper could drift a little)")],
-              ["i", "This includes the speaker, the air and the browser's buffers. A cable from the output to the input shows the pure electronic delay. Saved as " + AIN.lat + " ms for a later looper correction."],
+              ["i", "This includes the speaker, the air and the browser's buffers. A cable from the output to the input shows the pure electronic delay. The looper's REC DELAY is now " + AIN.lat + " ms (change it in the looper if you measured with the speaker and then use a cable)."],
             ];
           } else AR.rows.lat = [["✘", `Heard only ${got.length} of ${N} clicks. Turn the volume up and put the speaker near the microphone, or connect the output to the input with a cable.`]];
         } finally {
@@ -3244,6 +3257,7 @@
           const c = await getCtx();
           MIC.stream = await ainOpen();
           await c.resume().catch(() => {}); // iOS / Android can suspend the context during the permission prompt
+          c.onstatechange = () => MIC.on && c.state !== "running" && c.state !== "closed" && micAway(); // iOS: "interrupted" after a call or sleep
           const src = c.createMediaStreamSource(MIC.stream);
           MIC.an = c.createAnalyser();
           MIC.an.fftSize = 4096;
@@ -3254,6 +3268,12 @@
         } catch (e) {
           micError(e.name || "UNKNOWN");
         }
+      }
+      // the system took the microphone (sleep, a call, another app): stop cleanly and say how to resume, instead of a stuck input with a growing delay
+      function micAway() {
+        if (!MIC.on) return;
+        micStop();
+        toast("The microphone was paused. Tap MIC to resume", 5000);
       }
       function micStop() {
         MIC.on = false;
@@ -7731,7 +7751,7 @@
           ).join("");
         if (!$("#lSync").options.length) {
           $("#lSync").innerHTML =
-            `<option value="-1">Auto</option>` + [0, 20, 40, 60, 80, 100, 130, 160, 200, 250, 300].map((v) => `<option value="${v}">${v} ms</option>`).join("");
+            `<option value="-1">Auto</option>` + [0, 20, 40, 60, 80, 100, 130, 160, 200, 250, 300, 350, 400].map((v) => `<option value="${v}">${v} ms</option>`).join("");
           $("#lLen").innerHTML = LENS.map((n) => `<button data-bars="${n}"><b>${"<u></u>".repeat(n)}</b><i>${n} ${n > 1 ? "BARS" : "BAR"}</i></button>`).join("");
         }
         lpFace();
@@ -7763,6 +7783,7 @@
         $("#lMon").classList.toggle("on", S.loop.mon !== false);
         $("#lAutoQ").innerHTML = `AUTO Q<i>${S.loop.aq ? LGRID[S.loop.grid ?? 1][0] : "OFF"}</i>`;
         $("#lAutoQ").classList.toggle("on", !!S.loop.aq);
+        if (S.loop.sync >= 0 && ![...$("#lSync").options].some((o) => +o.value === S.loop.sync)) $("#lSync").add(new Option(S.loop.sync + " ms", S.loop.sync));
         $("#lSync").value = S.loop.sync;
         $("#lSyncTxt").innerHTML = `<i>REC DELAY</i>${S.loop.sync >= 0 ? S.loop.sync + " ms" : "AUTO" + (ctx ? " " + Math.round(lpLat() * 1000) : "")}`;
         const any = lpAny(),
@@ -8533,9 +8554,12 @@
       // stop listening and playing when the app goes to the background
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
-          if (MIC.on) micStop();
+          if (MIC.on) ((MIC.away = true), micStop());
           if (J.on) jamStop();
           rhythmStopAll();
+        } else if (MIC.away) {
+          MIC.away = false;
+          toast("The microphone was paused while the app was away. Tap MIC to resume", 5000);
         }
       });
 
@@ -9166,7 +9190,7 @@
               "**THEME** has the six looks shared with TRACK.Pocket. On a wide screen the background is animated and moves with the band or the microphone.",
               "## Options",
               "**OPTIONS** → **Note names**: letters (**A B C**) or solfège (**Do Re Mi**). The choice is shared with TRACK.Pocket and SING.Pocket.",
-              "**OPTIONS** → **Audio input**: pick the input the tuner and the looper listen to (a USB audio interface with a guitar or bass works too), raw and without the browser's processing, and one channel of it if you like. **GAIN** lifts a quiet input (a phone microphone in Firefox, a guitar cable) and is kept per input; it adds no delay. **LIVE** shows the level and the note. **TESTS** runs guided checks (noise, level and clipping, channels, pitch steadiness, round-trip latency) and **COPY REPORT** gives a text to paste.",
+              "**OPTIONS** → **Audio input**: pick the input the tuner and the looper listen to (a USB audio interface with a guitar or bass works too), raw and without the browser's processing, and one channel of it if you like. **GAIN** lifts a quiet input (a phone microphone in Firefox, a guitar cable) and is kept per input; it adds no delay. **LIVE** shows the level and the note. **TESTS** runs guided checks (noise, level and clipping, channels, pitch steadiness, round-trip latency) and **COPY REPORT** gives a text to paste. **On iPhone and iPad** the browser (every iOS browser uses Apple's engine) always listens to the built-in microphone, whatever you choose, and moves the sound to the device itself while listening, with a delay of about 80 to 130 ms: an Apple limitation, shown as a warning. Chrome or Firefox on a computer, or Firefox on Android, do better. The latency test sets the looper's REC DELAY, and after sleep or a call the microphone is paused: tap MIC to resume.",
               "**OPTIONS** → **Install**: adds TUNE.Pocket to your home screen or apps, with its own window and working offline. The **INSTALL** button (here and in the welcome note) says **INSTALLED** when you already run it as an app; on iPhone it shows the Safari ▸ Share ▸ Add to Home Screen steps.",
               "Tunings and settings are kept on this device. Tunings saved by the old LFTuner app are loaded automatically.",
             ],
@@ -9180,7 +9204,7 @@
               "**THEME** tiene los seis aspectos que comparte con TRACK.Pocket. En pantallas anchas el fondo está animado y se mueve con la banda o el micrófono.",
               "## Opciones",
               "**OPTIONS** → **Note names**: letras (**A B C**) o solfeo (**Do Re Mi**). La elección se comparte con TRACK.Pocket y SING.Pocket.",
-              "**OPTIONS** → **Entrada de audio**: elige la entrada que escuchan el afinador y el looper (una interfaz USB con guitarra o bajo también vale), sin procesar por el navegador, y un solo canal si quieres. **GAIN** sube una entrada floja (el micrófono del móvil en Firefox, un cable de guitarra) y se guarda por entrada; no añade retardo. **LIVE** muestra el nivel y la nota. **TESTS** hace comprobaciones guiadas (ruido, nivel y saturación, canales, estabilidad de la nota, latencia de ida y vuelta) y **COPY REPORT** da un texto para pegar.",
+              "**OPTIONS** → **Entrada de audio**: elige la entrada que escuchan el afinador y el looper (una interfaz USB con guitarra o bajo también vale), sin procesar por el navegador, y un solo canal si quieres. **GAIN** sube una entrada floja (el micrófono del móvil en Firefox, un cable de guitarra) y se guarda por entrada; no añade retardo. **LIVE** muestra el nivel y la nota. **TESTS** hace comprobaciones guiadas (ruido, nivel y saturación, canales, estabilidad de la nota, latencia de ida y vuelta) y **COPY REPORT** da un texto para pegar. **En iPhone y iPad** el navegador (todos los de iOS usan el motor de Apple) siempre escucha el micrófono integrado, elijas lo que elijas, y pasa el sonido al propio dispositivo mientras escucha, con un retardo de unos 80 a 130 ms: una limitación de Apple, que se muestra como aviso. Chrome o Firefox en un ordenador, o Firefox en Android, funcionan mejor. La prueba de latencia fija el REC DELAY del looper, y tras dormir o una llamada el micrófono se pausa: toca MIC para reanudar.",
               "**OPTIONS** → **Install**: añade TUNE.Pocket a tu pantalla de inicio o a tus aplicaciones, con su propia ventana y funcionando sin conexión. El botón **INSTALL** (aquí y en la nota de bienvenida) dice **INSTALLED** si ya la usas como app; en iPhone muestra los pasos Safari ▸ Compartir ▸ Añadir a pantalla de inicio.",
               "Las afinaciones y ajustes se guardan en este dispositivo. Las afinaciones guardadas en la antigua app LFTuner se cargan automáticamente.",
             ],
