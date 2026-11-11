@@ -127,6 +127,36 @@ class Tune(Page):
         self.js("localStorage.setItem('customTunings', JSON.stringify([{name: arguments[0], instrument: 'guitar', strings: ['E2','A2']}]))", EVIL % "tuning")
         self.reopen(); self.tour(); self.js("renderSaved && renderSaved()"); self.assertClean()
 
+    def test_custom_tunings_move_to_the_prefixed_key(self):
+        self.open()
+        self.js("localStorage.setItem('customTunings', JSON.stringify([{name: 'Mine', instrument: 'guitar', strings: ['E2', 'A2']}]))")
+        self.reopen()
+        self.assertEqual(self.js("return [localStorage.getItem('customTunings'), JSON.parse(localStorage.getItem('tune.customTunings'))[0].name]"), [None, "Mine"])
+
+    def test_loops_survive_a_reload_and_a_session_comes_back(self):
+        self.open()
+        self.js("""showView('loop'); ctx = new AudioContext(); lpGraph(ctx);
+          const buf = ctx.createBuffer(1, 44100, ctx.sampleRate); buf.getChannelData(0).fill(0.25);
+          LP.loops[2] = lpMake({buf, bars: 2, a: 0, vol: 0.6}); S.met.bpm = 91;""")
+        self.wait(3.8)  # the autosave runs every 3 seconds
+        self.reopen(); self.js("showView('loop')"); self.wait(1.5)
+        self.assertEqual(self.js("return [!!LP.loops[2], LP.loops[2] && LP.loops[2].bars, S.met.bpm]"), [True, 2, 91])
+        # a named session: saved, the pads emptied, opened again
+        self.js("document.querySelector('#sName').value = 'Take 1'; sessSave()"); self.wait(0.8)
+        self.js("LP.loops.forEach((L, i) => L && lpPut(i, null))")
+        self.js("sessOpen('Take 1')"); self.wait(1.2)
+        self.assertEqual(self.js("return LP.loops.filter(Boolean).length"), 1)
+
+    def test_damaged_loop_files_are_refused(self):
+        self.open()
+        for bad in [None, {}, {"loops": "x"}, {"loops": [{"pcm": "AAAA", "rate": 5}]}, {"loops": [{"pcm": "", "rate": 44100}]},
+                    {"loops": [{"pcm": "AAAA", "rate": 44100}] * 17}]:
+            with self.subTest(bad):
+                self.assertTrue(self.js("try { lpVet(arguments[0]); return false } catch (e) { return true }", bad))
+        # a good one passes, and out-of-range numbers are brought into range
+        got = self.js("const o = lpVet({bpm: 9999, beats: 99, loops: [{pcm: 'AAAA', rate: 44100, bars: 500, a: 1e9, o: -1e9, vol: 99}]}); return [o.bpm === BMAX, o.beats, o.loops[0].bars, o.loops[0].a, o.loops[0].o, o.loops[0].vol]")
+        self.assertEqual(got, [True, 16, 64, 4096, -64, 2])
+
     def test_damaged_settings_do_not_stop_the_app(self):
         bad = [{"view": "zzz"}, {"inst": "zzz"}, {"tun": 99}, {"a4": "abc"}, {"a4": 0}, {"jam": {"mix": None}}, {"scl": {"root": 99, "type": 99}}]
         self.open()
