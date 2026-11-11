@@ -2132,7 +2132,7 @@
           <div class="row"><select id="ainDev" title="Which input the tuner and the looper listen to" style="flex: 1"></select></div>
           <div class="row">
             <select id="ainCh" title="Which channel of the input to use" style="flex: 1"><option value="mix">Both channels</option><option value="L">Left (input 1)</option><option value="R">Right (input 2)</option></select>
-            <button id="ainTest" title="Open the input and see its level, note and settings">TEST</button>
+            <button id="ainTest" title="Open the input and watch its level and note live">LIVE</button><button id="ainTests" title="Guided tests: noise, level, channels and round-trip latency, with a report to copy">TESTS</button>
           </div>
           <div id="ainBox" hidden>
             <div id="ainMeter" style="height: 14px; border: 1px solid var(--line); border-radius: 7px; overflow: hidden"><i id="ainLvl" style="display: block; height: 100%; width: 0; background: var(--acc)"></i></div>
@@ -2141,8 +2141,8 @@
           </div>
           <div class="hint">
             Plug a guitar or any instrument into a USB audio interface (or the phone's adapter) and pick it here. The tuner and the looper
-            then listen to it directly, with no echo cancelling, noise reduction or gain control, instead of the microphone. TEST shows the level, the note
-            and what the browser really gave: channels, sample rate and latency.
+            then listen to it directly, with no echo cancelling, noise reduction or gain control, instead of the microphone. LIVE shows the level, the note
+            and what the browser really gave. TESTS runs guided checks (noise, level, channels, latency) and gives a report to copy.
           </div>
           <h3 style="margin-top: 12px">Install as an app</h3>
           <div class="row">
@@ -2911,8 +2911,8 @@
       }
 
       // the audio input: the default microphone, or a chosen device (an audio interface with an instrument plugged in), always raw
-      const AIN = Object.assign({ dev: "", ch: "mix" }, (() => { try { return JSON.parse(localStorage.getItem("tune.audioIn")) || {}; } catch { return {}; } })());
-      const ainSave = () => localStorage.setItem("tune.audioIn", JSON.stringify({ dev: AIN.dev, ch: AIN.ch }));
+      const AIN = Object.assign({ dev: "", ch: "mix", lat: 0 }, (() => { try { return JSON.parse(localStorage.getItem("tune.audioIn")) || {}; } catch { return {}; } })());
+      const ainSave = () => localStorage.setItem("tune.audioIn", JSON.stringify({ dev: AIN.dev, ch: AIN.ch, lat: AIN.lat }));
       const ainOpen = () =>
         navigator.mediaDevices
           .getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: { ideal: 2 }, ...(AIN.dev ? { deviceId: { exact: AIN.dev } } : {}) }, video: false })
@@ -2954,7 +2954,7 @@
         if (AT.stream) AT.stream.getTracks().forEach((t) => t.stop());
         AT.stream = null;
         $("#ainTest").classList.remove("on");
-        $("#ainTest").textContent = "TEST";
+        $("#ainTest").textContent = "LIVE";
       }
       async function ainTest() {
         if (AT.on) return ainTestStop();
@@ -2996,6 +2996,228 @@
           ainTestStop();
           micError(e.name || "UNKNOWN");
         }
+      }
+
+      // ---- guided tests, like the MIDI TEST: each button runs one check and adds rows to a report that can be copied
+      const AR = { rows: {}, busy: false };
+      const arDb = (x) => (x > 1e-6 ? Math.round(20 * Math.log10(x)) : -120);
+      const arSleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const arCh = ["left", "right"];
+      async function arRig() {
+        const c = await getCtx(),
+          stream = await ainOpen();
+        c.resume().catch(() => {});
+        const src = c.createMediaStreamSource(stream),
+          sp = c.createChannelSplitter(2),
+          an = [0, 1].map(() => {
+            const a = c.createAnalyser();
+            a.fftSize = 4096;
+            return a;
+          });
+        src.connect(sp);
+        an.forEach((a, i) => sp.connect(a, i));
+        return { c, src, an, stream, track: stream.getAudioTracks()[0], close: () => stream.getTracks().forEach((t) => t.stop()) };
+      }
+      // levels and pitch for a few seconds
+      async function arMeasure(rig, ms, say) {
+        const o = { rms: [0, 0], pk: [0, 0], dc: [0, 0], n: 0, hz: [[], []] },
+          buf = new Float32Array(4096),
+          t0 = performance.now();
+        while (performance.now() - t0 < ms) {
+          await arSleep(60);
+          say(Math.ceil((ms - (performance.now() - t0)) / 1000));
+          o.n++;
+          rig.an.forEach((a, k) => {
+            a.getFloatTimeDomainData(buf);
+            let m = 0,
+              s = 0,
+              p = 0;
+            for (const v of buf) (m += v * v), (s += v), (p = Math.max(p, Math.abs(v)));
+            o.rms[k] += Math.sqrt(m / buf.length);
+            o.dc[k] += Math.abs(s / buf.length);
+            o.pk[k] = Math.max(o.pk[k], p);
+            const d = detectPitch(buf, rig.c.sampleRate);
+            if (d.hz > 0) o.hz[k].push(d.hz);
+          });
+        }
+        o.rms = o.rms.map((v) => v / o.n);
+        o.dc = o.dc.map((v) => v / o.n);
+        return o;
+      }
+      function arInfoRows(rig) {
+        const st = rig.track.getSettings(),
+          yn = (v) => (v === false ? "off" : v === true ? "ON (bad for instruments)" : "?");
+        return [
+          ["◉", "Input: " + (rig.track.label || "?")],
+          [st.channelCount >= 2 ? "✔" : "·", `Channels: ${st.channelCount || "?"}${st.channelCount >= 2 ? "" : " (a mono stream: browsers may mix or hide the other inputs)"}`],
+          ["i", `Sample rate ${Math.round(rig.c.sampleRate)} Hz · reported input latency ${st.latency != null ? Math.round(st.latency * 1000) + " ms" : "?"} · output ${Math.round((rig.c.outputLatency || 0) * 1000)} ms · base ${Math.round(rig.c.baseLatency * 1000)} ms`],
+          [!st.echoCancellation && !st.noiseSuppression && !st.autoGainControl ? "✔" : "✘", `Processing: echo cancel ${yn(st.echoCancellation)}, noise reduction ${yn(st.noiseSuppression)}, auto gain ${yn(st.autoGainControl)}`],
+        ];
+      }
+      async function arNoise(say) {
+        const rig = await arRig();
+        try {
+          say("Silence: mute the instrument or turn its volume down", 0);
+          const o = await arMeasure(rig, 2000, (n) => say("Silence: keep the instrument quiet · " + n, 1));
+          AR.noise = o.rms;
+          AR.rows.noise = [
+            ...arInfoRows(rig),
+            ...[0, 1].map((k) => {
+              const d = arDb(o.rms[k]);
+              return [d <= -60 ? "✔" : d <= -45 ? "·" : "✘", `Noise floor ${arCh[k]}: ${d} dBFS` + (d <= -60 ? " (quiet)" : d <= -45 ? " (some noise or hum)" : " (noisy: lower the gain or check the cable)") + (o.dc[k] > 0.02 ? ` · DC offset ${arDb(o.dc[k])} dB` : "")];
+            }),
+          ];
+        } finally {
+          rig.close();
+        }
+      }
+      async function arPlay(say) {
+        const rig = await arRig();
+        try {
+          const o = await arMeasure(rig, 5000, (n) => say("Play loud and steady: strum, or hold one note · " + n, 1)),
+            nz = AR.noise || [0.002, 0.002],
+            rows = [],
+            act = [0, 1].filter((k) => o.rms[k] > Math.max(0.004, nz[k] * 4));
+          [0, 1].forEach((k) => {
+            const pk = arDb(o.pk[k]);
+            rows.push([act.includes(k) ? (pk >= -1 ? "✘" : pk < -24 ? "·" : "✔") : "·", act.includes(k) ? `Peak ${arCh[k]}: ${pk} dBFS` + (pk >= -1 ? " (clipping: lower the gain)" : pk < -24 ? " (low: raise the gain)" : " (good level)") : `Peak ${arCh[k]}: no signal`]);
+          });
+          rows.push([act.length ? "✔" : "✘", act.length === 2 ? "Channels: signal on both (a stereo source, or the instrument split)" : act.length === 1 ? `Channels: signal only on the ${arCh[act[0]]} (a mono instrument: pick "${act[0] ? "Right" : "Left"}" above)` : "Channels: nothing heard. Is the instrument plugged in and the input gain up?"]);
+          const k = act.sort((a, b) => o.rms[b] - o.rms[a])[0],
+            hz = k == null ? [] : o.hz[k].slice().sort((a, b) => a - b);
+          if (hz.length > 4) {
+            const med = hz[hz.length >> 1],
+              dev = hz.map((h) => Math.abs(1200 * Math.log2(h / med))).sort((a, b) => a - b),
+              mad = dev[dev.length >> 1];
+            rows.push([mad < 8 ? "✔" : "·", `Pitch reading: ${noteName(Math.round(hzToMidi(med)))} ${med.toFixed(1)} Hz, steady within ±${mad.toFixed(1)} cents, found in ${Math.round((hz.length / o.n) * 100)}% of the checks`]);
+          } else rows.push(["·", "Pitch reading: too few clear notes (hold one single note)"]);
+          AR.rows.play = rows;
+        } finally {
+          rig.close();
+        }
+      }
+      // round trip: clicks go out of the speaker (or a cable from the output to the input) and come back in; the time between
+      // the scheduled click and its arrival is the whole chain: output device + air + input device + the browser's buffers
+      async function arLatency(say) {
+        const rig = await arRig(),
+          c = rig.c;
+        try {
+          const sink = c.createGain(),
+            chunks = [],
+            N = 8,
+            GAP = 0.5,
+            start = c.currentTime + 0.6;
+          let cap;
+          try {
+            if (!LP.worklet) {
+              await c.audioWorklet.addModule(URL.createObjectURL(new Blob([CAP_CODE], { type: "application/javascript" })));
+              LP.worklet = true;
+            }
+            cap = new AudioWorkletNode(c, "tp-cap", { channelCount: 1, channelCountMode: "explicit" });
+            cap.port.onmessage = (e) => chunks.push(e.data);
+          } catch {
+            cap = c.createScriptProcessor(1024, 1, 1); // the same fallback as the looper's recorder
+            cap.onaudioprocess = (e) => chunks.push({ t: (e.playbackTime || c.currentTime) - 2048 / c.sampleRate, d: new Float32Array(e.inputBuffer.getChannelData(0)) });
+          }
+          sink.gain.value = 0;
+          ainTap(c, rig.src).connect(cap);
+          cap.connect(sink).connect(c.destination);
+          const clk = c.createBuffer(1, Math.round(c.sampleRate * 0.01), c.sampleRate),
+            d = clk.getChannelData(0);
+          for (let i = 0; i < d.length; i++) d[i] = 0.9 * Math.sin((2 * Math.PI * 2000 * i) / c.sampleRate) * Math.sin((Math.PI * i) / d.length) ** 2;
+          for (let k = 0; k < N; k++) {
+            const b = c.createBufferSource();
+            b.buffer = clk;
+            b.connect(c.destination);
+            b.start(start + k * GAP);
+          }
+          const t0 = performance.now(),
+            total = (0.6 + N * GAP + 0.4) * 1000;
+          while (performance.now() - t0 < total) {
+            await arSleep(100);
+            say("Latency: clicks are playing. Speaker near the mic, or a cable from output to input · " + Math.ceil((total - (performance.now() - t0)) / 1000), 1);
+          }
+          cap.disconnect();
+          let nz = 0,
+            nn = 0;
+          chunks.forEach((ch) => {
+            if (ch.t + ch.d.length / c.sampleRate < start - 0.05) for (const v of ch.d) (nz += v * v), nn++;
+          });
+          const thr = Math.max(0.02, 8 * Math.sqrt(nz / (nn || 1))),
+            got = [];
+          for (let k = 0; k < N; k++) {
+            const at = start + k * GAP;
+            let hit = null;
+            for (const ch of chunks) {
+              if (hit != null || ch.t > at + GAP - 0.05 || ch.t + ch.d.length / c.sampleRate < at) continue;
+              for (let i = 0; i < ch.d.length; i++) {
+                const t = ch.t + i / c.sampleRate;
+                if (t >= at && Math.abs(ch.d[i]) > thr) {
+                  hit = t - at;
+                  break;
+                }
+              }
+            }
+            if (hit != null) got.push(hit * 1000);
+          }
+          got.sort((a, b) => a - b);
+          const ms = (v) => Math.round(v) + " ms";
+          if (got.length >= 4) {
+            const med = got[got.length >> 1];
+            AIN.lat = Math.round(med);
+            ainSave();
+            AR.rows.lat = [
+              ["✔", `Round trip: ${ms(med)} (best ${ms(got[0])}, worst ${ms(got[got.length - 1])}, heard ${got.length} of ${N} clicks)`],
+              [got[got.length - 1] - got[0] < 12 ? "✔" : "·", `Jitter: ${ms(got[got.length - 1] - got[0])}` + (got[got.length - 1] - got[0] < 12 ? " (steady)" : " (uneven: the looper could drift a little)")],
+              ["i", "This includes the speaker, the air and the browser's buffers. A cable from the output to the input shows the pure electronic delay. Saved as " + AIN.lat + " ms for a later looper correction."],
+            ];
+          } else AR.rows.lat = [["✘", `Heard only ${got.length} of ${N} clicks. Turn the volume up and put the speaker near the microphone, or connect the output to the input with a cable.`]];
+        } finally {
+          rig.close();
+        }
+      }
+      const AR_STEPS = { noise: ["1 SILENCE", arNoise, "Silence"], play: ["2 PLAY", arPlay, "Play"], lat: ["3 LATENCY", arLatency, "Latency"] };
+      function arRows() {
+        return Object.entries(AR_STEPS).flatMap(([k, [, , name]]) => AR.rows[k] || [["·", name + ": not run yet"]]);
+      }
+      function arFace() {
+        let el = document.getElementById("miLearn");
+        if (!el) {
+          el = document.createElement("div");
+          el.id = "miLearn";
+          document.body.appendChild(el);
+          el.innerHTML = `<div class="mlBox mtBox"><i>AUDIO INPUT TESTS</i><p id="arSay"></p><ul></ul><div class="mlB">${Object.entries(AR_STEPS).map(([k, v]) => `<button data-ar="${k}">${v[0]}</button>`).join("")}<button data-ar="copy">COPY REPORT</button><button data-ar="done" class="on">DONE</button></div></div>`;
+          el.onclick = async (e) => {
+            const b = e.target.closest("[data-ar]");
+            if (!b || (AR.busy && b.dataset.ar !== "done")) return;
+            const k = b.dataset.ar;
+            if (k === "done") {
+              el.remove();
+              return;
+            }
+            if (k === "copy") {
+              const t = ["TUNE.Pocket audio input report", navigator.userAgent, `input: ${AIN.dev ? "chosen device" : "default"}, channel ${AIN.ch}`, ...arRows().map(([a, x]) => a + " " + x)].join("\n");
+              return (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Report copied: paste it in a message"), () => toast("Could not copy here"));
+            }
+            AR.busy = true;
+            el.classList.add("busy");
+            const say = (t, keep) => ((el.querySelector("#arSay").textContent = t), keep || arFace());
+            try {
+              if (AT.on) await ainTestStop();
+              await AR_STEPS[k][1](say);
+              el.querySelector("#arSay").textContent = "Done.";
+            } catch (err) {
+              AR.rows[k] = [["✘", AR_STEPS[k][2] + " failed: " + (err.name || err.message || "unknown")]];
+              el.querySelector("#arSay").textContent = "";
+            }
+            AR.busy = false;
+            el.classList.remove("busy");
+            arFace();
+          };
+        }
+        el.querySelector("ul").innerHTML = arRows()
+          .map(([a, b]) => `<li class="${a === "✔" ? "ok" : a === "i" ? "inf" : ""}"><b>${a}</b>${esc(b)}</li>`)
+          .join("");
       }
 
       const MIC = { on: false, stream: null, an: null, buf: new Float32Array(4096), raf: 0 };
@@ -5893,7 +6115,7 @@
 #miLearn ul{list-style:none;margin:10px 0 0;padding:0;font:600 12px var(--mono,monospace);color:var(--dim)}
 #miLearn li{display:flex;gap:8px;padding:5px 0;border-top:1px solid var(--line)}
 #miLearn li b{width:14px;flex:none;text-align:center}
-#miLearn li.ok{color:var(--text)}#miLearn li.ok b{color:var(--acc)}#miLearn li.inf{font-weight:500;font-style:italic}
+#miLearn.busy .mlB button{opacity:.4}#miLearn #arSay{min-height:1.2em;color:var(--acc)}#miLearn li.ok{color:var(--text)}#miLearn li.ok b{color:var(--acc)}#miLearn li.inf{font-weight:500;font-style:italic}
 #midiBar{display:flex;flex-direction:column;gap:6px}#midiBar>button{min-height:42px}.mrow{display:flex;flex-wrap:wrap;gap:6px}.mrow button{flex:1 1 0;min-width:0;padding:0 2px;font-size:11px;min-height:38px}`;
         document.head.appendChild(st);
       }
@@ -8970,6 +9192,7 @@
             b: {
               en: [
                 "## Version 2.3.0",
+                "- **Audio input tests:** OPTIONS ▸ Audio input ▸ **TESTS** runs guided checks like the MIDI TEST: noise floor, level and clipping, which channels carry signal, pitch steadiness, and the round-trip latency (clicks out, heard back). **COPY REPORT** gives a text to paste.",
                 "- **Audio input (OPTIONS):** pick a USB audio interface (or any input) and the tuner and the looper listen to it directly, raw, instead of the microphone, with a channel choice (left, right, both). TEST shows the level, the note and what the browser really gave: channels, sample rate, latency.",
                 "- **Install it:** the app is now a web app (PWA). Add it to the Home Screen (iPhone: Safari ▸ Share; Android and desktop: Chrome ▸ Install app) and it opens like an app and works offline. The welcome note and **OPTIONS** have an **INSTALL** button that knows when the app is already installed. The Android APK is retired.",
                 "- **Looper:** the tempo and the bar length are locked while a recording counts in or runs, and the count-in never shows more than one bar (it once showed hundreds).",
@@ -8981,6 +9204,7 @@
               ],
               es: [
                 "## Versión 2.3.0",
+                "- **Pruebas de entrada de audio:** OPCIONES ▸ Entrada de audio ▸ **TESTS** hace comprobaciones guiadas como el TEST de MIDI: ruido de fondo, nivel y saturación, qué canales llevan señal, estabilidad de la nota y la latencia de ida y vuelta (suenan clics y se escuchan de vuelta). **COPY REPORT** da un texto para pegar.",
                 "- **Entrada de audio (OPCIONES):** elige una interfaz de audio USB (o cualquier entrada) y el afinador y el looper la escuchan directamente, sin procesar, en vez del micrófono, con elección de canal (izquierdo, derecho, ambos). PRUEBA muestra el nivel, la nota y lo que el navegador entrega de verdad: canales, frecuencia de muestreo y latencia.",
                 "- **Instálala:** la app ahora es una web app (PWA). Añádela a la pantalla de inicio (iPhone: Safari ▸ Compartir; Android y escritorio: Chrome ▸ Instalar app) y se abre como una app y funciona sin conexión. La nota de bienvenida y **OPTIONS** tienen un botón **INSTALL** que sabe si la app ya está instalada. El APK de Android se retira.",
                 "- **Looper:** el tempo y la longitud del compás se bloquean mientras una grabación cuenta o graba, y la cuenta nunca muestra más de un compás (una vez mostró cientos).",
@@ -9750,6 +9974,7 @@
       $("#ainDev").onchange = () => ((AIN.dev = $("#ainDev").value), ainSave(), toast(AIN.dev ? "Input chosen. Restart the tuner or the looper to use it." : "Default microphone"));
       $("#ainCh").onchange = () => ((AIN.ch = $("#ainCh").value), ainSave());
       $("#ainTest").onclick = ainTest;
+      $("#ainTests").onclick = arFace;
       ainFace();
       ainList();
       navigator.mediaDevices && navigator.mediaDevices.addEventListener && navigator.mediaDevices.addEventListener("devicechange", ainList);
