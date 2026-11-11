@@ -13,7 +13,7 @@
   localStorage keys
     tune.theme      dark | light | demo | term | dungeon | dmg
     tune.lang       help language (en | es)                 tune.welcome    "1" once the first-visit dialog was closed
-    tune.audioIn    { dev: input device id ("" = default microphone), ch: mix | L | R }
+    tune.audioIn    { dev: input device id ("" = default microphone), ch: mix | L | R, lat: ms, gains: { <device id or "default">: dB } }
     tune.state      { inst, tun, a4, view, auto, scl, jam, cof, met: { bpm, beats, sub, snd, accent, vol }, loop: { bars, sync, latch, grid, aq } }
     customTunings   [{ name, instrument, strings: ["E2" | "82.41", ...] }]  (key kept from LFTuner so old tunings load)
 -->
@@ -2134,6 +2134,7 @@
             <select id="ainCh" title="Which channel of the input to use" style="flex: 1"><option value="mix">Both channels</option><option value="L">Left (input 1)</option><option value="R">Right (input 2)</option></select>
             <button id="ainTest" title="Open the input and watch its level and note live">LIVE</button><button id="ainTests" title="Guided tests: noise, level, channels and round-trip latency, with a report to copy">TESTS</button>
           </div>
+          <div class="row"><label class="knob" title="Boost or cut what the tuner and the looper hear from this input. Kept per input; adds no delay."><i>GAIN</i><b id="ainGainTxt">0 dB</b><input id="ainGain" type="range" min="-12" max="24" step="0.5" value="0" /></label></div>
           <div id="ainBox" hidden>
             <div id="ainMeter" style="height: 14px; border: 1px solid var(--line); border-radius: 7px; overflow: hidden"><i id="ainLvl" style="display: block; height: 100%; width: 0; background: var(--acc)"></i></div>
             <div id="ainNote" style="font: 900 28px/1.3 var(--mono); text-align: center">--</div>
@@ -2141,7 +2142,8 @@
           </div>
           <div class="hint">
             Plug a guitar or any instrument into a USB audio interface (or the phone's adapter) and pick it here. The tuner and the looper
-            then listen to it directly, with no echo cancelling, noise reduction or gain control, instead of the microphone. LIVE shows the level, the note
+            then listen to it directly, with no echo cancelling, noise reduction or gain control, instead of the microphone. GAIN lifts a quiet input (a phone
+            microphone in Firefox, a guitar cable) and is kept per input. LIVE shows the level, the note
             and what the browser really gave. TESTS runs guided checks (noise, level, channels, latency) and gives a report to copy.
           </div>
           <h3 style="margin-top: 12px">Install as an app</h3>
@@ -2911,8 +2913,12 @@
       }
 
       // the audio input: the default microphone, or a chosen device (an audio interface with an instrument plugged in), always raw
-      const AIN = Object.assign({ dev: "", ch: "mix", lat: 0 }, (() => { try { return JSON.parse(localStorage.getItem("tune.audioIn")) || {}; } catch { return {}; } })());
-      const ainSave = () => localStorage.setItem("tune.audioIn", JSON.stringify({ dev: AIN.dev, ch: AIN.ch, lat: AIN.lat }));
+      const AIN = Object.assign({ dev: "", ch: "mix", lat: 0, gains: {} }, (() => { try { return JSON.parse(localStorage.getItem("tune.audioIn")) || {}; } catch { return {}; } })());
+      const ainSave = () => localStorage.setItem("tune.audioIn", JSON.stringify({ dev: AIN.dev, ch: AIN.ch, lat: AIN.lat, gains: AIN.gains }));
+      if (!AIN.gains || typeof AIN.gains !== "object" || Array.isArray(AIN.gains)) AIN.gains = {}; // older or damaged settings
+      // the app's own gain for the current input, in dB, kept per device: raw inputs (no browser gain control) can be very quiet
+      const ainDb = () => { const v = +AIN.gains[AIN.dev || "default"]; return Number.isFinite(v) ? Math.max(-12, Math.min(24, v)) : 0; };
+      const AING = new Set(); // the gain nodes in use, so the slider is heard at once
       const ainOpen = () =>
         navigator.mediaDevices
           .getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: { ideal: 2 }, ...(AIN.dev ? { deviceId: { exact: AIN.dev } } : {}) }, video: false })
@@ -2929,12 +2935,21 @@
           });
       // the node to listen to: the whole stream, or one channel of it
       function ainTap(c, src) {
-        if (AIN.ch === "mix" || (src.channelCount || 1) < 2) return src;
-        const sp = c.createChannelSplitter(2);
-        src.connect(sp);
         const g = c.createGain();
-        sp.connect(g, AIN.ch === "R" ? 1 : 0);
+        g.gain.value = Math.pow(10, ainDb() / 20);
+        AING.add(g);
+        if (AIN.ch === "mix" || (src.channelCount || 1) < 2) src.connect(g);
+        else {
+          const sp = c.createChannelSplitter(2);
+          src.connect(sp);
+          sp.connect(g, AIN.ch === "R" ? 1 : 0);
+        }
         return g;
+      }
+      function ainGainFace() {
+        const db = ainDb();
+        $("#ainGain").value = db;
+        $("#ainGainTxt").textContent = (db > 0 ? "+" : "") + db + " dB";
       }
       async function ainList() {
         if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
@@ -2946,6 +2961,7 @@
         $("#ainDev").value = AIN.dev;
         if ($("#ainDev").value !== AIN.dev) $("#ainDev").value = "";
         $("#ainCh").value = AIN.ch;
+        ainGainFace();
       }
       const AT = { on: false };
       async function ainTestStop() {
@@ -9150,7 +9166,7 @@
               "**THEME** has the six looks shared with TRACK.Pocket. On a wide screen the background is animated and moves with the band or the microphone.",
               "## Options",
               "**OPTIONS** → **Note names**: letters (**A B C**) or solfège (**Do Re Mi**). The choice is shared with TRACK.Pocket and SING.Pocket.",
-              "**OPTIONS** → **Audio input**: pick the input the tuner and the looper listen to (a USB audio interface with a guitar or bass works too), raw and without the browser's processing, and one channel of it if you like. **LIVE** shows the level and the note. **TESTS** runs guided checks (noise, level and clipping, channels, pitch steadiness, round-trip latency) and **COPY REPORT** gives a text to paste.",
+              "**OPTIONS** → **Audio input**: pick the input the tuner and the looper listen to (a USB audio interface with a guitar or bass works too), raw and without the browser's processing, and one channel of it if you like. **GAIN** lifts a quiet input (a phone microphone in Firefox, a guitar cable) and is kept per input; it adds no delay. **LIVE** shows the level and the note. **TESTS** runs guided checks (noise, level and clipping, channels, pitch steadiness, round-trip latency) and **COPY REPORT** gives a text to paste.",
               "**OPTIONS** → **Install**: adds TUNE.Pocket to your home screen or apps, with its own window and working offline. The **INSTALL** button (here and in the welcome note) says **INSTALLED** when you already run it as an app; on iPhone it shows the Safari ▸ Share ▸ Add to Home Screen steps.",
               "Tunings and settings are kept on this device. Tunings saved by the old LFTuner app are loaded automatically.",
             ],
@@ -9164,7 +9180,7 @@
               "**THEME** tiene los seis aspectos que comparte con TRACK.Pocket. En pantallas anchas el fondo está animado y se mueve con la banda o el micrófono.",
               "## Opciones",
               "**OPTIONS** → **Note names**: letras (**A B C**) o solfeo (**Do Re Mi**). La elección se comparte con TRACK.Pocket y SING.Pocket.",
-              "**OPTIONS** → **Entrada de audio**: elige la entrada que escuchan el afinador y el looper (una interfaz USB con guitarra o bajo también vale), sin procesar por el navegador, y un solo canal si quieres. **LIVE** muestra el nivel y la nota. **TESTS** hace comprobaciones guiadas (ruido, nivel y saturación, canales, estabilidad de la nota, latencia de ida y vuelta) y **COPY REPORT** da un texto para pegar.",
+              "**OPTIONS** → **Entrada de audio**: elige la entrada que escuchan el afinador y el looper (una interfaz USB con guitarra o bajo también vale), sin procesar por el navegador, y un solo canal si quieres. **GAIN** sube una entrada floja (el micrófono del móvil en Firefox, un cable de guitarra) y se guarda por entrada; no añade retardo. **LIVE** muestra el nivel y la nota. **TESTS** hace comprobaciones guiadas (ruido, nivel y saturación, canales, estabilidad de la nota, latencia de ida y vuelta) y **COPY REPORT** da un texto para pegar.",
               "**OPTIONS** → **Install**: añade TUNE.Pocket a tu pantalla de inicio o a tus aplicaciones, con su propia ventana y funcionando sin conexión. El botón **INSTALL** (aquí y en la nota de bienvenida) dice **INSTALLED** si ya la usas como app; en iPhone muestra los pasos Safari ▸ Compartir ▸ Añadir a pantalla de inicio.",
               "Las afinaciones y ajustes se guardan en este dispositivo. Las afinaciones guardadas en la antigua app LFTuner se cargan automáticamente.",
             ],
@@ -9195,7 +9211,7 @@
               en: [
                 "## Version 2.3.0",
                 "- **Audio input tests:** OPTIONS ▸ Audio input ▸ **TESTS** runs guided checks like the MIDI TEST: noise floor, level and clipping, which channels carry signal, pitch steadiness, and the round-trip latency (clicks out, heard back). **COPY REPORT** gives a text to paste.",
-                "- **Audio input (OPTIONS):** pick a USB audio interface (or any input) and the tuner and the looper listen to it directly, raw, instead of the microphone, with a channel choice (left, right, both). TEST shows the level, the note and what the browser really gave: channels, sample rate, latency.",
+                "- **Audio input (OPTIONS):** pick a USB audio interface (or any input) and the tuner and the looper listen to it directly, raw, instead of the microphone, with a channel choice (left, right, both) and a GAIN kept per input for quiet ones. TEST shows the level, the note and what the browser really gave: channels, sample rate, latency.",
                 "- **Install it:** the app is now a web app (PWA). Add it to the Home Screen (iPhone: Safari ▸ Share; Android and desktop: Chrome ▸ Install app) and it opens like an app and works offline. The welcome note and **OPTIONS** have an **INSTALL** button that knows when the app is already installed. The Android APK is retired.",
                 "- **Looper:** the tempo and the bar length are locked while a recording counts in or runs, and the count-in never shows more than one bar (it once showed hundreds).",
                 "- **MIDI starting assignment:** known controllers (Akai MPK, Launchkey…) now start with a function on each knob and pad, shown as tags with a line on the DEVICE drawing: the pads hold the JAM effects (Flanger, Filter, Echo…) and knob 1 sets the tempo, and the keys play the piano as always. ASSIGN, LEARN and the **DEFAULTS** switch in DEVICE change it, and CLEAR turns it off.",
@@ -9207,7 +9223,7 @@
               es: [
                 "## Versión 2.3.0",
                 "- **Pruebas de entrada de audio:** OPCIONES ▸ Entrada de audio ▸ **TESTS** hace comprobaciones guiadas como el TEST de MIDI: ruido de fondo, nivel y saturación, qué canales llevan señal, estabilidad de la nota y la latencia de ida y vuelta (suenan clics y se escuchan de vuelta). **COPY REPORT** da un texto para pegar.",
-                "- **Entrada de audio (OPCIONES):** elige una interfaz de audio USB (o cualquier entrada) y el afinador y el looper la escuchan directamente, sin procesar, en vez del micrófono, con elección de canal (izquierdo, derecho, ambos). PRUEBA muestra el nivel, la nota y lo que el navegador entrega de verdad: canales, frecuencia de muestreo y latencia.",
+                "- **Entrada de audio (OPCIONES):** elige una interfaz de audio USB (o cualquier entrada) y el afinador y el looper la escuchan directamente, sin procesar, en vez del micrófono, con elección de canal (izquierdo, derecho, ambos) y una GAIN guardada por entrada para las flojas. PRUEBA muestra el nivel, la nota y lo que el navegador entrega de verdad: canales, frecuencia de muestreo y latencia.",
                 "- **Instálala:** la app ahora es una web app (PWA). Añádela a la pantalla de inicio (iPhone: Safari ▸ Compartir; Android y escritorio: Chrome ▸ Instalar app) y se abre como una app y funciona sin conexión. La nota de bienvenida y **OPTIONS** tienen un botón **INSTALL** que sabe si la app ya está instalada. El APK de Android se retira.",
                 "- **Looper:** el tempo y la longitud del compás se bloquean mientras una grabación cuenta o graba, y la cuenta nunca muestra más de un compás (una vez mostró cientos).",
                 "- **Asignación MIDI inicial:** los controladores conocidos (Akai MPK, Launchkey…) empiezan con una función en cada pote y pad, mostrada como etiquetas con una línea en el dibujo de DEVICE: los pads mantienen los efectos del JAM (Flanger, Filtro, Eco…) y el pote 1 ajusta el tempo, y las teclas tocan el piano como siempre. ASSIGN, LEARN y el interruptor **DEFAULTS** de DEVICE la cambian, y CLEAR la desactiva.",
@@ -9973,8 +9989,19 @@
       }
       $("#instBtn").onclick = () => pwaRun(false);
       $("#wInst").onclick = () => pwaRun(true);
-      $("#ainDev").onchange = () => ((AIN.dev = $("#ainDev").value), ainSave(), toast(AIN.dev ? "Input chosen. Restart the tuner or the looper to use it." : "Default microphone"));
+      $("#ainDev").onchange = () => ((AIN.dev = $("#ainDev").value), ainSave(), ainGainFace(), toast(AIN.dev ? "Input chosen. Restart the tuner or the looper to use it." : "Default microphone"));
       $("#ainCh").onchange = () => ((AIN.ch = $("#ainCh").value), ainSave());
+      $("#ainGain").oninput = () => {
+        AIN.gains[AIN.dev || "default"] = +$("#ainGain").value;
+        ainSave();
+        ainGainFace();
+        const v = Math.pow(10, ainDb() / 20);
+        for (const g of AING) {
+          if (g.context.state === "closed") AING.delete(g);
+          else g.gain.setTargetAtTime(v, g.context.currentTime, 0.02);
+        }
+      };
+      $("#ainGain").onchange = () => toast("Gain " + $("#ainGainTxt").textContent + " for this input");
       $("#ainTest").onclick = ainTest;
       $("#ainTests").onclick = arFace;
       ainFace();
