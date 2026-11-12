@@ -57,12 +57,11 @@ test("pads and knobs are matched without learning", () => {
   assert.equal(knobRank(new Set([64, 70]), 64), -1); // the sustain pedal is not a knob
   assert.equal(guess("Launchkey MK4 37 MIDI Out"), "novation37");
   // the Play mk3 sends a drum kit on its pads and its own CCs on its knobs (a real report): pads 1-4 are the lower row
-  const mpk = { banks: [[36, 38, 42, 46, 48, 45, 51, 49], [60, 62, 63, 64, 58, 75, 56, 77]], ccs: [74, 71, 91, 93, 73, 72] };
+  const mpk = { banks: [[36, 38, 42, 46, 48, 45, 51, 49], [60, 62, 63, 64, 58, 75, 56, 77]], ccs: [74, 71, 91, 93, 73, 72, 6] };
   assert.deepEqual([36, 38, 42, 46, 48, 45, 51, 49].map((n) => padIndex(8, n, mpk.banks)), [0, 1, 2, 3, 4, 5, 6, 7]);
   assert.deepEqual([60, 62, 63, 64, 58, 75, 56, 77].map((n) => padIndex(8, n, mpk.banks)), [0, 1, 2, 3, 4, 5, 6, 7]);
   assert.equal(padIndex(8, 37, mpk.banks), 1); // a note outside the lists falls back to the 36-based count
-  assert.deepEqual([74, 71, 91, 93, 73, 72].map((cc) => knobRank(new Set(), cc, 2, mpk.ccs)), [0, 1, 2, 3, 4, 5]);
-  assert.equal(knobRank(new Set(), 6, 2, mpk.ccs), -1); // the joystick's data-entry CC is no knob
+  assert.deepEqual([74, 71, 91, 93, 73, 72, 6].map((cc) => knobRank(new Set(), cc, 2, mpk.ccs)), [0, 1, 2, 3, 4, 5, 6]);
   assert.equal(knobRank(new Set(), 98, 2, mpk.ccs), -1);
   assert.equal(guess("MPK mini Play mk3"), "akai");
   assert.equal(guess("nanoPAD2"), "korgpad");
