@@ -2276,7 +2276,7 @@
           <div id="nnBar"><button data-nn="abc">A B C</button><button data-nn="sol">DO RE MI</button></div>
           <div class="hint">Letters or solfège, for every app: TRACK, TUNE and SING.Pocket.</div>
           <h3 style="margin-top: 12px">MIDI device</h3>
-          <div id="midiBar"><button id="midiDev">CONNECT</button><div class="mrow"><button id="midiMap">ASSIGN</button><button id="midiClr">CLEAR</button><button id="midiTest" title="See what your device sends">TEST</button><button id="midiView" title="Live device diagram and assignments">DEVICE</button><button id="midiSnd" title="The keys sound in the app. Turn it off for a keyboard with its own speakers.">SOUND</button></div></div>
+          <div id="midiBar"><button id="midiDev">CONNECT</button><div class="mrow"><button id="midiMap">ASSIGN</button><button id="midiClr">CLEAR</button><button id="midiTest" title="Map your controller step by step: keys, pads, knobs, sustain, bend, transport. Saved, exported, imported.">MAP</button><button id="midiView" title="Live device diagram and assignments">DEVICE</button><button id="midiSnd" title="The keys sound in the app. Turn it off for a keyboard with its own speakers.">SOUND</button></div></div>
           <div class="hint">
             Experimental. The keys sound with a piano (<b>SOUND</b> turns it off, for keyboards with their own speakers).
             In SCALES the keys light the notes you play, PRACTICE listens to them instead of the microphone, and a
@@ -2394,8 +2394,28 @@
 #mdPanel .mdMap{border-top:1px solid #647486;padding-top:10px}#mdPanel .mdMap select{max-width:100%;min-width:200px}#mdPanel .mdHint{min-height:1.5em;color:#ffce84}
 #mdPanel .mdDevice{overflow-x:auto}#mdPanel .mdDevice svg{min-width:720px}
 #mdPanel .tg path{fill:none;stroke:#ffbf52;stroke-width:1.1;opacity:.75}#mdPanel .tg rect{fill:#1a2029;stroke:#ffbf52;stroke-width:1.2}#mdPanel .tg text{fill:#ffd28a;font:700 11.5px system-ui;text-anchor:middle;pointer-events:none}
+#mdPanel #mdWiz{border:2px solid #ffbf52;border-radius:10px;padding:10px;margin:10px 0}#mdPanel #mdWiz[hidden]{display:none}#mdPanel #mdWiz h3{margin:0 0 4px;font-size:15px;color:#ffce84}#mdPanel #mdWiz .mdSt{min-height:1.5em;color:#8bd5fc;font-weight:700}
+#mdPanel #mdLive{color:#9fb2c6;font:12px/1.4 ui-monospace,monospace;min-height:1.4em;overflow-wrap:anywhere}
 #mdPanel .mdc .sh{fill:#141a22}#mdPanel .tg.info path{stroke:#647486}#mdPanel .tg.info rect{stroke:#647486}#mdPanel .tg.info text{fill:#9fb2c6}`;
   const storageKey = "pocket.midi.devices.v1." + location.pathname.split("/").filter(Boolean)[0];
+  // the hardware's own measures (what MAP found), shared by the Pocket apps: one mapping serves all of them
+  const hwKey = "pocket.midi.hw.v1";
+  const loadHw = () => { try { return JSON.parse(localStorage.getItem(hwKey) || "{}"); } catch { return {}; } };
+  const int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+  const TOK = /^(?:[nc](?:1[0-5]|\d):(?:1[0-2]\d|\d{1,2})|rt:25[0-2]|mmc:\d{1,3})$/; // a function button: a note, a CC, a realtime byte or an MMC command
+  // checks what is read from a file: only known fields, only values in range
+  const vetHw = (o) => {
+    if (!o || typeof o !== "object") return null;
+    const c = {};
+    if (int(o.keys, 1, 128)) c.keys = o.keys;
+    if (Array.isArray(o.padNotes) && o.padNotes.length <= 8 && o.padNotes.every((b) => Array.isArray(b) && b.length <= 64 && b.every((n) => int(n, 0, 127))) && int(o.pads, 1, 64)) { c.padNotes = o.padNotes; c.pads = o.pads; c.padCh = int(o.padCh, 0, 15) ? o.padCh : 9; }
+    if (Array.isArray(o.ccs) && o.ccs.length && o.ccs.length <= 32 && o.ccs.every((n) => int(n, 0, 127))) { c.ccs = o.ccs; c.knobs = o.ccs.length; c.cc0 = 0; }
+    if (int(o.sus, 0, 127)) c.sus = o.sus;
+    if (int(o.bend, 0, 15)) c.bend = o.bend;
+    if (int(o.mod, 0, 127)) c.mod = o.mod;
+    if (o.fn && typeof o.fn === "object") { const f = {}; for (const [k, v] of Object.entries(o.fn)) if (/^(?:play|stop|rec|f\d{1,2})$/.test(k) && TOK.test(v)) f[k] = v; if (Object.keys(f).length) c.fn = f; }
+    return Object.keys(c).length ? c : null;
+  };
   const load = () => { try { return JSON.parse(localStorage.getItem(storageKey) || "{}"); } catch { return {}; } };
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const guess = (s) => {
@@ -2485,15 +2505,18 @@
   }
 
   function createMidiPanel(MI, run, send) {
-    const saved = load();
+    const saved = load(), hw = loadHw();
     let el, device = "", profile = "", selected = "", learning = false, base = 48;
     const flash = new Map(), seenCC = {};
     const persist = () => localStorage.setItem(storageKey, JSON.stringify(saved));
+    const persistHw = () => localStorage.setItem(hwKey, JSON.stringify(hw));
     const record = () => (saved[device] = saved[device] || { profile: guess(device), map: {}, controls: {} });
-    const prof = () => PROFILES[profile] || PROFILES.generic;
+    // the model's profile with the device's own measures on top (what MAP found)
+    const withMap = (p, name) => (hw[name] ? { ...p, ...hw[name] } : p);
+    const prof = () => withMap(PROFILES[profile] || PROFILES.generic, device);
     // ---- the starting assignment: what a control does before anyone assigns it (the app lists it in MI.defaults)
     const defs = () => (typeof MI.defaults === "function" ? MI.defaults() : MI.defaults) || {};
-    const profOf = (from) => PROFILES[saved[from]?.profile || guess(from)] || PROFILES.generic;
+    const profOf = (from) => withMap(PROFILES[saved[from]?.profile || guess(from)] || PROFILES.generic, from);
     const shortName = (id) => String((MI.actions().find((x) => x.id === id) || { name: id }).name).replace("VOLUME ", "VOL ").slice(0, 12);
     // [action id, label] a model gives control id (a pad "p3", a knob "c1"), or null. Knobs need a known first CC.
     function factory(p, id) {
@@ -2554,6 +2577,202 @@
       svg.setAttribute("viewBox", `0 ${-T} ${W} ${h + T + B}`);
       svg.querySelector(".body").insertAdjacentHTML("afterend", out);
     }
+    // ---- what each input sent: channels, velocity, CCs, clock, transport ... (the live line and COPY REPORT)
+    const stats = {};
+    let liveT = 0;
+    function tally(d, from) {
+      const T = stats[from] || (stats[from] = { ch: new Set(), notes: 0, nlo: 127, nhi: 0, vlo: 127, vhi: 0, o80: 0, o90: 0, cc: {}, pb: 0, cat: 0, pat: 0, pc: 0, clock: 0, tt: [], bpm: 0, tr: new Set(), sx: 0, log: [], t0: performance.now() }),
+        st = d[0], cmd = st & 0xf0, now = performance.now();
+      if (T.log.length < 400 && st !== 0xf8 && st !== 0xfe) T.log.push([Math.round(now - T.t0), ...d]);
+      if (st >= 0xf0) {
+        if (st === 0xf8) { T.clock++; T.tt.push(now); if (T.tt.length > 49) T.tt.shift(); if (T.tt.length >= 25) T.bpm = 60000 / (((T.tt[T.tt.length - 1] - T.tt[0]) / (T.tt.length - 1)) * 24); }
+        else if (st >= 0xfa && st <= 0xfc) T.tr.add({ 250: "start", 251: "continue", 252: "stop" }[st]);
+        else if (st === 0xf0) T.sx++;
+      } else {
+        T.ch.add((st & 15) + 1);
+        if (cmd === 0x90 && d[2] > 0) { T.notes++; T.nlo = Math.min(T.nlo, d[1]); T.nhi = Math.max(T.nhi, d[1]); T.vlo = Math.min(T.vlo, d[2]); T.vhi = Math.max(T.vhi, d[2]); }
+        else if (cmd === 0x80) T.o80++;
+        else if (cmd === 0x90) T.o90++;
+        else if (cmd === 0xb0) { const k = (T.cc[d[1]] = T.cc[d[1]] || { lo: 127, hi: 0, n: 0 }); k.n++; k.lo = Math.min(k.lo, d[2]); k.hi = Math.max(k.hi, d[2]); }
+        else if (cmd === 0xe0) T.pb++;
+        else if (cmd === 0xd0) T.cat++;
+        else if (cmd === 0xa0) T.pat++;
+        else if (cmd === 0xc0) T.pc++;
+      }
+      if (!liveT) liveT = setTimeout(() => { liveT = 0; live(); }, 150); // a steady clock must not redraw all the time
+    }
+    function liveText(T) {
+      if (!T) return "";
+      const x = [];
+      if (T.clock) x.push(`clock ${T.bpm ? T.bpm.toFixed(1) + " BPM" : "…"}`);
+      if (T.tr.size) x.push([...T.tr].join("/"));
+      if (T.sx) x.push(`sysex ${T.sx}`);
+      if (T.ch.size) x.push("ch " + [...T.ch].sort((a, b) => a - b).join(","));
+      if (T.vhi) x.push(`vel ${T.vlo}–${T.vhi}`);
+      if (T.pb) x.push("bend");
+      if (T.cat || T.pat) x.push("aftertouch");
+      const last = T.log[T.log.length - 1];
+      if (last) x.push("last " + last.slice(1).map((v) => v.toString(16).toUpperCase().padStart(2, "0")).join(" ").slice(0, 40));
+      return x.join(" · ");
+    }
+    function live() { const e = el?.querySelector("#mdLive"); if (e) e.textContent = liveText(stats[device]); }
+    function report() {
+      const T = stats[device], nm = (n) => noteName(n), ccs = T ? Object.entries(T.cc) : [];
+      const rows = [
+        "Device: " + device + " — " + prof().title,
+        T ? `Notes: ${T.notes} presses${T.notes ? `, ${nm(T.nlo)} to ${nm(T.nhi)}` : ""}` : "Notes: none yet",
+        "Channels: " + (T && T.ch.size ? [...T.ch].sort((a, b) => a - b).join(", ") : "—"),
+        "Velocity: " + (T && T.vhi ? `${T.vlo} to ${T.vhi}` : "—"),
+        "Note off: " + (T && (T.o80 || T.o90) ? (T.o80 && T.o90 ? "both kinds" : T.o80 ? "note-off messages" : "note-on with velocity 0") : "—"),
+        "CC: " + (ccs.length ? ccs.map(([n, k]) => `${n} (${k.lo}–${k.hi}, ${k.n}x)`).join(", ") : "—"),
+        `Pitch bend: ${T ? T.pb : 0} · Aftertouch: ${T ? T.cat + T.pat : 0} · Program change: ${T ? T.pc : 0}`,
+        "Clock: " + (T && T.clock ? `${T.clock} ticks, ${T.bpm ? T.bpm.toFixed(1) + " BPM" : "BPM not measured"}` : "—") + " · Transport: " + (T && T.tr.size ? [...T.tr].join(", ") : "—") + " · Sysex: " + (T ? T.sx : 0),
+        "Map: " + JSON.stringify(hw[device] || null),
+        "",
+        "first messages [ms, bytes...]:",
+        JSON.stringify(T ? T.log : []),
+      ];
+      return rows.join("\n");
+    }
+    function copyReport() {
+      (navigator.clipboard ? navigator.clipboard.writeText(report()) : Promise.reject()).then(() => hint("Report copied: paste it in an issue or a message.")).catch(() => hint("Could not copy here."));
+    }
+    // the device's map as a file: the same shape the import reads (and what a new compatible device is added from)
+    function exportHw() {
+      const o = { format: "pocket-device", v: 1, name: device, model: record().profile, map: hw[device] || null };
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(o, null, 2)], { type: "application/json" }));
+      a.download = "pocket-device-" + (device.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "midi") + ".json";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      hint(hw[device] ? "Exported " + a.download : "Exported the model only: run MAP DEVICE first to include your own map.");
+    }
+    function importHw(text) {
+      let o; try { o = JSON.parse(text); } catch { return hint("That file is not a device map."); }
+      if (!o || o.format !== "pocket-device") return hint("That file is not a device map.");
+      const c = vetHw(o.map);
+      if (!c && o.map) return hint("Nothing usable in that map.");
+      if (c) hw[device] = c; else delete hw[device];
+      persistHw();
+      if (typeof o.model === "string" && PROFILES[o.model]) { record().profile = o.model; persist(); }
+      draw();
+      hint("Map imported for " + device + (c ? "" : " (model only)") + ".");
+    }
+    // lights and the other way: notes sent to the device's output with the same name (pads with LEDs light up)
+    function lightTest() {
+      let out; try { out = MI.acc && [...MI.acc.outputs.values()].find((o) => o.name === device && o.state !== "disconnected"); } catch {}
+      if (!out) return hint("No MIDI output named " + device + ": the device does not take messages from the computer, or the browser did not open it.");
+      const p = prof(), ch = p.padCh ?? 9, notes = (p.padNotes ? p.padNotes.flat() : Array.from({ length: p.pads || 8 }, (_, i) => 36 + i)).slice(0, 32);
+      try { notes.forEach((n, i) => { setTimeout(() => out.send([0x90 | ch, n, 127]), i * 120); setTimeout(() => out.send([0x80 | ch, n, 0]), i * 120 + 220); }); } catch (e) { return hint("The output would not take it: " + e.message); }
+      hint(`Sent ${notes.length} notes to ${out.name}. If its pads light up, it takes lights from here. Whatever it sends back shows in the line below.`);
+    }
+    // ---- MAP: a step-by-step mapper like an emulator's. A connection check, the lowest and the highest key, every pad in order, every knob
+    // in order, the sustain, the bend, the mod, the transport buttons and any other function button. A list ends with the highest key and
+    // then the lowest key (or NEXT). The keys only give the NUMBER of physical keys (leftmost to rightmost, whatever octave is selected).
+    let wiz = null;
+    const STEP = {
+      hello: ["CONNECTION", "Press any key, pad or knob once, to check that the connection works."],
+      lo: ["LEFTMOST KEY", "Press the leftmost key of the keyboard, whatever octave is selected (and do not change the octave until MAP ends). No keys? NEXT."],
+      hi: ["RIGHTMOST KEY", "Press the rightmost key of the keyboard."],
+      pads: ["PADS", "Press every pad in order (all the banks, if there are some). To finish: the rightmost key, then the leftmost key, or NEXT."],
+      knobs: ["KNOBS", "Turn every knob a little, in order. To finish: the rightmost key, then the leftmost key, or NEXT."],
+      sus: ["SUSTAIN", "Press the sustain pedal or button. To skip: the rightmost key, then the leftmost key, or NEXT."],
+      bend: ["PITCH BEND", "Move the pitch bend wheel or stick. To skip: the rightmost key, then the leftmost key, or NEXT."],
+      mod: ["MOD", "Move the mod wheel (or the other axis of the stick). To skip: the rightmost key, then the leftmost key, or NEXT."],
+      play: ["PLAY", "Press the PLAY button. To skip: the rightmost key, then the leftmost key, or NEXT."],
+      stop: ["STOP", "Press the STOP button. To skip: the rightmost key, then the leftmost key, or NEXT."],
+      rec: ["RECORD", "Press the RECORD button. To skip: the rightmost key, then the leftmost key, or NEXT."],
+      fn: ["OTHER FUNCTION BUTTONS", "Press any other function button (loop, rewind, forward, octave, preset...), one at a time. To finish: the rightmost key, then the leftmost key, or FINISH."],
+    };
+    const ORDER = Object.keys(STEP);
+    function wizShow() {
+      const box = el?.querySelector("#mdWiz");
+      if (!box) return;
+      box.hidden = !wiz;
+      if (!wiz) return;
+      const [t, d] = STEP[wiz.step];
+      box.innerHTML = `<h3>MAP · ${ORDER.indexOf(wiz.step) + 1} / ${ORDER.length} · ${t}</h3><div>${d}</div><div class="mdSt" id="mdWizSt" aria-live="polite">${esc(wiz.msg || "")}</div><div class="mdRow"><button data-do="wizNext">${wiz.step === "fn" ? "FINISH" : "NEXT"}</button><button data-do="wizCancel">CANCEL</button></div>`;
+    }
+    const wizSay = (m) => { wiz.msg = m; const e = el?.querySelector("#mdWizSt"); if (e) e.textContent = m; };
+    function wizStart() {
+      learning = false;
+      wiz = { step: "hello", lo: null, hi: null, loCh: null, padCh: null, pads: [], ccs: [], sus: null, bend: null, mod: null, fn: {}, extra: 0, last: [], msg: "Listening to " + device + "..." };
+      wizShow();
+    }
+    function wizGo(step) { wiz.step = step; wiz.last = []; wiz.msg = ""; wizShow(); }
+    // NEXT: the next step; with no keys told yet, the two key steps go together
+    function wizNext() {
+      if (!wiz) return;
+      let i = ORDER.indexOf(wiz.step) + 1;
+      if (wiz.step === "lo") i = ORDER.indexOf("pads");
+      if (i >= ORDER.length) return wizEnd();
+      wizGo(ORDER[i]);
+    }
+    function wizEnd() {
+      const w = wiz, c = {}, p = profOf(device), bits = [];
+      wiz = null;
+      if (w.lo != null && w.hi != null) { c.keys = w.hi - w.lo + 1; bits.push(`${c.keys} keys`); }
+      if (w.pads.length) {
+        const n = w.pads.length, banked = p.padNotes && p.pads && n > p.pads && n % p.pads === 0; // a model with pad banks: the pads in rows of its bank
+        c.padCh = w.padCh;
+        c.pads = banked ? p.pads : n;
+        c.padNotes = banked ? Array.from({ length: n / p.pads }, (_, i) => w.pads.slice(i * p.pads, (i + 1) * p.pads)) : [w.pads];
+        bits.push(`${n} pads${banked ? " in " + n / p.pads + " banks" : ""}`);
+      }
+      if (w.ccs.length) { c.knobs = w.ccs.length; c.ccs = w.ccs; c.cc0 = 0; bits.push(`${w.ccs.length} knobs (CC ${w.ccs.join(", ")})`); }
+      if (w.sus != null) { c.sus = w.sus; bits.push("sustain CC " + w.sus); }
+      if (w.bend != null) { c.bend = w.bend; bits.push("bend"); }
+      if (w.mod != null) { c.mod = w.mod; bits.push("mod CC " + w.mod); }
+      if (Object.keys(w.fn).length) { c.fn = w.fn; bits.push(Object.keys(w.fn).length + " function buttons"); }
+      if (Object.keys(c).length) { hw[device] = { ...(hw[device] || {}), ...c }; persistHw(); }
+      wizShow(); draw();
+      hint(bits.length ? "Mapped: " + bits.join(", ") + ". EXPORT keeps it in a file." : "Nothing was mapped.");
+    }
+    // a function button as text: a note, a CC pressed, a realtime byte (start, continue, stop) or an MMC command
+    function fnToken(d) {
+      const st = d[0], cmd = st & 0xf0, ch = st & 15;
+      if (st === 0xf0 && d[1] === 0x7f && d[3] === 6 && d.length > 4) return "mmc:" + d[4];
+      if (st >= 0xfa && st <= 0xfc) return "rt:" + st;
+      if (cmd === 0x90 && d[2] > 0) return "n" + ch + ":" + d[1];
+      if (cmd === 0xb0 && d[2] > 0) return "c" + ch + ":" + d[1];
+      return null;
+    }
+    function wizMsg(d) {
+      const w = wiz, [st, a, b] = d, cmd = st & 0xf0, ch = st & 15, on = cmd === 0x90 && b > 0, cc = cmd === 0xb0;
+      if (st === 0xf8 || st === 0xfe) return;
+      // the rightmost key then the leftmost key ends a list (or skips a step)
+      const finish = () => {
+        if (!on || w.lo == null || w.hi == null || ch !== w.loCh) return false;
+        w.last = [...w.last, a].slice(-2);
+        return w.last[0] === w.hi && w.last[1] === w.lo;
+      };
+      const gestureKey = on && w.lo != null && ch === w.loCh && (a === w.hi || a === w.lo); // never a pad or a function
+      if (w.step === "hello") { if (on || cc || cmd === 0xe0) { wizSay("Connection OK."); wizGo("lo"); } return; }
+      if (w.step === "lo") { if (on) { w.lo = a; w.loCh = ch; wizGo("hi"); } return; }
+      if (w.step === "hi") { if (!on) return; if (a === w.lo) return wizSay("That is the same key. Press the rightmost key."); w.hi = a; if (w.hi < w.lo) [w.lo, w.hi] = [w.hi, w.lo]; return wizGo("pads"); }
+      if (w.step === "pads") {
+        if (!on) return;
+        if (w.lo != null && ch === w.loCh) return finish() ? wizNext() : wizSay("That is a key. Press the pads (they must not send on the same channel as the keys).");
+        if (w.padCh == null) w.padCh = ch;
+        if (ch !== w.padCh) return;
+        if (!w.pads.includes(a)) w.pads.push(a);
+        return wizSay(`${w.pads.length} pads · last: note ${a}, channel ${ch + 1}`);
+      }
+      if (finish()) return wizNext();
+      if (w.step === "knobs") {
+        if (cc && !NOT_KNOB.has(a) && !w.ccs.includes(a) && w.ccs.length < 32) { w.ccs.push(a); wizSay(`${w.ccs.length} knobs · last: CC ${a}`); }
+        return;
+      }
+      if (w.step === "sus") { if (cc && b >= 64 && ![0, 32, 98, 99, 100, 101].includes(a)) { w.sus = a; wizSay("Sustain: CC " + a); wizNext(); } return; }
+      if (w.step === "bend") { if (cmd === 0xe0) { w.bend = ch; wizSay("Pitch bend on channel " + (ch + 1)); wizNext(); } return; }
+      if (w.step === "mod") { if (cc && ![0, 32, 98, 99, 100, 101].includes(a) && !w.ccs.includes(a) && a !== w.sus) { w.mod = a; wizSay("Mod: CC " + a); wizNext(); } return; }
+      // the function buttons: not a gesture key, not a knob, not the sustain
+      const tok = fnToken(d);
+      if (!tok || gestureKey || (cc && (w.ccs.includes(a) || a === w.sus || a === w.mod))) return;
+      if (Object.values(w.fn).includes(tok)) return;
+      if (w.step === "fn") { if (w.extra < 16) { w.fn["f" + ++w.extra] = tok; wizSay(`F${w.extra} = ${tok}`); } return; }
+      w.fn[w.step] = tok; wizSay(`${STEP[w.step][0]} = ${tok}`); wizNext();
+    }
     function sourceOptions() {
       if (!el) return;
       const sel = el.querySelector("#mdSource");
@@ -2561,17 +2780,18 @@
       if (!MI.names.includes(device)) device = MI.names[0] || "";
       sel.value = device;
     }
-    function open() {
+    function open(o) {
       if (!MI.names.length) return;
-      if (el) return;
+      if (el) return o?.map && wizStart();
       device = MI.names[0];
       const style = document.createElement("style"); style.textContent = css; style.id = "mdStyle"; document.head.appendChild(style);
       el = document.createElement("div"); el.id = "mdPanel";
-      el.innerHTML = `<div class="mdCard" role="dialog" aria-modal="true" aria-label="MIDI device diagram"><header><h2>MIDI DEVICE · LIVE DIAGRAM</h2><button data-do="close">DONE</button></header><div class="mdRow"><label>Input port<select id="mdSource"></select></label><label>Diagram<select id="mdProfile"></select></label></div><small>A line sketch of the layout, not to scale. Pick the model that matches yours. Keys, pads and knobs light up as you use them; knobs are matched in the order of their CC numbers. LEARN pins a drawn control to the real one.</small><div class="mdDevice"></div><div class="mdMap"><div class="mdRow"><strong id="mdSelected">Select a key, pad or knob</strong><label>Pocket function<select id="mdAction"></select></label><button data-do="learn">LEARN FROM HARDWARE</button><button data-do="clear">CLEAR CONTROL</button><button data-do="defaults" id="mdDefaults" title="The functions the app gives the knobs and pads before you assign anything"></button></div><div class="mdHint" id="mdHint"></div><small>Choose a diagram control and a Pocket function, then press or turn its real counterpart. Assignments are saved for this input port and this Pocket app. Unassigned keys still play normally. Click a drawn key to preview it.</small><p><a id="mdSourceLink" target="_blank" rel="noopener noreferrer">Manufacturer reference ↗</a></p></div></div>`;
+      el.innerHTML = `<div class="mdCard" role="dialog" aria-modal="true" aria-label="MIDI device diagram"><header><h2>MIDI DEVICE · LIVE DIAGRAM</h2><button data-do="close">DONE</button></header><div class="mdRow"><label>Input port<select id="mdSource"></select></label><label>Diagram<select id="mdProfile"></select></label></div><div class="mdRow"><button data-do="map" title="Step by step: the connection, the lowest and highest key, every pad, every knob, the sustain pedal, the bend, mod and transport buttons. The panel learns your device.">MAP DEVICE</button><button data-do="unmap" id="mdUnmap" title="Forget what MAP found and go back to the model's own">RESET MAP</button><button data-do="export" title="Save the device's map as a file (to keep it, to share it, to add the device to the Pocket apps)">EXPORT</button><button data-do="import" title="Read a device map from a file">IMPORT</button><button data-do="report" title="Copy a report of everything this device sent, to paste in an issue or a message">COPY REPORT</button><button data-do="lights" title="Send notes to the device: pads with lights light up if the device takes lights from the computer">LIGHT TEST</button><input type="file" id="mdFile" accept=".json,application/json" hidden></div><div id="mdWiz" hidden></div><div id="mdLive" aria-live="off"></div><small>A line sketch of the layout, not to scale. Pick the model that matches yours. Keys, pads and knobs light up as you use them; knobs are matched in the order of their CC numbers. LEARN pins a drawn control to the real one.</small><div class="mdDevice"></div><div class="mdMap"><div class="mdRow"><strong id="mdSelected">Select a key, pad or knob</strong><label>Pocket function<select id="mdAction"></select></label><button data-do="learn">LEARN FROM HARDWARE</button><button data-do="clear">CLEAR CONTROL</button><button data-do="defaults" id="mdDefaults" title="The functions the app gives the knobs and pads before you assign anything"></button></div><div class="mdHint" id="mdHint"></div><small>Choose a diagram control and a Pocket function, then press or turn its real counterpart. Assignments are saved for this input port and this Pocket app. Unassigned keys still play normally. Click a drawn key to preview it.</small><p><a id="mdSourceLink" target="_blank" rel="noopener noreferrer">Manufacturer reference ↗</a></p></div></div>`;
       document.body.appendChild(el);
       sourceOptions();
-      el.querySelector("#mdSource").onchange = (e) => { device = e.target.value; learning = false; selected = ""; draw(); };
+      el.querySelector("#mdSource").onchange = (e) => { device = e.target.value; learning = false; wiz = null; wizShow(); selected = ""; draw(); };
       el.querySelector("#mdProfile").onchange = (e) => { profile = e.target.value; record().profile = profile; persist(); selected = ""; draw(); };
+      el.querySelector("#mdFile").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f && f.size < 100000) f.text().then(importHw).catch(() => hint("Could not read that file.")); };
       el.querySelector("#mdAction").onchange = () => { if (selected) setAssignment(selected, el.querySelector("#mdAction").value); };
       const pick = (control) => { select(control.dataset.control); if (control.dataset.control.startsWith("k")) preview(+control.dataset.control.slice(1)); };
       el.onclick = (e) => {
@@ -2579,6 +2799,14 @@
         if (control) return pick(control);
         const action = e.target.closest("[data-do]")?.dataset.do;
         if (action === "close") close();
+        if (action === "map") wizStart();
+        if (action === "wizNext") wizNext();
+        if (action === "wizCancel") { wiz = null; wizShow(); hint("Mapping cancelled."); }
+        if (action === "unmap") { delete hw[device]; persistHw(); draw(); hint("Back to the model's own measures."); }
+        if (action === "export") exportHw();
+        if (action === "import") el.querySelector("#mdFile").click();
+        if (action === "report") copyReport();
+        if (action === "lights") lightTest();
         if (action === "learn" && selected) { learning = true; hint("Now press the matching hardware control on " + device + "."); }
         if (action === "clear" && selected) { clearAssignment(selected); hint("Assignment removed."); }
         if (action === "defaults") { const r = record(); r.defaults = r.defaults === false; persist(); drawDevice(); select(selected); }
@@ -2588,8 +2816,9 @@
         if (control) { e.preventDefault(); pick(control); }
       };
       draw();
+      if (o?.map) wizStart();
     }
-    function close() { learning = false; el?.remove(); el = null; document.getElementById("mdStyle")?.remove(); }
+    function close() { learning = false; wiz = null; el?.remove(); el = null; document.getElementById("mdStyle")?.remove(); }
     function hint(text) { if (el) el.querySelector("#mdHint").textContent = text; }
     function draw() {
       if (!el) return;
@@ -2606,6 +2835,7 @@
       const box = el.querySelector(".mdDevice");
       box.innerHTML = schematic(prof(), base);
       tags(box.querySelector("svg"));
+      el.querySelector("#mdUnmap").hidden = !hw[device];
       const b = el.querySelector("#mdDefaults");
       if (b) b.textContent = "DEFAULTS " + (record().defaults === false ? "OFF" : "ON");
     }
@@ -2643,7 +2873,7 @@
     // the controls that are neither keys, pads nor knobs: [control, text] for a message, or null
     function special(p, cmd, cc, a, b, bound) {
       if (bound) return null;
-      if (p.shape === "mpk" && (cmd === 0xe0 || (cc && a === 1))) return ["j", cmd === 0xe0 ? "Joystick · pitch bend" : `Joystick · mod (CC 1) = ${b}`];
+      if (p.shape === "mpk" && (cmd === 0xe0 || (cc && a === (p.mod ?? 1)))) return ["j", cmd === 0xe0 ? "Joystick · pitch bend" : `Joystick · mod (CC ${a}) = ${b}`];
       if (p.shape === "pads" && cc) return ["xy", `X-Y pad · CC ${a} = ${b}`];
       if (p.shape === "nkey") {
         if (cmd === 0xe0) return [b >= 64 ? "b+" : "b-", "Pitch bend button"];
@@ -2654,6 +2884,8 @@
     }
     function observe(data, from) {
       const [st, a, b] = data, cmd = st & 0xf0;
+      if (from) tally(data, from);
+      if (wiz && el && from === device) { wizMsg(data); return true; } // MAP is listening: the app must not react
       if (st >= 0xf0 || !from) return;
       const noteOn = cmd === 0x90 && b > 0, noteOff = cmd === 0x80 || (cmd === 0x90 && b === 0), cc = cmd === 0xb0;
       const key = (cc ? "c" : "n") + (st & 15) + ":" + a;
@@ -2699,10 +2931,12 @@
     const isPad = (from, ch) => { const p = profOf(from); return !!p.pads && ch === (p.padCh ?? 9); };
     // the number (from 0) of the pad that sent this note: a drum-kit controller like the MPK Play mk3 does not number its pads from 36
     const padNo = (from, n) => { const p = profOf(from); return padIndex(p.pads || 8, n, p.padNotes); };
-    return { open, close, observe, route, fallback, defaultsOff, isPad, padNo };
+    // susCc: the CC of this device's sustain (64 unless MAP found another)
+    const susCc = (from) => profOf(from).sus ?? 64;
+    return { open, close, observe, route, fallback, defaultsOff, isPad, padNo, susCc };
   }
   window.createMidiPanel = createMidiPanel;
-  window.pocketMidiHelpers = { padIndex, knobRank, guess };
+  window.pocketMidiHelpers = { padIndex, knobRank, guess, vetHw };
 })();
     </script>
     <script>
@@ -6092,8 +6326,7 @@
         midiFace();
       }
       function midiMsg(e, from) {
-        midiPanel.observe(e.data, from);
-        if (MI.test) miTestMsg(e.data, from);
+        if (midiPanel.observe(e.data, from)) return; // true: MAP took the message
         const [st, a, b] = e.data,
           cmd = st & 0xf0,
           ch = st & 15,
@@ -6107,7 +6340,7 @@
         const act = MI.map[key] && MI.actions().find((x) => x.id === MI.map[key]);
         if (act) return miRun(act, key, cc, on, b);
         if (midiPanel.fallback(from, key, cc, on, b)) return; // the model's starting assignment
-        if (cc && a === 64) {
+        if (cc && a === midiPanel.susCc(from)) {
           // the sustain pedal: notes let go while it is down end when it comes up
           MI.sus = b >= 64;
           if (!MI.sus) {
@@ -6130,111 +6363,6 @@
         }
       }
       // ---- TEST: what does this device send?
-      const MI_FAM = [
-        [/mpk/i, "Akai MPK", "Keys on channel 1, pads usually on channel 10, 8 knobs (CC), joystick for pitch bend and mod."],
-        [/nano|micro|korg/i, "Korg nano / micro", "nanoPAD2: 16 pads on channel 1 and an X-Y pad. nanoKEY2: 25 keys with octave, pitch, mod and sustain buttons. The KORG KONTROL editor can change what they send."],
-        [/launchkey|novation/i, "Novation Launchkey", "Two ports: the plain one plays; the DAW one is for lights and transport (later)."],
-        [/synido/i, "Synido", "Pads and knobs; banks change the notes the pads send."],
-        [/privia|casio|px-?s|cdp/i, "Casio digital piano", "88 keys with velocity and a sustain pedal; no pads or knobs."],
-      ];
-      function midiTest() {
-        if (!MI.names.length) return toast("Connect a MIDI device first");
-        if (MI.test) clearTimeout(MI.test.f);
-        MI.test = { names: MI.names.slice(), from: new Set(), ch: new Set(), lo: 127, hi: 0, notes: 0, keys: new Set(), vlo: 127, vhi: 0, off80: 0, off90: 0, cc: {}, pb: 0, cat: 0, pat: 0, pc: 0, clock: 0, tr: new Set(), sysex: 0, log: [], t0: performance.now() };
-        miTestFace();
-      }
-      function miTestMsg(d, from) {
-        const T = MI.test,
-          st = d[0],
-          cmd = st & 0xf0;
-        if (from) T.from.add(from);
-        if (T.log.length < 400 && st !== 0xf8 && st !== 0xfe) T.log.push([Math.round(performance.now() - T.t0), ...d]);
-        if (st >= 0xf0) {
-          if (st === 0xf8) T.clock++;
-          else if (st === 0xfa || st === 0xfb || st === 0xfc) T.tr.add({ 250: "start", 251: "continue", 252: "stop" }[st]);
-          else if (st === 0xf0) T.sysex++;
-        } else {
-          T.ch.add((st & 15) + 1);
-          if (cmd === 0x90 && d[2] > 0) {
-            T.notes++;
-            T.keys.add(d[1]);
-            T.lo = Math.min(T.lo, d[1]);
-            T.hi = Math.max(T.hi, d[1]);
-            T.vlo = Math.min(T.vlo, d[2]);
-            T.vhi = Math.max(T.vhi, d[2]);
-          } else if (cmd === 0x80) T.off80++;
-          else if (cmd === 0x90) T.off90++;
-          else if (cmd === 0xb0) {
-            const k = (T.cc[d[1]] = T.cc[d[1]] || { lo: 127, hi: 0, n: 0, rel: 0 });
-            k.n++;
-            k.lo = Math.min(k.lo, d[2]);
-            k.hi = Math.max(k.hi, d[2]);
-            if ([1, 2, 3, 61, 62, 63, 65, 66, 67, 125, 126, 127].includes(d[2])) k.rel++; // relative knobs send small steps around 0 / 64
-          } else if (cmd === 0xe0) T.pb++;
-          else if (cmd === 0xd0) T.cat++;
-          else if (cmd === 0xa0) T.pat++;
-          else if (cmd === 0xc0) T.pc++;
-        }
-        // Refresh at most once per 60 ms; a continuous MIDI clock must not postpone the display forever.
-        if (!T.f) T.f = setTimeout(() => {
-          T.f = null;
-          if (MI.test === T) miTestFace();
-        }, 60);
-      }
-      const miNoteName = (n) => MI_NN[n % 12] + (Math.floor(n / 12) - 1);
-      function miTestRows() {
-        const T = MI.test,
-          nm = [...T.from].concat(T.names).join(" ") || "",
-          fam = MI_FAM.find(([re]) => re.test(nm)),
-          yes = (b, txt) => [b ? "✔" : "·", txt],
-          ccs = Object.entries(T.cc).filter(([n]) => n !== "64" && n !== "1"),
-          sus = T.cc[64],
-          mod = T.cc[1];
-        return [
-          ["◉", "Device: " + (T.names.join(", ") || "?") + (fam ? " — " + fam[1] : "")],
-          ...(fam ? [["i", fam[2]]] : []),
-          yes(T.notes, T.notes ? `Notes: ${T.keys.size} different (${T.notes} presses), ${miNoteName(T.lo)} to ${miNoteName(T.hi)}` : "Notes: play some keys or pads"),
-          yes(T.ch.size, "Channels: " + ([...T.ch].sort((a, b) => a - b).join(", ") || "—") + (T.ch.has(10) ? " (10 = pads / drums)" : "")),
-          yes(T.vhi > T.vlo, T.notes ? (T.vhi > T.vlo ? `Velocity: ${T.vlo} to ${T.vhi}` : `Velocity: always ${T.vhi} (fixed, or play softer and harder)`) : "Velocity: —"),
-          yes(T.off80 || T.off90, "Note off: " + (T.off80 && T.off90 ? "both kinds" : T.off80 ? "note-off messages" : T.off90 ? "note-on with velocity 0" : "—")),
-          yes(ccs.length, ccs.length ? "Knobs / sliders / buttons (CC): " + ccs.map(([n, k]) => `${n}${k.rel > k.n * 0.7 && k.n > 4 ? " rel" : ""} (${k.lo}–${k.hi})`).join(", ") : "Knobs: turn one"),
-          yes(sus, sus ? `Sustain pedal (CC 64): ${sus.n} moves${sus.lo === 0 && sus.hi === 127 ? "" : ` ${sus.lo}–${sus.hi}`}` : "Sustain pedal (CC 64): press it, if there is one"),
-          yes(mod, "Mod wheel (CC 1): " + (mod ? "yes" : "move it, if there is one")),
-          yes(T.pb, "Pitch bend: " + (T.pb ? "yes" : "move it, if there is one")),
-          yes(T.cat || T.pat, "Aftertouch: " + (T.cat ? "channel" : "") + (T.cat && T.pat ? " + " : "") + (T.pat ? "poly" : "") + (T.cat || T.pat ? "" : "press a key or pad harder after it sounds")),
-          yes(T.pc, "Program change: " + (T.pc ? T.pc + " sent" : "—")),
-          yes(T.clock || T.tr.size, "Clock / transport: " + (T.clock || T.tr.size ? (T.clock ? "clock " : "") + [...T.tr].join(", ") : "—")),
-        ];
-      }
-      function miTestFace() {
-        if (!MI.test) return;
-        let el = document.getElementById("miLearn");
-        if (!el) {
-          el = document.createElement("div");
-          el.id = "miLearn";
-          document.body.appendChild(el);
-          el.innerHTML = `<div class="mlBox mtBox"><i>MIDI TEST · play keys and pads, turn knobs, press the pedal, move the wheels</i><ul></ul><div class="mlB"><button data-mt="again">START AGAIN</button><button data-mt="copy">COPY REPORT</button><button data-mt="done" class="on">DONE</button></div></div>`;
-        }
-        el.onclick = (e) => {
-          const b = e.target.closest("[data-mt]");
-          if (!b) return;
-          if (b.dataset.mt === "copy") {
-            const txt = miTestRows().map(([a, b]) => a + " " + b).join("\n") + "\n\nfirst messages [ms, bytes...]:\n" + JSON.stringify(MI.test.log);
-            (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject())
-              .then(() => toast("Report copied: paste it in an issue or a message"))
-              .catch(() => toast("Could not copy here"));
-          } else if (b.dataset.mt === "again") midiTest();
-          else {
-            clearTimeout(MI.test.f);
-            MI.test = null;
-            el.remove();
-          }
-        };
-        // Only replace report rows: clock updates must not detach buttons mid-click.
-        el.querySelector("ul").innerHTML = miTestRows()
-          .map(([a, b]) => `<li class="${a === "✔" ? "ok" : a === "i" ? "inf" : ""}"><b>${a}</b>${String(b).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";")}</li>`)
-          .join("");
-      }
       function miRun(act, key, cc, on, v) {
         if (act.kind === "knob") return cc ? act.run(v / 127) : on && act.run(v / 127); // a pad on a knob: its velocity
         const press = cc ? v >= 64 : on; // pads in CC mode send 127 / 0
@@ -6361,7 +6489,7 @@
         ["midiDev", () => midiConnect()],
         ["midiMap", midiAssign],
         ["midiClr", midiClearMap],
-        ["midiTest", midiTest],
+        ["midiTest", () => midiPanel.open({ map: true })],
         ["midiView", () => midiPanel.open()],
       ].forEach(([id, f]) => {
         const b = document.getElementById(id);
@@ -9861,6 +9989,7 @@
             b: {
               en: [
                 "## Version 2.4.0",
+                "- **MAP:** the old MIDI TEST is now a step-by-step mapper, like an emulator's. Press any key, then the leftmost and the rightmost key (it counts the physical keys, whatever octave is selected), every pad and every knob in order, the sustain pedal, the bend, the mod, play, stop, record and any other function button (a list ends with the rightmost key and then the leftmost key). The map is saved for the controller (shared by the apps), and can be exported and imported as a file. It also shows the MIDI clock (BPM), start and stop, COPY REPORT, and a LIGHT TEST that sends notes to the device.",
                 "- **MIDI, Akai MPK mini Play mk3:** its pads (a drum kit, in both banks) and its knobs (their own CC numbers) are now matched in order, from a real report. Before, the panel saw one knob and the pads out of order.",
                 "- **Microphone blocked:** if the browser or the phone has the microphone switched off, a message now says so and shows the steps to turn it on for iPhone, Android or a computer (before, only a short note flashed by). TUNE, SING and PLAY check when they open.",
                 "- **Lists:** every dropdown now opens as a list of big buttons, grouped like the dropdown was, instead of the browser's own list. Tap one to choose, tap outside or CLOSE to leave.",
@@ -9880,6 +10009,7 @@
               ],
               es: [
                 "## Versión 2.4.0",
+                "- **MAP:** el antiguo MIDI TEST ahora es un mapeador paso a paso, como el de los emuladores. Pulsa una tecla, luego la tecla de más a la izquierda y la de más a la derecha (cuenta las teclas físicas, sea cual sea la octava), cada pad y cada pote en orden, el pedal de sustain, el bend, el mod, play, stop, record y cualquier otro botón de función (una lista termina con la tecla de la derecha y luego la de la izquierda). El mapa se guarda para el controlador (compartido por las apps) y se puede exportar e importar como archivo. También muestra el reloj MIDI (BPM), start y stop, COPY REPORT y un LIGHT TEST que envía notas al dispositivo.",
                 "- **MIDI, Akai MPK mini Play mk3:** sus pads (un kit de batería, en los dos bancos) y sus potenciómetros (con sus propios números de CC) ahora se reconocen en orden, a partir de un informe real. Antes el panel veía un solo potenciómetro y los pads desordenados.",
                 "- **Micrófono bloqueado:** si el navegador o el teléfono tiene el micrófono desactivado, ahora un mensaje lo dice y muestra los pasos para activarlo en iPhone, Android u ordenador (antes solo pasaba un aviso breve). TUNE, SING y PLAY lo comprueban al abrir.",
                 "- **Listas:** cada desplegable ahora se abre como una lista de botones grandes, agrupada como estaba el desplegable, en vez de la lista del navegador. Toca uno para elegir, toca fuera o CLOSE para salir.",

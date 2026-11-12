@@ -11,7 +11,7 @@ test("learned bindings route only on their own input and Pocket app", () => {
   const key = "pocket.midi.devices.v1.tune-pocket";
   storage.set(key, JSON.stringify({ "MPK mini Play mk3": { profile: "akai", map: { "n9:36": "play" }, controls: { p0: { key: "n9:36", action: "play" } } } }));
   const context = {
-    window: {}, location: { pathname: "/tune-pocket/" },
+    performance, setTimeout, window: {}, location: { pathname: "/tune-pocket/" },
     localStorage: { getItem: (k) => storage.get(k), setItem: (k, v) => storage.set(k, v) },
   };
   vm.createContext(context);
@@ -26,14 +26,14 @@ test("learned bindings route only on their own input and Pocket app", () => {
   assert.equal(calls[0][1], "MPK mini Play mk3/n9:36");
   assert.equal(calls[0][3], true);
   // A different Pocket app at the same localhost origin does not inherit these mappings.
-  const other = { ...context, window: {}, location: { pathname: "/sing-pocket/" } };
+  const other = { ...context, performance, setTimeout, window: {}, location: { pathname: "/sing-pocket/" } };
   vm.createContext(other);
   vm.runInContext(source, other);
   assert.equal(other.window.createMidiPanel(MI, () => {}, () => {}).route("MPK mini Play mk3", "n9:36", false, true, 100), false);
 });
 
 test("real-time clock and unmapped messages pass through", () => {
-  const context = { window: {}, location: { pathname: "/track-pocket/" }, localStorage: { getItem: () => null } };
+  const context = { performance, setTimeout, window: {}, location: { pathname: "/track-pocket/" }, localStorage: { getItem: () => null } };
   vm.createContext(context);
   vm.runInContext(source, context);
   const panel = context.window.createMidiPanel({ names: [], actions: () => [] }, () => { throw Error("unexpected action"); }, () => {});
@@ -43,7 +43,7 @@ test("real-time clock and unmapped messages pass through", () => {
 });
 
 test("pads and knobs are matched without learning", () => {
-  const context = { window: {}, location: { pathname: "/track-pocket/" }, localStorage: { getItem: () => null } };
+  const context = { performance, setTimeout, window: {}, location: { pathname: "/track-pocket/" }, localStorage: { getItem: () => null } };
   vm.createContext(context);
   vm.runInContext(source, context);
   const { padIndex, knobRank, guess } = context.window.pocketMidiHelpers;
@@ -69,7 +69,7 @@ test("pads and knobs are matched without learning", () => {
 
 test("the starting assignment: pads and knobs do what the app says until the user changes it", () => {
   const storage = new Map();
-  const context = { window: {}, location: { pathname: "/track-pocket/" }, localStorage: { getItem: (k) => storage.get(k), setItem: (k, v) => storage.set(k, v) } };
+  const context = { performance, setTimeout, window: {}, location: { pathname: "/track-pocket/" }, localStorage: { getItem: (k) => storage.get(k), setItem: (k, v) => storage.set(k, v) } };
   vm.createContext(context);
   vm.runInContext(source, context);
   const calls = [];
@@ -103,7 +103,7 @@ test("the starting assignment: pads and knobs do what the app says until the use
 });
 
 test("Korg nanoPAD2 pads (channel 1, 16 pads) and the nanoKEY2 are recognised", () => {
-  const context = { window: {}, location: { pathname: "/sing-pocket/" }, localStorage: { getItem: () => null } };
+  const context = { performance, setTimeout, window: {}, location: { pathname: "/sing-pocket/" }, localStorage: { getItem: () => null } };
   vm.createContext(context);
   vm.runInContext(source, context);
   assert.equal(context.window.pocketMidiHelpers.guess("nanoPAD2 PAD"), "korgpad");
@@ -115,4 +115,16 @@ test("Korg nanoPAD2 pads (channel 1, 16 pads) and the nanoKEY2 are recognised", 
   assert.equal(panel.fallback("nanoPAD2 PAD", "n0:51", false, true, 100), true); // pad 16
   assert.equal(panel.fallback("nanoPAD2 PAD", "n9:36", false, true, 100), false); // channel 10 is not this model's pad channel
   assert.deepEqual(calls, ["p0", "p15"]);
+});
+
+test("a device map read from a file keeps only known fields in range", () => {
+  const context = { performance, setTimeout, window: {}, location: { pathname: "/track-pocket/" }, localStorage: { getItem: () => null } };
+  vm.createContext(context);
+  vm.runInContext(source, context);
+  const { vetHw } = context.window.pocketMidiHelpers;
+  const good = vetHw({ keys: 25, pads: 8, padCh: 9, padNotes: [[36, 38]], ccs: [74, 6], sus: 64, bend: 0, mod: 1, fn: { play: "rt:250", stop: "n9:80", f1: "c0:117", rec: "mmc:6" } });
+  assert.deepEqual(JSON.parse(JSON.stringify(good)), { keys: 25, pads: 8, padCh: 9, padNotes: [[36, 38]], ccs: [74, 6], knobs: 2, cc0: 0, sus: 64, bend: 0, mod: 1, fn: { play: "rt:250", stop: "n9:80", f1: "c0:117", rec: "mmc:6" } });
+  assert.equal(vetHw({ keys: 9999, ccs: ["x"], padNotes: [[300]], fn: { play: "<script>", evil: "n0:1" } }), null);
+  assert.equal(vetHw("x"), null);
+  assert.deepEqual(Object.keys(vetHw({ keys: 61, fn: { play: "n0:300", stop: "rt:252" } }).fn), ["stop"]);
 });
