@@ -255,6 +255,15 @@ class Tune(Page):
         self.open()
         self.assertEqual(self.js("const a = S.met.bpm; LP.rec = {i: 0}; setBpm(a + 40); const held = S.met.bpm === a; LP.rec = null; setBpm(a + 40); return [held, S.met.bpm === a + 40]"), [True, True])
 
+    def test_every_jam_genre_plays(self):
+        self.open()
+        for g in self.js("return GENRES.map((x) => x[0])"):
+            with self.subTest(g):
+                self.js("document.querySelector('button[data-v=jam]').click(); document.querySelector('#genres [data-g=%s]').click(); if (!J.on) jamStart();" % g)
+                self.wait(0.5)
+                self.js("if (J.on) jamStop()")
+                self.assertClean()
+
     def test_custom_tuning_name_is_escaped(self):
         self.open()
         self.js("localStorage.setItem('customTunings', JSON.stringify([{name: arguments[0], instrument: 'guitar', strings: ['E2','A2']}]))", EVIL % "tuning")
