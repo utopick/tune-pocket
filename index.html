@@ -7256,18 +7256,45 @@
           .join("");
         ribFace();
       }
-      // a chord: the root low, the chord above it; strummed on the strings, struck on the piano (and the winds)
+      // A chord as the selected instrument plays it: [midi note, delay in s, length in s]. The notes sit inside the range of the
+      // instrument (its open strings and twelve frets above, or its lowest note and about an octave and a half) and each one
+      // plays in its own way: strummed on the guitar, guitalele and ukulele, a root and a fifth on the bass, bowed on the violin,
+      // broken one note at a time on the recorder and the tin whistle, struck on the piano.
+      function cofVoicing(ch, ivs, len) {
+        const kind = KIND(S.inst),
+          ms = stringMidis(),
+          lo = Math.min(...ms),
+          rel = [...new Set(ivs.map((iv) => iv % 12))],
+          up = (m0, hi) => rel.map((iv) => { let m = m0 + iv; while (m > hi) m -= 12; return m; }).sort((a, b) => a - b),
+          rootAt = (floor) => floor + ((((ch.pc - floor) % 12) + 12) % 12);
+        if (S.inst === "piano") {
+          const root = 48 + ch.pc;
+          return [[root - 12, 0, len], ...ivs.map((iv, n) => [root + iv, (n + 1) * 0.008, len])];
+        }
+        if (S.inst === "bass") {
+          const r = rootAt(lo),
+            fifth = ivs.find((iv) => iv >= 6 && iv <= 8) ?? 7;
+          return [[r, 0, len], [r + fifth, 0.03, len]];
+        }
+        if (kind === "wind") {
+          const r = rootAt(lo),
+            notes = [...new Set(up(r, lo + 19))],
+            step = Math.min(0.22, (len * 0.8) / notes.length);
+          return notes.map((m, n) => [m, n * step, Math.max(0.35, step * 2.2)]);
+        }
+        const hi = Math.max(...ms) + 12,
+          r = rootAt(lo),
+          notes = [...new Set([r, ...up(r, hi)])].sort((a, b) => a - b),
+          gap = kind === "fretless" ? 0.07 : 0.03;
+        return notes.map((m, n) => [m, n * gap, len]);
+      }
       function cofPlay(ch, t = 0, len = 1.6) {
         const ivs = cofIvs(ch, S.cof.sev, cofDom(ch, S.cof.minor)),
-          root = 48 + ch.pc,
           kind = KIND(S.inst),
-          strum = kind === "fret" || kind === "fretless" ? 0.03 : 0.008,
-          note = (m, at) =>
-            kind === "fret" || kind === "fretless"
-              ? playInst(midiToHz(m), at, len)
-              : getCtx().then((c) => TK.voice(c, sclOut(c), tkIndex("Piano"), m, c.currentTime + at + 0.01, len, 0.55));
-        note(root - 12, t);
-        ivs.forEach((iv, n) => note(root + iv, t + (n + 1) * strum));
+          voice = tkIndex(S.inst === "whistle" ? "Whistle" : S.inst === "recorder" ? "Recorder" : "Piano");
+        cofVoicing(ch, ivs, len).forEach(([m, d, l]) =>
+          kind === "fret" || kind === "fretless" ? playInst(midiToHz(m), t + d, l) : getCtx().then((c) => TK.voice(c, sclOut(c), voice, m, c.currentTime + t + d + 0.01, l, 0.55)),
+        );
       }
       function cofLight(k, ms) {
         COF.k = k;
@@ -9811,6 +9838,7 @@
                 "- **JAM keys:** the empty space of the JAM view shows a waveform and rotates to a **piano** and **drum pads** (the last button of the bottom row). A new **KEYS PLAY** instrument in SOUNDS sets what the keys play, on screen and from a MIDI keyboard, through the jam effects. When the effects of the JAM or the looper are open, the MIDI pads and keys play them.",
                 "- **Install it:** the app is now a web app (PWA). Add it to the Home Screen (iPhone: Safari ▸ Share; Android and desktop: Chrome ▸ Install app) and it opens like an app and works offline. The welcome note and **OPTIONS** have an **INSTALL** button that knows when the app is already installed. The Android APK is retired.",
                 "- **Loops are kept:** the looper saves its loops by itself and brings them back when you reopen it. TUNINGS ▸ **FILES** saves sets of loops by name, exports and imports them as files, and shows the storage used. Custom tunings moved to a `tune.` key (they move over by themselves).",
+                "- **Circle of fifths:** the chords now sound like the instrument you chose and sit in its range: strummed on the guitar, guitalele and ukulele, a root and a fifth on the bass, bowed on the violin, one note at a time on the recorder and tin whistle (they played as a piano before).",
                 "- **Install it:** the app is now a web app (PWA). Add it to the Home Screen (iPhone: Safari ▸ Share; Android and desktop: Chrome ▸ Install app) and it opens like an app and works offline. The Android APK is retired.",
                 "- **Looper:** the tempo and the bar length are locked while a recording counts in or runs, and the count-in never shows more than one bar (it once showed hundreds).",
                 "- **MIDI starting assignment:** known controllers (Akai MPK, Launchkey…) now start with a function on each knob and pad, shown as tags with a line on the DEVICE drawing: the pads hold the JAM effects (Flanger, Filter, Echo…) and knob 1 sets the tempo, and the keys play the piano as always. ASSIGN, LEARN and the **DEFAULTS** switch in DEVICE change it, and CLEAR turns it off.",
@@ -9826,6 +9854,7 @@
                 "- **Teclas del JAM:** el espacio vacío del JAM muestra una forma de onda y rota a un **piano** y **pads de batería** (el último botón de la barra de abajo). Un nuevo instrumento **KEYS PLAY** en SOUNDS elige lo que tocan las teclas, en pantalla y desde un teclado MIDI, con los efectos del jam. Con los efectos del JAM o del looper abiertos, los pads y teclas MIDI los tocan.",
                 "- **Instálala:** la app ahora es una web app (PWA). Añádela a la pantalla de inicio (iPhone: Safari ▸ Compartir; Android y escritorio: Chrome ▸ Instalar app) y se abre como una app y funciona sin conexión. La nota de bienvenida y **OPTIONS** tienen un botón **INSTALL** que sabe si la app ya está instalada. El APK de Android se retira.",
                 "- **Los loops se conservan:** el looper guarda sus loops solo y los devuelve al volver a abrirlo. TUNINGS ▸ **FILES** guarda conjuntos de loops con nombre, los exporta e importa como archivos y muestra el almacenamiento usado. Las afinaciones propias pasaron a una clave `tune.` (se mueven solas).",
+                "- **Círculo de quintas:** los acordes suenan como el instrumento elegido y caen en su registro: rasgueados en guitarra, guitalele y ukelele, fundamental y quinta en el bajo, con arco en el violín, nota a nota en la flauta y el tin whistle (antes sonaban como piano).",
                 "- **Instálala:** la app ahora es una web app (PWA). Añádela a la pantalla de inicio (iPhone: Safari ▸ Compartir; Android y escritorio: Chrome ▸ Instalar app) y se abre como una app y funciona sin conexión. El APK de Android se retira.",
                 "- **Looper:** el tempo y la longitud del compás se bloquean mientras una grabación cuenta o graba, y la cuenta nunca muestra más de un compás (una vez mostró cientos).",
                 "- **Asignación MIDI inicial:** los controladores conocidos (Akai MPK, Launchkey…) empiezan con una función en cada pote y pad, mostrada como etiquetas con una línea en el dibujo de DEVICE: los pads mantienen los efectos del JAM (Flanger, Filtro, Eco…) y el pote 1 ajusta el tempo, y las teclas tocan el piano como siempre. ASSIGN, LEARN y el interruptor **DEFAULTS** de DEVICE la cambian, y CLEAR la desactiva.",
