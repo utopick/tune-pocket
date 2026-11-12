@@ -85,7 +85,7 @@ app, then copy it to the other two so they stay identical.
 5. Run the automated checks (a real Chrome driven by Selenium; about 30 s):
    `python3 -m venv .venv && .venv/bin/pip install -r tests/requirements.txt` once, then `.venv/bin/python tests/e2e.py`.
    They open every view and help page, feed the app hostile names, malformed songs and damaged saved settings, and check
-   that nothing runs, nothing throws and the app still starts. `tests/e2e.py` is the same file in all three apps; add a
+   that nothing runs, nothing throws and the app still starts. `tests/e2e.py` is the same file in the four apps; add a
    test there when you fix a bug. `node tests/midi-device.test.js` checks the MIDI helpers.
 
 ## Rules of thumb

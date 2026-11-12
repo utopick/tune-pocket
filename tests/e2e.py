@@ -1,6 +1,6 @@
 """End-to-end checks for a Pocket app, driven through a real Chrome with Selenium.
 
-The same file lives in track-pocket, tune-pocket and sing-pocket; it works out which app it is in from the folder name.
+The same file lives in track-pocket, tune-pocket, sing-pocket and play-pocket; it works out which app it is in from the folder name.
 Setup (once):   python3 -m venv .venv && .venv/bin/pip install selenium
 Run:            .venv/bin/python tests/e2e.py            (add -v for the names; HEAD=1 to watch the browser)
 Needs Chrome installed; Selenium downloads the matching driver by itself.
@@ -9,7 +9,7 @@ import functools, http.server, json, os, sys, threading, unittest, urllib.reques
 from selenium import webdriver
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-APP = os.path.basename(ROOT).split("-")[0]  # track | tune | sing
+APP = os.path.basename(ROOT).split("-")[0]  # track | tune | sing | play
 # a name that would run script if any place put it into the page unescaped
 EVIL = "<img src=x onerror=\"__pwned.push('%s')\">"
 
@@ -44,6 +44,8 @@ class Page(unittest.TestCase):
         o = webdriver.ChromeOptions()
         if not os.environ.get("HEAD"): o.add_argument("--headless=new")
         o.add_argument("--window-size=390,844"); o.add_argument("--autoplay-policy=no-user-gesture-required")
+        if APP == "play":  # the rig needs an input: Chrome's pretend microphone (a beep), allowed without asking
+            o.add_argument("--use-fake-device-for-media-stream"); o.add_argument("--use-fake-ui-for-media-stream")
         self.d = webdriver.Chrome(options=o)
         self.d.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": HOOK})
         self.addCleanup(self.d.quit)
@@ -65,8 +67,8 @@ class Page(unittest.TestCase):
 
     def tour(self):
         """Open every view and every help page, in both themes."""
-        for v in self.js("return [...document.querySelectorAll('#hViews [data-v]')].map(e => e.dataset.v)"):
-            self.js("document.querySelector('#hViews [data-v=\"%s\"]').click()" % v); self.wait(0.15)
+        for v in self.js("return [...document.querySelectorAll('#hViews [data-v], header > [data-v]')].map(e => e.dataset.v)"):
+            self.js("document.querySelector('#hViews [data-v=\"%s\"], header > [data-v=\"%s\"]').click()" % (v, v)); self.wait(0.15)
         for th in ("dark", "light"):
             self.js("setTheme(arguments[0])", th)
             for s in self.js("return HELP.map(h => h.id)"):
@@ -319,6 +321,57 @@ class Sing(Page):
                 self.js("localStorage.setItem('sing.state', arguments[0]); sessionStorage.clear()", json.dumps(v))
                 self.reopen(1.5)
                 self.assertTrue(self.js("return !!window.__up && !!document.querySelector('#hViews [data-v]')"))
+
+
+@unittest.skipUnless(APP == "play", "PLAY only")
+class Play(Page):
+    PUT = "return new Promise(ok => idbDo('readwrite', s => (arguments[0].forEach(r => s.put(r)), s.count()), arguments[1]).then(ok))"
+
+    def test_every_control_has_a_title(self):
+        self.open()
+        for v in self.js("return [...document.querySelectorAll('header > [data-v]')].map(e => e.dataset.v)"):
+            self.js("showView(arguments[0]); ['lEdit', 'lFxP'].forEach(i => document.querySelector('#' + i).hidden = false); document.querySelectorAll('.fpanel').forEach(e => e.hidden = false)", v)
+            bare = self.js("return [...document.querySelectorAll('main button, main select, main input[type=range], #vTabs button, header button')].filter(b => b.offsetParent && !b.title && !b.closest('label[title]')).map(b => b.id || b.textContent.trim().slice(0, 20))")
+            with self.subTest(v): self.assertEqual(bare, [])
+
+    def test_board_file_and_saved_board_are_checked(self):
+        self.open()
+        got = self.js("""const k = FXI.od.knobs[0], fx = vetFx({ od: { on: 'yes', [k[0]]: 1e9 }, zzz: { on: true }, amp: 7 }), sl = vetSlots(['od', 'od', 'zzz', arguments[0], 'amp'].concat(Array(60).fill('cab')));
+          return [fx.od.on, fx.od[k[0]] === k[3], 'zzz' in fx, sl.length, sl.filter(Boolean)]""", EVIL % "slot")
+        self.assertEqual(got, [False, True, False, 27, ["od", "amp", "cab"]])
+        for bad in ["[]", "7", '{"slots": "x", "fx": "x", "mix": 3, "loop": "x", "sel": {"pedal": 99}}', '{"slots": [1, {}], "fx": {"od": null}, "mix": {"gtr": {"v": "loud"}}, "loop": {"bpm": "fast", "sync": {}}}', "{broken"]:
+            with self.subTest(bad):
+                self.js("localStorage.setItem('play.state', arguments[0]); localStorage.setItem('play.lat', arguments[0]); localStorage.setItem('play.opts', arguments[0]); localStorage.setItem('play.audioIn', arguments[0])", bad)
+                self.reopen(); self.tour()
+                self.assertTrue(self.js("return S.slots.length === 27 && S.loop.bpm >= 40 && document.querySelector('#unit').children.length > 0"))
+                self.assertClean()
+
+    def test_track_name_is_escaped(self):
+        self.open()
+        self.js(self.PUT.replace("arguments[0]", "[{ id: 'x', name: arguments[0], size: 1, blob: new Blob(['x']) }, { id: 'y', name: 7 }, null].filter(Boolean)"), EVIL % "track", "tracks")
+        self.reopen(); self.js("showView('tracks')"); self.wait(0.3)
+        self.assertEqual(self.js("return TR.list.length"), 1)
+        self.js("document.querySelector('#trList [data-del]').click()"); self.tour(); self.assertClean()
+
+    def test_damaged_kept_loops_are_refused(self):
+        self.open()
+        self.js(self.PUT.replace("arguments[0]", """[{ id: 0, sr: 44100, bars: 99, a: 'x', o: -5, vol: 99, data: new Float32Array(44100) }, { id: 1, sr: 5, data: new Float32Array(44100) }, { id: 2, sr: 44100, data: 'AAAA' },
+          { id: 3, sr: 44100, data: new Float32Array(3) }, { id: 99, sr: 44100, data: new Float32Array(44100) }, { id: 4 }]"""), None, "loops")
+        self.reopen(); self.wait(0.5)
+        self.assertEqual(self.js("return [LP.loops.filter(Boolean).length, LP.loops[0].bars, LP.loops[0].vol]"), [1, 2, 1.5])
+        self.js("showView('loop')"); self.assertClean()
+
+    def test_looper_records_the_input_and_keeps_the_loop(self):
+        self.open()
+        self.js("document.querySelector('#listen').click()"); self.wait(2.5)
+        self.assertTrue(self.js("return A.mic && A.ctx.state === 'running'"), "not listening")
+        self.js("showView('loop'); S.loop.bpm = 240; S.loop.bars = 1; lpPad(0)"); self.wait(5)  # one bar of count-in, one bar recorded
+        self.assertTrue(self.js("return !!LP.loops[0] && !LP.rec && Math.abs(LP.loops[0].buf.duration - 1) < 0.05"))
+        for b in ("lEditB", "lRev", "lNorm", "lQuant", "lUndo", "lFxB", "lAll"):
+            self.js("document.querySelector('#' + arguments[0]).click()", b); self.wait(0.2)
+        self.wait(1); self.reopen(1.5)
+        self.assertEqual(self.js("return LP.loops.filter(Boolean).length"), 1)
+        self.assertEqual(self.errors(), [])
 
 
 if __name__ == "__main__":
