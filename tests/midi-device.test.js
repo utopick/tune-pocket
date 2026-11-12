@@ -149,3 +149,29 @@ test("the MPK Play mk3 layout is told from the messages only one layout sends", 
   panel.observe([0xb0, 74, 20], "Some Keyboard"); // other devices are left alone
   assert.equal(panel.padNo("Some Keyboard", 38), 2); // generic: (38 - 36) % 8
 });
+
+test("with the mod key held, pads and knobs act as the second set", () => {
+  const storage = new Map();
+  const mpk = "MPK mini Play mk3";
+  storage.set("pocket.midi.hw.v1", JSON.stringify({ [mpk]: { keys: 25, pads: 8, padCh: 9, padNotes: [[36, 37, 38, 39, 40, 41, 42, 43]], ccs: [70, 71, 72, 73, 74, 75, 76, 77], knobs: 8, cc0: 0, modKey: "c0:64" } }));
+  const context = { performance, setTimeout, window: {}, location: { pathname: "/track-pocket/" }, localStorage: { getItem: (k) => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v) } };
+  vm.createContext(context);
+  vm.runInContext(source, context);
+  const ran = [];
+  const ids = Array.from({ length: 16 }, (_, i) => "k" + i);
+  const MI = { names: [mpk], map: {}, defaults: () => ({ knobs: ids.map((id) => [id, id]), pads: ids.map((id) => ["p" + id, id]) }), actions: () => [...ids, ...ids.map((id) => "p" + id)].map((id) => ({ id, group: "x", name: id, kind: "knob" })) };
+  const panel = context.window.createMidiPanel(MI, (a) => ran.push(a.id), () => {});
+  panel.fallback(mpk, "c0:70", true, false, 64);
+  panel.observe([0xb0, 64, 127], mpk); // the mod key (the pedal) goes down
+  panel.fallback(mpk, "c0:70", true, false, 64);
+  panel.fallback(mpk, "c0:77", true, false, 64);
+  assert.equal(panel.padNo(mpk, 39), 11);
+  panel.observe([0xb0, 64, 0], mpk); // and up
+  panel.fallback(mpk, "c0:70", true, false, 64);
+  assert.equal(panel.padNo(mpk, 39), 3);
+  assert.deepEqual(ran, ["k0", "k8", "k15", "k0"]);
+  const { vetHw } = context.window.pocketMidiHelpers;
+  assert.equal(vetHw({ keys: 25, modKey: "c0:64" }).modKey, "c0:64");
+  assert.equal(vetHw({ keys: 25, modKey: "rt:250" }).modKey, undefined);
+  assert.equal(vetHw({ keys: 25, modKey: "<b>" }).modKey, undefined);
+});
