@@ -106,6 +106,14 @@ class Track(Page):
                 EVIL % "song name", EVIL % "pattern name", EVIL % "preset")
         self.wait(0.6); self.assertClean()
 
+    def test_variator_builds_a_song_for_every_style_and_seed(self):
+        self.open()
+        bad = self.js("""const out = [];
+          for (const s of Object.keys(V_STY)) for (let i = 0; i < 400; i++) { VAR.style = s; VAR.seed = String((i * 2654435 + 12345) % 100000000);
+            try { varBuild(); } catch (e) { out.push(s + " " + VAR.seed + " " + e.message); if (out.length > 5) return out; } }
+          return out""")
+        self.assertEqual(bad, [])
+
     def test_malformed_songs_are_rejected_or_repaired_and_never_stick(self):
         cases = {"no patterns": "e.song.patterns = []", "order past the end": "e.song.order = [99]", "empty order": "e.song.order = []",
                  "huge length": "e.song.patterns[0].len = 1e9", "short rows": "e.song.patterns[0].ch = [[]]",
