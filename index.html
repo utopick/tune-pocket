@@ -2276,7 +2276,7 @@
           <div id="nnBar"><button data-nn="abc">A B C</button><button data-nn="sol">DO RE MI</button></div>
           <div class="hint">Letters or solfège, for every app: TRACK, TUNE and SING.Pocket.</div>
           <h3 style="margin-top: 12px">MIDI device</h3>
-          <div id="midiBar"><button id="midiDev">CONNECT</button><div class="mrow"><button id="midiMap">ASSIGN</button><button id="midiClr">CLEAR</button><button id="midiTest" title="Map your controller step by step: keys, pads, knobs, sustain, bend, transport. Saved, exported, imported.">MAP</button><button id="midiView" title="Live device diagram and assignments">DEVICE</button><button id="midiSnd" title="The keys sound in the app. Turn it off for a keyboard with its own speakers.">SOUND</button></div></div>
+          <div id="midiBar"><button id="midiDev">CONNECT</button><div class="mrow"><button id="midiMap">ASSIGN</button><button id="midiClr">CLEAR</button><button id="midiTest" title="Map your controller step by step: keys, pads, knobs, sustain, bend, transport. Saved, exported, imported.">MAP</button><button id="midiMon" title="See what your device sends: keys, pads, knobs, channels, clock. A report to copy.">MONITOR</button><button id="midiView" title="Live device diagram and assignments">DEVICE</button><button id="midiSnd" title="The keys sound in the app. Turn it off for a keyboard with its own speakers.">SOUND</button></div></div>
           <div class="hint">
             Experimental. The keys sound with a piano (<b>SOUND</b> turns it off, for keyboards with their own speakers).
             In SCALES the keys light the notes you play, PRACTICE listens to them instead of the microphone, and a
@@ -6358,6 +6358,7 @@
         midiFace();
       }
       function midiMsg(e, from) {
+        if (MI.mon) miMonMsg(e.data, from);
         if (midiPanel.observe(e.data, from)) return; // true: MAP took the message
         const [st, a, b] = e.data,
           cmd = st & 0xf0,
@@ -6395,6 +6396,111 @@
         }
       }
       // ---- TEST: what does this device send?
+      const MI_FAM = [
+        [/mpk/i, "Akai MPK", "Keys on channel 1, pads usually on channel 10, 8 knobs (CC), joystick for pitch bend and mod."],
+        [/nano|micro|korg/i, "Korg nano / micro", "nanoPAD2: 16 pads on channel 1 and an X-Y pad. nanoKEY2: 25 keys with octave, pitch, mod and sustain buttons. The KORG KONTROL editor can change what they send."],
+        [/launchkey|novation/i, "Novation Launchkey", "Two ports: the plain one plays; the DAW one is for lights and transport (later)."],
+        [/synido/i, "Synido", "Pads and knobs; banks change the notes the pads send."],
+        [/privia|casio|px-?s|cdp/i, "Casio digital piano", "88 keys with velocity and a sustain pedal; no pads or knobs."],
+      ];
+      function midiMonitor() {
+        if (!MI.names.length) return toast("Connect a MIDI device first");
+        if (MI.mon) clearTimeout(MI.mon.f);
+        MI.mon = { names: MI.names.slice(), from: new Set(), ch: new Set(), lo: 127, hi: 0, notes: 0, keys: new Set(), vlo: 127, vhi: 0, off80: 0, off90: 0, cc: {}, pb: 0, cat: 0, pat: 0, pc: 0, clock: 0, tr: new Set(), sysex: 0, log: [], t0: performance.now() };
+        miMonFace();
+      }
+      function miMonMsg(d, from) {
+        const T = MI.mon,
+          st = d[0],
+          cmd = st & 0xf0;
+        if (from) T.from.add(from);
+        if (T.log.length < 400 && st !== 0xf8 && st !== 0xfe) T.log.push([Math.round(performance.now() - T.t0), ...d]);
+        if (st >= 0xf0) {
+          if (st === 0xf8) T.clock++;
+          else if (st === 0xfa || st === 0xfb || st === 0xfc) T.tr.add({ 250: "start", 251: "continue", 252: "stop" }[st]);
+          else if (st === 0xf0) T.sysex++;
+        } else {
+          T.ch.add((st & 15) + 1);
+          if (cmd === 0x90 && d[2] > 0) {
+            T.notes++;
+            T.keys.add(d[1]);
+            T.lo = Math.min(T.lo, d[1]);
+            T.hi = Math.max(T.hi, d[1]);
+            T.vlo = Math.min(T.vlo, d[2]);
+            T.vhi = Math.max(T.vhi, d[2]);
+          } else if (cmd === 0x80) T.off80++;
+          else if (cmd === 0x90) T.off90++;
+          else if (cmd === 0xb0) {
+            const k = (T.cc[d[1]] = T.cc[d[1]] || { lo: 127, hi: 0, n: 0, rel: 0 });
+            k.n++;
+            k.lo = Math.min(k.lo, d[2]);
+            k.hi = Math.max(k.hi, d[2]);
+            if ([1, 2, 3, 61, 62, 63, 65, 66, 67, 125, 126, 127].includes(d[2])) k.rel++; // relative knobs send small steps around 0 / 64
+          } else if (cmd === 0xe0) T.pb++;
+          else if (cmd === 0xd0) T.cat++;
+          else if (cmd === 0xa0) T.pat++;
+          else if (cmd === 0xc0) T.pc++;
+        }
+        // Refresh at most once per 60 ms; a continuous MIDI clock must not postpone the display forever.
+        if (!T.f) T.f = setTimeout(() => {
+          T.f = null;
+          if (MI.mon === T) miMonFace();
+        }, 60);
+      }
+      const miNoteName = (n) => MI_NN[n % 12] + (Math.floor(n / 12) - 1);
+      function miMonRows() {
+        const T = MI.mon,
+          nm = [...T.from].concat(T.names).join(" ") || "",
+          fam = MI_FAM.find(([re]) => re.test(nm)),
+          yes = (b, txt) => [b ? "✔" : "·", txt],
+          ccs = Object.entries(T.cc).filter(([n]) => n !== "64" && n !== "1"),
+          sus = T.cc[64],
+          mod = T.cc[1];
+        return [
+          ["◉", "Device: " + (T.names.join(", ") || "?") + (fam ? " — " + fam[1] : "")],
+          ...(fam ? [["i", fam[2]]] : []),
+          yes(T.notes, T.notes ? `Notes: ${T.keys.size} different (${T.notes} presses), ${miNoteName(T.lo)} to ${miNoteName(T.hi)}` : "Notes: play some keys or pads"),
+          yes(T.ch.size, "Channels: " + ([...T.ch].sort((a, b) => a - b).join(", ") || "—") + (T.ch.has(10) ? " (10 = pads / drums)" : "")),
+          yes(T.vhi > T.vlo, T.notes ? (T.vhi > T.vlo ? `Velocity: ${T.vlo} to ${T.vhi}` : `Velocity: always ${T.vhi} (fixed, or play softer and harder)`) : "Velocity: —"),
+          yes(T.off80 || T.off90, "Note off: " + (T.off80 && T.off90 ? "both kinds" : T.off80 ? "note-off messages" : T.off90 ? "note-on with velocity 0" : "—")),
+          yes(ccs.length, ccs.length ? "Knobs / sliders / buttons (CC): " + ccs.map(([n, k]) => `${n}${k.rel > k.n * 0.7 && k.n > 4 ? " rel" : ""} (${k.lo}–${k.hi})`).join(", ") : "Knobs: turn one"),
+          yes(sus, sus ? `Sustain pedal (CC 64): ${sus.n} moves${sus.lo === 0 && sus.hi === 127 ? "" : ` ${sus.lo}–${sus.hi}`}` : "Sustain pedal (CC 64): press it, if there is one"),
+          yes(mod, "Mod wheel (CC 1): " + (mod ? "yes" : "move it, if there is one")),
+          yes(T.pb, "Pitch bend: " + (T.pb ? "yes" : "move it, if there is one")),
+          yes(T.cat || T.pat, "Aftertouch: " + (T.cat ? "channel" : "") + (T.cat && T.pat ? " + " : "") + (T.pat ? "poly" : "") + (T.cat || T.pat ? "" : "press a key or pad harder after it sounds")),
+          yes(T.pc, "Program change: " + (T.pc ? T.pc + " sent" : "—")),
+          yes(T.clock || T.tr.size, "Clock / transport: " + (T.clock || T.tr.size ? (T.clock ? "clock " : "") + [...T.tr].join(", ") : "—")),
+        ];
+      }
+      function miMonFace() {
+        if (!MI.mon) return;
+        let el = document.getElementById("miLearn");
+        if (!el) {
+          el = document.createElement("div");
+          el.id = "miLearn";
+          document.body.appendChild(el);
+          el.innerHTML = `<div class="mlBox mtBox"><i>MIDI MONITOR · play keys and pads, turn knobs, press the pedal, move the wheels</i><ul></ul><div class="mlB"><button data-mt="again">START AGAIN</button><button data-mt="copy">COPY REPORT</button><button data-mt="done" class="on">DONE</button></div></div>`;
+        }
+        el.onclick = (e) => {
+          const b = e.target.closest("[data-mt]");
+          if (!b) return;
+          if (b.dataset.mt === "copy") {
+            const txt = miMonRows().map(([a, b]) => a + " " + b).join("\n") + "\n\nfirst messages [ms, bytes...]:\n" + JSON.stringify(MI.mon.log);
+            (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject())
+              .then(() => toast("Report copied: paste it in an issue or a message"))
+              .catch(() => toast("Could not copy here"));
+          } else if (b.dataset.mt === "again") midiMonitor();
+          else {
+            clearTimeout(MI.mon.f);
+            MI.mon = null;
+            el.remove();
+          }
+        };
+        // Only replace report rows: clock updates must not detach buttons mid-click.
+        el.querySelector("ul").innerHTML = miMonRows()
+          .map(([a, b]) => `<li class="${a === "✔" ? "ok" : a === "i" ? "inf" : ""}"><b>${a}</b>${String(b).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";")}</li>`)
+          .join("");
+      }
       function miRun(act, key, cc, on, v) {
         if (act.kind === "knob") return cc ? act.run(v / 127) : on && act.run(v / 127); // a pad on a knob: its velocity
         const press = cc ? v >= 64 : on; // pads in CC mode send 127 / 0
@@ -6522,8 +6628,10 @@
         }
         if (m) m.textContent = n ? `ASSIGN · ${n}` : "ASSIGN";
         if (c) c.disabled = !n;
-        const t = document.getElementById("midiTest");
-        if (t) t.disabled = !MI.names.length;
+        for (const id of ["midiTest", "midiMon"]) {
+          const t = document.getElementById(id);
+          if (t) t.disabled = !MI.names.length;
+        }
         const v = document.getElementById("midiView");
         if (v) v.disabled = !MI.names.length;
       }
@@ -6532,6 +6640,7 @@
         ["midiMap", midiAssign],
         ["midiClr", midiClearMap],
         ["midiTest", () => midiPanel.open({ map: true })],
+        ["midiMon", midiMonitor],
         ["midiView", () => midiPanel.open()],
       ].forEach(([id, f]) => {
         const b = document.getElementById(id);
