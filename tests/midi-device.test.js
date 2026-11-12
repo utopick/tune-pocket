@@ -56,6 +56,14 @@ test("pads and knobs are matched without learning", () => {
   assert.equal(knobRank(new Set([70, 72, 74]), 72), 1); // unknown model: by rank among the CCs seen
   assert.equal(knobRank(new Set([64, 70]), 64), -1); // the sustain pedal is not a knob
   assert.equal(guess("Launchkey MK4 37 MIDI Out"), "novation37");
+  // the Play mk3 sends a drum kit on its pads and its own CCs on its knobs (a real report): pads 1-4 are the lower row
+  const mpk = { banks: [[36, 38, 42, 46, 48, 45, 51, 49], [60, 62, 63, 64, 58, 75, 56, 77]], ccs: [74, 71, 91, 93, 73, 72] };
+  assert.deepEqual([36, 38, 42, 46, 48, 45, 51, 49].map((n) => padIndex(8, n, mpk.banks)), [0, 1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual([60, 62, 63, 64, 58, 75, 56, 77].map((n) => padIndex(8, n, mpk.banks)), [0, 1, 2, 3, 4, 5, 6, 7]);
+  assert.equal(padIndex(8, 37, mpk.banks), 1); // a note outside the lists falls back to the 36-based count
+  assert.deepEqual([74, 71, 91, 93, 73, 72].map((cc) => knobRank(new Set(), cc, 2, mpk.ccs)), [0, 1, 2, 3, 4, 5]);
+  assert.equal(knobRank(new Set(), 6, 2, mpk.ccs), -1); // the joystick's data-entry CC is no knob
+  assert.equal(knobRank(new Set(), 98, 2, mpk.ccs), -1);
   assert.equal(guess("MPK mini Play mk3"), "akai");
   assert.equal(guess("nanoPAD2"), "korgpad");
 });
@@ -73,20 +81,20 @@ test("the starting assignment: pads and knobs do what the app says until the use
   };
   const dev = "MPK mini Play mk3";
   const panel = context.window.createMidiPanel(MI, (a) => calls.push(a.id), () => {});
-  panel.observe([0xb0, 2, 64], dev); // the first CC the MPK knob sends: knob 1
-  assert.equal(panel.fallback(dev, "c0:2", true, false, 64), true);
-  assert.equal(panel.fallback(dev, "c0:3", true, false, 64), true);
-  assert.equal(panel.fallback(dev, "c0:4", true, false, 64), false); // knob 3 has no default
+  panel.observe([0xb0, 74, 64], dev); // the first CC the MPK knob sends: knob 1
+  assert.equal(panel.fallback(dev, "c0:74", true, false, 64), true);
+  assert.equal(panel.fallback(dev, "c0:71", true, false, 64), true);
+  assert.equal(panel.fallback(dev, "c0:91", true, false, 64), false); // knob 3 has no default
   assert.equal(panel.fallback(dev, "n9:36", false, true, 100), true); // pad 1 (channel 10)
   assert.equal(panel.fallback(dev, "n9:37", false, true, 100), false); // a label only: it plays as a note
   assert.equal(panel.fallback(dev, "n0:36", false, true, 100), false); // a key, not a pad
   assert.deepEqual(calls, ["vol0", "bpm", "live0"]);
   // the user's own assignment wins, and the action is not also on its default control
   MI.map["c0:9"] = "bpm";
-  assert.equal(panel.fallback(dev, "c0:3", true, false, 64), false);
+  assert.equal(panel.fallback(dev, "c0:71", true, false, 64), false);
   // CLEAR turns every default off
   panel.defaultsOff();
-  assert.equal(panel.fallback(dev, "c0:2", true, false, 64), false);
+  assert.equal(panel.fallback(dev, "c0:74", true, false, 64), false);
   assert.equal(panel.fallback(dev, "n9:36", false, true, 100), false);
   // a model with unknown knob numbers gets no knob defaults
   const gen = context.window.createMidiPanel({ ...MI, names: ["Some keyboard"] }, (a) => calls.push(a.id), () => {});

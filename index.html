@@ -2365,10 +2365,11 @@
 (function () {
   "use strict";
   // shape = which layout to draw; keys / pads / knobs = how many; base = lowest key's note number;
+  // padNotes = the notes of the pads, one list per pad bank, in pad order (the Play mk3 sends a drum kit: 36 38 42 46 on the lower row), and ccs = the CC of each knob in order, when a model does not count them one by one (both read from a real MPK mini Play mk3)
   // cc0 = the CC number of knob 1 when the model is known (its knobs are cc0, cc0 + 1 ...); without it knobs go by rank
   const PROFILES = {
     synido: { title: "Synido Scale Pocket", shape: "mini", keys: 25, base: 48, pads: 0, knobs: 1, source: "https://www.synido.com/products/scale-pocket-portable-mini-piano-midi-controller-learn-scales-play-music" },
-    akai: { title: "Akai MPK mini Play mk3", shape: "mpk", keys: 25, base: 48, pads: 8, knobs: 8, cc0: 2, source: "https://www.akaipro.com/mpk-mini-play-mk3/" },
+    akai: { title: "Akai MPK mini Play mk3", shape: "mpk", keys: 25, base: 48, pads: 8, knobs: 8, cc0: 2, padNotes: [[36, 38, 42, 46, 48, 45, 51, 49], [60, 62, 63, 64, 58, 75, 56, 77]], ccs: [74, 71, 91, 93, 73, 72], source: "https://www.akaipro.com/mpk-mini-play-mk3/" },
     korgpad: { title: "Korg nanoPAD2 · pads", shape: "pads", keys: 0, base: 36, pads: 16, padCh: 0, knobs: 0, source: "https://www.korg.com/us/products/computergear/nanopad2/" },
     korgkey: { title: "Korg nanoKEY2 · 25 keys", shape: "nkey", keys: 25, base: 48, pads: 0, knobs: 0, source: "https://www.korg.com/us/products/computergear/nanokey2/" },
     casio: { title: "Casio PX-S1100", shape: "piano", keys: 88, base: 21, pads: 0, knobs: 0, source: "https://www.casio.com/us/electronic-musical-instruments/product.PX-S1100BK/" },
@@ -2408,10 +2409,13 @@
   };
   const noteName = (n) => ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"][n % 12] + (Math.floor(n / 12) - 1);
   // Pads send notes on MIDI channel 10 (36 and up); with more pads than the bank, banks wrap round.
-  const padIndex = (pads, note) => (((note - 36) % pads) + pads) % pads;
+  const padIndex = (pads, note, banks) => {
+    for (const b of banks || []) if (b.includes(note)) return b.indexOf(note);
+    return (((note - 36) % pads) + pads) % pads;
+  };
   // Knobs are matched in the order of their CC numbers (mod wheel, sustain and the like are not knobs).
   const NOT_KNOB = new Set([0, 1, 32, 64, 98, 99, 100, 101]);
-  const knobRank = (seen, cc, cc0) => (cc0 != null ? (cc >= cc0 ? cc - cc0 : -1) : NOT_KNOB.has(cc) || cc >= 120 ? -1 : [...seen].filter((x) => !NOT_KNOB.has(x) && x < 120).sort((a, b) => a - b).indexOf(cc));
+  const knobRank = (seen, cc, cc0, ccs) => (ccs ? ccs.indexOf(cc) : cc0 != null ? (cc >= cc0 ? cc - cc0 : -1) : NOT_KNOB.has(cc) || cc >= 120 ? -1 : [...seen].filter((x) => !NOT_KNOB.has(x) && x < 120).sort((a, b) => a - b).indexOf(cc));
 
   // ---------- the wireframes (SVG, 840 wide)
   const W = 840;
@@ -2511,8 +2515,8 @@
       const p = profOf(from), bound = Object.entries(saved[from]?.controls || {}).find(([, v]) => v.key === key)?.[0];
       if (bound) return bound;
       const [, t, ch, n] = key.match(/^([nc])(\d+):(\d+)$/) || [];
-      if (t === "n") return +ch === (p.padCh ?? 9) && p.pads ? "p" + padIndex(p.pads, +n) : "";
-      const r = t === "c" ? knobRank(seenCC[from], +n, p.cc0) : -1;
+      if (t === "n") return +ch === (p.padCh ?? 9) && p.pads ? "p" + padIndex(p.pads, +n, p.padNotes) : "";
+      const r = t === "c" ? knobRank(seenCC[from], +n, p.cc0, p.ccs) : -1;
       return p.cc0 != null && r >= 0 && r < p.knobs ? "c" + r : "";
     }
     // a control nobody assigned, doing what its model's starting assignment says
@@ -2666,7 +2670,7 @@
       const p = prof(), bound = Object.entries(record().controls).find(([, v]) => v.key === key)?.[0];
       if (noteOn || noteOff) {
         // a learned pad, else any note on channel 10 is a pad; everything else is a key
-        const id = bound && !bound.startsWith("k") ? bound : !bound && (st & 15) === (p.padCh ?? 9) && p.pads ? "p" + padIndex(p.pads, a) : "";
+        const id = bound && !bound.startsWith("k") ? bound : !bound && (st & 15) === (p.padCh ?? 9) && p.pads ? "p" + padIndex(p.pads, a, p.padNotes) : "";
         if (id) {
           lit(id, noteOn);
           if (noteOn) hint(`Pad ${+id.slice(1) + 1} · note ${a} · channel ${(st & 15) + 1}`);
@@ -2680,7 +2684,7 @@
         blink(id);
         hint(text);
       } else if (cc) {
-        const r = bound && !bound.startsWith("k") ? bound : knobRank(seenCC[from], a, p.cc0);
+        const r = bound && !bound.startsWith("k") ? bound : knobRank(seenCC[from], a, p.cc0, p.ccs);
         const id = typeof r === "string" ? r : r >= 0 && r < p.knobs ? "c" + r : "";
         if (id) { blink(id); hint(id === "j" ? `Joystick · CC ${a} = ${b}` : `Knob ${+id.slice(1) + 1} · CC ${a} = ${b}`); }
       }
@@ -2693,7 +2697,9 @@
     }
     // is this note-on from one of the controller's pads (its pad channel) and not from a key?
     const isPad = (from, ch) => { const p = profOf(from); return !!p.pads && ch === (p.padCh ?? 9); };
-    return { open, close, observe, route, fallback, defaultsOff, isPad };
+    // the number (from 0) of the pad that sent this note: a drum-kit controller like the MPK Play mk3 does not number its pads from 36
+    const padNo = (from, n) => { const p = profOf(from); return padIndex(p.pads || 8, n, p.padNotes); };
+    return { open, close, observe, route, fallback, defaultsOff, isPad, padNo };
   }
   window.createMidiPanel = createMidiPanel;
   window.pocketMidiHelpers = { padIndex, knobRank, guess };
@@ -6112,6 +6118,7 @@
         }
         if (cc) return MI.cc && MI.cc(a, b, ch);
         MI.pad = midiPanel.isPad(from, ch); // an app can treat the pads and the keys of a controller differently
+        MI.padN = MI.pad ? midiPanel.padNo(from, a) : null; // and the pad's own number, whatever notes it sends
         if (on) {
           if (MI.susd.delete(a) && MI.off) MI.off(a, ch); // pressed again under the pedal: the old one ends first
           MI.held.set(a, b);
@@ -6434,7 +6441,7 @@
           if ((fx.jam ? S.jam.latch : S.loop.latch) === false) miFx.set(n, fx);
           return fx.jam ? midiJamFx(fx.id, true) : midiLoopFx(fx.id, true);
         }
-        if (S.view === "jam" && jLow === "drums") return jamDrum(((n - (MI.pad ? 36 : 48)) % JDRUMS.length + JDRUMS.length) % JDRUMS.length, v);
+        if (S.view === "jam" && jLow === "drums") return jamDrum(((MI.padN ?? n - (MI.pad ? 36 : 48)) % JDRUMS.length + JDRUMS.length) % JDRUMS.length, v);
         miSound(n, v);
         if (S.view !== "scl") return;
         if (PR.on) {
@@ -6979,7 +6986,7 @@
         if (!jam && !loop) return null;
         if (jam && (jLow === "drums" || (jLow === "keys" && !MI.pad))) return null;
         const list = jam ? JFX : LFX;
-        return { jam, id: list[(((n - (MI.pad ? 36 : 48)) % list.length) + list.length) % list.length][0] };
+        return { jam, id: list[(((MI.padN ?? n - (MI.pad ? 36 : 48)) % list.length) + list.length) % list.length][0] };
       }
       function midiLoopFx(id, on) {
         getCtx().then((c) => {
@@ -9854,6 +9861,7 @@
             b: {
               en: [
                 "## Version 2.4.0",
+                "- **MIDI, Akai MPK mini Play mk3:** its pads (a drum kit, in both banks) and its knobs (their own CC numbers) are now matched in order, from a real report. Before, the panel saw one knob and the pads out of order.",
                 "- **Microphone blocked:** if the browser or the phone has the microphone switched off, a message now says so and shows the steps to turn it on for iPhone, Android or a computer (before, only a short note flashed by). TUNE, SING and PLAY check when they open.",
                 "- **Lists:** every dropdown now opens as a list of big buttons, grouped like the dropdown was, instead of the browser's own list. Tap one to choose, tap outside or CLOSE to leave.",
                 "- **Audio input (OPTIONS):** pick a USB audio interface (or any input) and the tuner and the looper listen to it directly, raw, instead of the microphone, with a channel choice (left, right, both) and a GAIN kept per input for quiet ones. **LIVE** shows the level, the note and what the browser really gave: channels, sample rate, latency.",
@@ -9872,6 +9880,7 @@
               ],
               es: [
                 "## Versión 2.4.0",
+                "- **MIDI, Akai MPK mini Play mk3:** sus pads (un kit de batería, en los dos bancos) y sus potenciómetros (con sus propios números de CC) ahora se reconocen en orden, a partir de un informe real. Antes el panel veía un solo potenciómetro y los pads desordenados.",
                 "- **Micrófono bloqueado:** si el navegador o el teléfono tiene el micrófono desactivado, ahora un mensaje lo dice y muestra los pasos para activarlo en iPhone, Android u ordenador (antes solo pasaba un aviso breve). TUNE, SING y PLAY lo comprueban al abrir.",
                 "- **Listas:** cada desplegable ahora se abre como una lista de botones grandes, agrupada como estaba el desplegable, en vez de la lista del navegador. Toca uno para elegir, toca fuera o CLOSE para salir.",
                 "- **Entrada de audio (OPCIONES):** elige una interfaz de audio USB (o cualquier entrada) y el afinador y el looper la escuchan directamente, sin procesar, en vez del micrófono, con elección de canal (izquierdo, derecho, ambos) y una GAIN guardada por entrada para las flojas. **LIVE** muestra el nivel, la nota y lo que el navegador entrega de verdad: canales, frecuencia de muestreo y latencia.",
