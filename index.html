@@ -818,6 +818,10 @@
       .dia .nb.done .nm {
         display: block;
       }
+      /* the lit dot is --hi (white in the dark theme): its name takes the page colour so it reads in every theme (passing dots keep their dark dot) */
+      .dia .nb.lit:not(.pass):not(.root) .nm {
+        fill: var(--bg);
+      }
       .dia .nb.tgt circle {
         stroke: var(--hot);
         stroke-width: 3;
