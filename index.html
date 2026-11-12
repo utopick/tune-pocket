@@ -2691,7 +2691,7 @@
       box.hidden = !wiz;
       if (!wiz) return;
       const [t, d] = STEP[wiz.step];
-      box.innerHTML = `<h3>MAP · ${ORDER.indexOf(wiz.step) + 1} / ${ORDER.length} · ${t}</h3><div>${d}</div><div class="mdSt" id="mdWizSt" aria-live="polite">${esc(wiz.msg || "")}</div><div class="mdRow"><button data-do="wizNext">${wiz.step === "fn" ? "FINISH" : "NEXT"}</button><button data-do="wizCancel">CANCEL</button></div>`;
+      box.innerHTML = `<h3>MAP · ${ORDER.indexOf(wiz.step) + 1} / ${ORDER.length} · ${t}</h3><div>${d}</div><div class="mdSt" id="mdWizSt" aria-live="polite">${esc(wiz.msg || "")}</div><div class="mdRow"><button data-do="wizBack"${wiz.step === "hello" ? " disabled" : ""}>BACK</button><button data-do="wizNext">${wiz.step === "fn" ? "FINISH" : "NEXT"}</button><button data-do="wizCancel">CANCEL</button></div>`;
     }
     const wizSay = (m) => { wiz.msg = m; const e = el?.querySelector("#mdWizSt"); if (e) e.textContent = m; };
     function wizStart() {
@@ -2706,6 +2706,24 @@
       let i = ORDER.indexOf(wiz.step) + 1;
       if (wiz.step === "lo") i = ORDER.indexOf("pads");
       if (i >= ORDER.length) return wizEnd();
+      wizGo(ORDER[i]);
+    }
+    // BACK: one step back, forgetting what that step (and the one being left) had recorded, so it can be done again
+    function wizClear(step) {
+      const w = wiz;
+      if (step === "lo") w.lo = w.hi = w.loCh = null;
+      else if (step === "hi") w.hi = null;
+      else if (step === "pads") { w.pads = []; w.padCh = null; }
+      else if (step === "knobs") w.ccs = [];
+      else if (step === "sus" || step === "bend" || step === "mod") w[step] = null;
+      else if (step === "fn") { for (const k of Object.keys(w.fn)) if (/^f\d/.test(k)) delete w.fn[k]; w.extra = 0; }
+      else delete w.fn[step];
+    }
+    function wizBack() {
+      if (!wiz || wiz.step === "hello") return;
+      let i = ORDER.indexOf(wiz.step) - 1;
+      if (ORDER[i] === "hi" && wiz.lo == null) i--; // the key steps were skipped together
+      wizClear(wiz.step); wizClear(ORDER[i]);
       wizGo(ORDER[i]);
     }
     function wizEnd() {
@@ -2801,6 +2819,7 @@
         if (action === "close") close();
         if (action === "map") wizStart();
         if (action === "wizNext") wizNext();
+        if (action === "wizBack") wizBack();
         if (action === "wizCancel") { wiz = null; wizShow(); hint("Mapping cancelled."); }
         if (action === "unmap") { delete hw[device]; persistHw(); draw(); hint("Back to the model's own measures."); }
         if (action === "export") exportHw();
