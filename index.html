@@ -2678,9 +2678,7 @@
       pads: ["PADS", "Press every pad in order (all the banks, if there are some). To finish: the rightmost key, then the leftmost key, or NEXT."],
       knobs: ["KNOBS", "Turn every knob a little, in order. To finish: the rightmost key, then the leftmost key, or NEXT."],
       sus: ["SUSTAIN", "Press the sustain pedal or button. To skip: the rightmost key, then the leftmost key, or NEXT."],
-      bend: ["PITCH BEND", "Move the pitch bend wheel or stick. To skip: the rightmost key, then the leftmost key, or NEXT."],
-      mod: ["MOD", "Move the mod wheel (or the other axis of the stick). To skip: the rightmost key, then the leftmost key, or NEXT."],
-      expr: ["EXPRESSION", "Move the stick along its expression axis (the one that sends CC 11 on an MPK: down or left, depending on the model), or an expression pedal. To skip: the rightmost key, then the leftmost key, or NEXT."],
+      stick: ["STICK AND WHEELS", "Move the stick or the wheels through their full range: left, right, up and down (and an expression pedal, if any), then let go. Everything that moves is listed. NEXT when done (or skip: the rightmost key, then the leftmost key)."],
       play: ["PLAY", "Press the PLAY button. To skip: the rightmost key, then the leftmost key, or NEXT."],
       stop: ["STOP", "Press the STOP button. To skip: the rightmost key, then the leftmost key, or NEXT."],
       rec: ["RECORD", "Press the RECORD button. To skip: the rightmost key, then the leftmost key, or NEXT."],
@@ -2698,7 +2696,7 @@
     const wizSay = (m) => { wiz.msg = m; const e = el?.querySelector("#mdWizSt"); if (e) e.textContent = m; };
     function wizStart() {
       learning = false;
-      wiz = { step: "hello", lo: null, hi: null, loCh: null, padCh: null, pads: [], ccs: [], sus: null, bend: null, mod: null, expr: null, fn: {}, extra: 0, last: [], msg: "Listening to " + device + "..." };
+      wiz = { step: "hello", lo: null, hi: null, loCh: null, padCh: null, pads: [], ccs: [], sus: null, bend: null, sk: {}, fn: {}, extra: 0, last: [], msg: "Listening to " + device + "..." };
       wizShow();
     }
     function wizGo(step) { wiz.step = step; wiz.last = []; wiz.msg = ""; wizShow(); }
@@ -2717,7 +2715,8 @@
       else if (step === "hi") w.hi = null;
       else if (step === "pads") { w.pads = []; w.padCh = null; }
       else if (step === "knobs") w.ccs = [];
-      else if (step === "sus" || step === "bend" || step === "mod" || step === "expr") w[step] = null;
+      else if (step === "sus") w.sus = null;
+      else if (step === "stick") { w.bend = null; w.sk = {}; }
       else if (step === "fn") { for (const k of Object.keys(w.fn)) if (/^f\d/.test(k)) delete w.fn[k]; w.extra = 0; }
       else delete w.fn[step];
     }
@@ -2727,6 +2726,11 @@
       if (ORDER[i] === "hi" && wiz.lo == null) i--; // the key steps were skipped together
       wizClear(wiz.step); wizClear(ORDER[i]);
       wizGo(ORDER[i]);
+    }
+    // the CCs of the stick and the wheels in the order they appeared: CC 1 is the mod and CC 11 the expression, else the first two that moved
+    function stickRoles(w) {
+      const l = Object.keys(w.sk).map(Number), mod = l.includes(1) ? 1 : l.find((n) => n !== 11), expr = l.includes(11) ? 11 : l.find((n) => n !== mod);
+      return { mod, expr };
     }
     function wizEnd() {
       const w = wiz, c = {}, p = profOf(device), bits = [];
@@ -2741,9 +2745,10 @@
       }
       if (w.ccs.length) { c.knobs = w.ccs.length; c.ccs = w.ccs; c.cc0 = 0; bits.push(`${w.ccs.length} knobs (CC ${w.ccs.join(", ")})`); }
       if (w.sus != null) { c.sus = w.sus; bits.push("sustain CC " + w.sus); }
-      if (w.bend != null) { c.bend = w.bend; bits.push("bend"); }
-      if (w.mod != null) { c.mod = w.mod; bits.push("mod CC " + w.mod); }
-      if (w.expr != null) { c.expr = w.expr; bits.push("expression CC " + w.expr); }
+      const roles = stickRoles(w); // what the stick and the wheels sent: the bend, and which CC is the mod and which the expression
+      if (w.bend != null) { c.bend = w.bend.ch; bits.push("bend"); }
+      if (roles.mod != null) { c.mod = roles.mod; bits.push("mod CC " + roles.mod); }
+      if (roles.expr != null) { c.expr = roles.expr; bits.push("expression CC " + roles.expr); }
       if (Object.keys(w.fn).length) { c.fn = w.fn; bits.push(Object.keys(w.fn).length + " function buttons"); }
       if (Object.keys(c).length) { hw[device] = { ...(hw[device] || {}), ...c }; persistHw(); }
       wizShow(); draw();
@@ -2785,12 +2790,16 @@
         return;
       }
       if (w.step === "sus") { if (cc && b >= 64 && ![0, 32, 98, 99, 100, 101].includes(a)) { w.sus = a; wizSay("Sustain: CC " + a); wizNext(); } return; }
-      if (w.step === "bend") { if (cmd === 0xe0) { w.bend = ch; wizSay("Pitch bend on channel " + (ch + 1)); wizNext(); } return; }
-      if (w.step === "mod") { if (cc && ![0, 32, 98, 99, 100, 101].includes(a) && !w.ccs.includes(a) && a !== w.sus) { w.mod = a; wizSay("Mod: CC " + a); wizNext(); } return; }
-      if (w.step === "expr") { if (cc && ![0, 32, 98, 99, 100, 101].includes(a) && !w.ccs.includes(a) && a !== w.sus && a !== w.mod) { w.expr = a; wizSay("Expression: CC " + a); wizNext(); } return; }
+      if (w.step === "stick") {
+        if (cmd === 0xe0) { const v = a | (b << 7), k = w.bend || (w.bend = { ch, lo: v, hi: v }); k.lo = Math.min(k.lo, v); k.hi = Math.max(k.hi, v); }
+        else if (cc && ![0, 32, 98, 99, 100, 101].includes(a) && !w.ccs.includes(a) && a !== w.sus && Object.keys(w.sk).length < 6) { const k = w.sk[a] || (w.sk[a] = { lo: b, hi: b }); k.lo = Math.min(k.lo, b); k.hi = Math.max(k.hi, b); }
+        else return;
+        const r = stickRoles(w);
+        return wizSay([w.bend ? `bend ${w.bend.lo}–${w.bend.hi} of 0–16383` : "", ...Object.entries(w.sk).map(([n, k]) => `CC ${n}${+n === r.mod ? " (mod)" : +n === r.expr ? " (expression)" : ""} ${k.lo}–${k.hi}`)].filter(Boolean).join(" · "));
+      }
       // the function buttons: not a gesture key, not a knob, not the sustain
       const tok = fnToken(d);
-      if (!tok || gestureKey || (cc && (w.ccs.includes(a) || a === w.sus || a === w.mod || a === w.expr))) return;
+      if (!tok || gestureKey || (cc && (w.ccs.includes(a) || a === w.sus || a in w.sk))) return;
       if (Object.values(w.fn).includes(tok)) return;
       if (w.step === "fn") { if (w.extra < 16) { w.fn["f" + ++w.extra] = tok; wizSay(`F${w.extra} = ${tok}`); } return; }
       w.fn[w.step] = tok; wizSay(`${STEP[w.step][0]} = ${tok}`); wizNext();
