@@ -10,12 +10,15 @@
     <script> (id midi-device)  the MIDI device panel (controller drawings, assign, learn): the same code in all three apps
     <script>  music theory and data, mic + pitch detection, one block per view, boot
 
+  IndexedDB "tune-pocket" (store "kv"): autosave = the looper's 16 loops as they are (16 bit PCM, with the tempo they belong to),
+    session:<name> = loops saved by name, meta = { name: { d, n, bars, bytes } } for the list in TUNINGS > FILES
+
   localStorage keys
     tune.theme      dark | light | demo | term | dungeon | dmg
     tune.lang       help language (en | es)                 tune.welcome    "1" once the first-visit dialog was closed
     tune.audioIn    { dev: input device id ("" = default microphone), ch: mix | L | R, lat: ms, gains: { <device id or "default">: dB } }
     tune.state      { inst, tun, a4, view, auto, scl, jam, cof, met: { bpm, beats, sub, snd, accent, vol }, loop: { bars, sync, latch, grid, aq } }
-    customTunings   [{ name, instrument, strings: ["E2" | "82.41", ...] }]  (key kept from LFTuner so old tunings load)
+    tune.customTunings   [{ name, instrument, strings: ["E2" | "82.41", ...] }]  (was "customTunings", kept for LFTuner: moved on first start)
 -->
 <html lang="en">
   <head>
@@ -1603,6 +1606,35 @@
         touch-action: pan-y;
         margin: 0 0 6px;
       }
+      .srow {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 0;
+        border-top: 1px solid var(--line);
+      }
+      .srow b {
+        flex: 1 1 100%;
+        font: 800 14px var(--mono);
+      }
+      .srow i {
+        flex: 1 1 100%;
+        font-style: normal;
+        color: var(--dim);
+        font-size: 12px;
+      }
+      .srow button {
+        flex: 1;
+        min-height: 36px;
+      }
+      #sList:empty::before {
+        content: "No saved sessions yet. Record some loops and SAVE them here.";
+        display: block;
+        padding: 10px 0;
+        color: var(--dim);
+        font-size: 13px;
+      }
       #setTabs {
         margin: 0 0 0;
       }
@@ -2248,8 +2280,27 @@
           </div>
           <div class="hint" id="instHint"></div>
         </div>
+        <div class="card fpanel" data-fp="files" hidden>
+          <h3>Loop sessions</h3>
+          <div class="row">
+            <input id="sName" type="text" placeholder="Name, e.g. Verse groove" maxlength="40" aria-label="Session name" />
+            <button id="sSave" class="on" title="Save the loops of the looper under this name">SAVE</button>
+          </div>
+          <div id="sList"></div>
+          <div class="row">
+            <button id="sImport" style="flex: 1" title="Open a session file made with EXPORT">IMPORT .json</button>
+          </div>
+          <input type="file" id="sFile" accept=".json,application/json" hidden />
+          <div class="hint" id="sMeter" role="status">Browser storage: checking…</div>
+          <div class="hint">
+            The looper keeps its loops on this device by itself and brings them back when you open it. SAVE keeps a set under a
+            name, OPEN replaces the loops (the ones you had are kept as “Before opening”), EXPORT makes a file you can move to
+            another device.
+          </div>
+        </div>
         <div class="prow" id="setTabs">
           <button data-fpb="edit"><i>NEW · EDIT</i>TUNINGS</button>
+          <button data-fpb="files"><i>LOOPS</i>FILES</button>
           <button data-fpb="theme"><i>LOOK</i>THEME</button>
           <button data-fpb="opts"><i>SETTINGS</i>OPTIONS</button>
           <button id="helpBtn"><i>MANUAL</i>HELP</button>
@@ -2868,7 +2919,13 @@
       });
       let customTunings = [];
       try {
-        customTunings = JSON.parse(localStorage.getItem("customTunings") || "[]");
+        const oldT = localStorage.getItem("customTunings");
+        customTunings = JSON.parse(localStorage.getItem("tune.customTunings") || oldT || "[]");
+        if (oldT !== null) {
+          // the key had no "tune." prefix (it came from LFTuner): move it over once
+          if (localStorage.getItem("tune.customTunings") === null) localStorage.setItem("tune.customTunings", oldT);
+          localStorage.removeItem("customTunings");
+        }
         const o = JSON.parse(localStorage.getItem("tune.state") || "{}");
         for (const k of ["view", "inst", "tun", "auto", "a4"]) if (k in o) S[k] = o[k];
         if (o.scl) Object.assign(S.scl, o.scl);
@@ -8290,6 +8347,243 @@
         toast("All loops cleared (UNDO brings them back)");
       };
 
+      // ---- storage: IndexedDB "tune-pocket", the same idea as TRACK's. "autosave" holds the loops as they are, "session:<name>" the ones saved by name
+      const idb = {
+        open: () =>
+          (idb.p ||= new Promise((ok, no) => {
+            const r = indexedDB.open("tune-pocket", 1);
+            r.onupgradeneeded = () => r.result.createObjectStore("kv");
+            r.onsuccess = () => ok(r.result);
+            r.onerror = () => no(r.error);
+          })),
+        async tx(mode, fn) {
+          const db = await idb.open();
+          return new Promise((ok, no) => {
+            const t = db.transaction("kv", mode),
+              r = fn(t.objectStore("kv"));
+            t.oncomplete = () => ok(r && r.result);
+            t.onerror = t.onabort = () => no(t.error);
+          });
+        },
+        get: (k) => idb.tx("readonly", (s) => s.get(k)),
+        set: (k, v) => idb.tx("readwrite", (s) => s.put(v, k)),
+        del: (k) => idb.tx("readwrite", (s) => s.delete(k)),
+      };
+      // a loop is kept as 16 bit PCM: half the size of the floats, and the recording was 16 bit to begin with
+      const pcm16 = (f) => {
+        const o = new Int16Array(f.length);
+        for (let i = 0; i < f.length; i++) o[i] = Math.max(-1, Math.min(1, f[i])) * 32767;
+        return o;
+      };
+      const pcmB64 = (a) => {
+        const u = new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
+        let t = "";
+        for (let i = 0; i < u.length; i += 0x8000) t += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+        return btoa(t);
+      };
+      const b64Pcm = (t) => {
+        const s = atob(t),
+          u = new Uint8Array(s.length);
+        for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i);
+        return new Int16Array(u.buffer, 0, u.length >> 1);
+      };
+      const lpPack = () => ({
+        app: "TUNE.",
+        v: 1,
+        bpm: S.met.bpm,
+        beats: S.met.beats,
+        loops: LP.loops.map((L) => L && { pcm: pcm16(L.buf.getChannelData(0)), rate: L.buf.sampleRate, bars: L.bars, a: L.a, o: L.o, vol: L.vol }),
+      });
+      // a file or a stored session is checked before it touches the looper: it throws and changes nothing
+      function lpVet(o) {
+        if (!o || typeof o !== "object" || !Array.isArray(o.loops) || o.loops.length > 16) throw new Error("This file has no loops");
+        const out = { app: "TUNE.", v: 1, bpm: clamp(Math.round(+o.bpm) || 100, BMIN, BMAX), beats: clamp(Math.round(+o.beats) || 4, 1, 16), loops: [] };
+        let total = 0;
+        for (let i = 0; i < 16; i++) {
+          const x = o.loops[i];
+          if (!x || typeof x !== "object") {
+            out.loops.push(null);
+            continue;
+          }
+          const pcm = typeof x.pcm === "string" ? b64Pcm(x.pcm) : x.pcm,
+            rate = Math.round(+x.rate);
+          if (!(pcm instanceof Int16Array) || !pcm.length) throw new Error("A loop in this file is damaged");
+          if (!(rate >= 8000 && rate <= 192000) || pcm.length > rate * 120) throw new Error("A loop in this file is too long or has a wrong rate");
+          if ((total += pcm.length) > 192000 * 600) throw new Error("This file is too big");
+          out.loops.push({ pcm, rate, bars: clamp(Math.round(+x.bars) || 1, 1, 64), a: clamp(+x.a || 0, -4096, 4096), o: clamp(+x.o || 0, -64, 64), vol: Number.isFinite(+x.vol) ? clamp(+x.vol, 0, 2) : 1 });
+        }
+        return out;
+      }
+      // the looper takes the loops of a vetted session, with the tempo they were made at
+      async function lpLoad(o) {
+        if (LP.rec) return toast("Finish the recording first");
+        // the context is made but not waited for: before the first tap the browser keeps resume() pending, and the loops must load anyway
+        if (!ctx || ctx.state === "closed") ctx = new (window.AudioContext || window.webkitAudioContext)();
+        ctx.resume().catch(() => {});
+        const c = ctx;
+        lpGraph(c);
+        LP.loops.forEach((L, i) => L && lpPut(i, null));
+        const old = beatDur();
+        if (S.met.bpm !== o.bpm || S.met.beats !== o.beats) {
+          S.met.bpm = o.bpm;
+          S.met.beats = o.beats;
+          clkRetime(old);
+        }
+        o.loops.forEach((x, i) => {
+          if (!x) return;
+          const buf = c.createBuffer(1, x.pcm.length, x.rate),
+            d = buf.getChannelData(0);
+          for (let k = 0; k < d.length; k++) d[k] = x.pcm[k] / 32767;
+          LP.loops[i] = lpMake({ buf, bars: x.bars, a: x.a, o: x.o, vol: x.vol });
+        });
+        LP.undo = [];
+        LP.sel = -1;
+        clkMaybeStop();
+        metFace();
+        lpFace();
+        playFace();
+        saveState();
+      }
+      // autosave: what is in the looper is kept every few seconds when it changes (and removed when the pads are emptied)
+      const lpFp = () => [S.met.bpm, S.met.beats, ...LP.loops.map((L) => (L ? [L.buf.length, L.bars, L.a, L.o, L.vol, L.buf.getChannelData(0)[L.buf.length >> 1]].join(":") : "-"))].join("|");
+      const lpAuto = { ready: false, fp: "" };
+      async function lpBoot() {
+        if (lpAuto.ready) return;
+        lpAuto.ready = "loading";
+        let back = false;
+        try {
+          const o = await idb.get("autosave");
+          if (o && !lpHas()) {
+            await lpLoad(lpVet(o));
+            back = true;
+            toast("Your loops are back");
+          }
+        } catch (e) {
+          console.warn("The saved loops could not be opened", e);
+        }
+        lpAuto.fp = back || !lpHas() ? lpFp() : ""; // loops made before this finished are not what is stored: the next autosave writes them
+        lpAuto.ready = true;
+      }
+      setInterval(async () => {
+        if (lpAuto.ready !== true || LP.rec) return; // nothing is written before the saved loops had their turn
+        const fp = lpFp();
+        if (fp === lpAuto.fp) return;
+        lpAuto.fp = fp;
+        try {
+          if (lpHas()) await idb.set("autosave", lpPack());
+          else await idb.del("autosave");
+        } catch {}
+      }, 3000);
+      // ---- sessions: loops saved by name
+      const sessName = (n) => String(n ?? "").replace(/[<>&"'`]/g, "").trim().slice(0, 40);
+      async function sessPut(name, o) {
+        await idb.set("session:" + name, o);
+        const m = (await idb.get("meta")) || {},
+          ls = o.loops.filter(Boolean);
+        m[name] = { d: Date.now(), n: ls.length, bars: ls.reduce((a, x) => a + x.bars, 0), bytes: ls.reduce((a, x) => a + x.pcm.byteLength, 0) };
+        await idb.set("meta", m);
+      }
+      async function sessSave() {
+        const name = sessName($("#sName").value);
+        if (!name) return toast("Give the session a name");
+        if (!lpHas()) return toast("No loops to save yet");
+        if (LP.rec) return toast("Finish the recording first");
+        try {
+          await sessPut(name, lpPack());
+          toast("Saved: " + name);
+          $("#sName").value = "";
+          sessList();
+        } catch (e) {
+          toast("Could not save: " + (e && e.name === "QuotaExceededError" ? "not enough free space on this device" : e.message || e), 3000);
+        }
+      }
+      async function sessOpen(name) {
+        try {
+          const o = lpVet(await idb.get("session:" + name));
+          if (lpHas() && !LP.rec) await sessPut("Before opening", lpPack()); // what was in the pads is not lost
+          await lpLoad(o);
+          toast("Opened: " + name);
+          sessList();
+        } catch (e) {
+          toast("Could not open it: " + (e.message || e), 3000);
+        }
+      }
+      async function sessExport(name) {
+        try {
+          const o = await idb.get("session:" + name),
+            j = JSON.stringify({ ...o, name, loops: o.loops.map((x) => x && { ...x, pcm: pcmB64(x.pcm) }) }),
+            a = document.createElement("a");
+          a.href = URL.createObjectURL(new Blob([j], { type: "application/json" }));
+          a.download = "tune-loops-" + name.replace(/[^\w.-]+/g, "_") + ".json";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        } catch (e) {
+          toast("Could not export: " + (e.message || e), 3000);
+        }
+      }
+      async function sessImport(file) {
+        try {
+          if (file.size > 400e6) throw new Error("This file is too big");
+          const j = JSON.parse(await file.text()),
+            o = lpVet(j),
+            name = sessName(j.name) || sessName(file.name.replace(/\.json$/i, "")) || "Imported";
+          await sessPut(name, o);
+          toast("Imported: " + name);
+          sessList();
+        } catch (e) {
+          toast("That file does not work: " + (e.message || e), 3000);
+        }
+      }
+      const fmtMB = (b) => (b / 1048576).toFixed(b < 1048576 * 10 ? 1 : 0) + " MB";
+      async function sessList() {
+        let m = {};
+        try {
+          m = (await idb.get("meta")) || {};
+        } catch {
+          $("#sList").innerHTML = `<div class="hint">Saving needs browser storage, and it is not available here (a private window?).</div>`;
+        }
+        $("#sList").innerHTML = Object.entries(m)
+          .sort((a, b) => b[1].d - a[1].d)
+          .map(([n, x]) => `<div class="srow" data-n="${esc(n)}"><b>${esc(n)}</b><i>${x.n} loop${x.n === 1 ? "" : "s"} · ${x.bars} bars · ${fmtMB(x.bytes)} · ${new Date(x.d).toLocaleDateString()}</i><button data-a="open">OPEN</button><button data-a="exp">EXPORT</button><button data-a="del">DELETE</button></div>`)
+          .join("");
+        try {
+          const { usage = 0, quota = 0 } = await navigator.storage.estimate();
+          $("#sMeter").textContent = quota ? `Browser storage: ${fmtMB(usage)} used · ${fmtMB(quota - usage)} available` : "";
+        } catch {
+          $("#sMeter").textContent = "";
+        }
+      }
+      $("#sSave").onclick = sessSave;
+      $("#sName").onkeydown = (e) => e.key === "Enter" && sessSave();
+      $("#sImport").onclick = () => $("#sFile").click();
+      $("#sFile").onchange = (e) => {
+        const f = e.target.files[0];
+        e.target.value = "";
+        if (f) sessImport(f);
+      };
+      $("#sList").onclick = async (e) => {
+        const b = e.target.closest("button"),
+          n = b && b.closest(".srow").dataset.n;
+        if (!b) return;
+        if (b.dataset.a === "open") return sessOpen(n);
+        if (b.dataset.a === "exp") return sessExport(n);
+        if (!b.dataset.arm) {
+          // DELETE asks once more
+          b.dataset.arm = "1";
+          b.textContent = "SURE?";
+          return setTimeout(() => ((b.textContent = "DELETE"), delete b.dataset.arm), 2500);
+        }
+        try {
+          await idb.del("session:" + n);
+          const m = (await idb.get("meta")) || {};
+          delete m[n];
+          await idb.set("meta", m);
+        } catch {}
+        sessList();
+      };
+
       // ---- the beat tools: drag across the wave to choose whole beats and CROP to them; ◀ ▶ slide the loop;
       // QUANTIZE finds every hit and moves it onto the grid (beats, eighths, triplets, sixteenths)
       const LGRID = [
@@ -8549,7 +8843,7 @@
       };
       function persistCustom() {
         try {
-          localStorage.setItem("customTunings", JSON.stringify(customTunings));
+          localStorage.setItem("tune.customTunings", JSON.stringify(customTunings));
         } catch {}
         renderSaved();
       }
@@ -8636,7 +8930,7 @@
         if (v !== "scl") practiceStop();
         if (v === "scl") requestAnimationFrame(drawDia);
         if (v === "met") metRender();
-        if (v === "loop") lpRender();
+        if (v === "loop") (lpRender(), lpBoot());
         if (v === "jam") jWaveKick();
         if (v !== "loop") lpMicClose(); // the metronome and the loops keep playing in the other views
         rhythmKick();
@@ -8783,6 +9077,7 @@
         if (!b) return;
         if (b.dataset.fpb === "edit" && fpOpen !== "edit") return editPanel(null, "New tuning");
         filePanel(b.dataset.fpb);
+        if (fpOpen === "files") sessList();
       });
       function notesFace() {
         $$("#nnBar [data-nn]").forEach((b) => b.classList.toggle("on", (b.dataset.nn === "sol") === NOTES_SOL));
@@ -9465,6 +9760,8 @@
               "**OPTIONS** → **Note names**: letters (**A B C**) or solfège (**Do Re Mi**). The choice is shared with TRACK.Pocket and SING.Pocket.",
               "**OPTIONS** → **Audio input**: pick the input the tuner and the looper listen to (a USB audio interface with a guitar or bass works too), raw and without the browser's processing, and one channel of it if you like. **GAIN** lifts a quiet input (a phone microphone in Firefox, a guitar cable) and is kept per input; it adds no delay. **LIVE** shows the level and the note. **TESTS** runs guided checks (noise, level and clipping, channels, pitch steadiness, round-trip latency) and **COPY REPORT** gives a text to paste. **On iPhone and iPad** the browser (every iOS browser uses Apple's engine) always listens to the built-in microphone, whatever you choose, and moves the sound to the device itself while listening, with a delay of about 80 to 130 ms: an Apple limitation, shown as a warning. Chrome or Firefox on a computer, or Firefox on Android, do better. The latency test sets the looper's REC DELAY, and after sleep or a call the microphone is paused: tap MIC to resume.",
               "**OPTIONS** → **Install**: adds TUNE.Pocket to your home screen or apps, with its own window and working offline. The **INSTALL** button (here and in the welcome note) says **INSTALLED** when you already run it as an app; on iPhone it shows the Safari ▸ Share ▸ Add to Home Screen steps.",
+              "## Files: loop sessions",
+              "**FILES** (bottom bar) keeps the looper's loops. The looper saves them by itself every few seconds and brings them back the next time you open it, with the tempo they were made at. Type a name and tap **SAVE** to keep a set under that name. **OPEN** replaces the loops in the pads (the ones you had are kept as *Before opening*). **EXPORT** makes a file to move to another device and **IMPORT .json** opens one. **DELETE** asks once more. The line at the bottom shows how much browser storage is used and free.",
               "Tunings and settings are kept on this device. Tunings saved by the old LFTuner app are loaded automatically.",
             ],
             es: [
@@ -9479,6 +9776,8 @@
               "**OPTIONS** → **Note names**: letras (**A B C**) o solfeo (**Do Re Mi**). La elección se comparte con TRACK.Pocket y SING.Pocket.",
               "**OPTIONS** → **Entrada de audio**: elige la entrada que escuchan el afinador y el looper (una interfaz USB con guitarra o bajo también vale), sin procesar por el navegador, y un solo canal si quieres. **GAIN** sube una entrada floja (el micrófono del móvil en Firefox, un cable de guitarra) y se guarda por entrada; no añade retardo. **LIVE** muestra el nivel y la nota. **TESTS** hace comprobaciones guiadas (ruido, nivel y saturación, canales, estabilidad de la nota, latencia de ida y vuelta) y **COPY REPORT** da un texto para pegar. **En iPhone y iPad** el navegador (todos los de iOS usan el motor de Apple) siempre escucha el micrófono integrado, elijas lo que elijas, y pasa el sonido al propio dispositivo mientras escucha, con un retardo de unos 80 a 130 ms: una limitación de Apple, que se muestra como aviso. Chrome o Firefox en un ordenador, o Firefox en Android, funcionan mejor. La prueba de latencia fija el REC DELAY del looper, y tras dormir o una llamada el micrófono se pausa: toca MIC para reanudar.",
               "**OPTIONS** → **Install**: añade TUNE.Pocket a tu pantalla de inicio o a tus aplicaciones, con su propia ventana y funcionando sin conexión. El botón **INSTALL** (aquí y en la nota de bienvenida) dice **INSTALLED** si ya la usas como app; en iPhone muestra los pasos Safari ▸ Compartir ▸ Añadir a pantalla de inicio.",
+              "## Files: sesiones de loops",
+              "**FILES** (barra de abajo) guarda los loops del looper. El looper los guarda solo cada pocos segundos y los devuelve la próxima vez que lo abres, con el tempo con el que se hicieron. Escribe un nombre y toca **SAVE** para guardar un conjunto con ese nombre. **OPEN** sustituye los loops de los pads (los que tenías se guardan como *Before opening*). **EXPORT** crea un archivo para llevar a otro dispositivo e **IMPORT .json** abre uno. **DELETE** pide un segundo toque. La línea de abajo muestra cuánto almacenamiento del navegador se usa y cuánto queda.",
               "Las afinaciones y ajustes se guardan en este dispositivo. Las afinaciones guardadas en la antigua app LFTuner se cargan automáticamente.",
             ],
           },
@@ -9511,6 +9810,8 @@
                 "- **Audio input (OPTIONS):** pick a USB audio interface (or any input) and the tuner and the looper listen to it directly, raw, instead of the microphone, with a channel choice (left, right, both) and a GAIN kept per input for quiet ones. TEST shows the level, the note and what the browser really gave: channels, sample rate, latency.",
                 "- **JAM keys:** the empty space of the JAM view shows a waveform and rotates to a **piano** and **drum pads** (the last button of the bottom row). A new **KEYS PLAY** instrument in SOUNDS sets what the keys play, on screen and from a MIDI keyboard, through the jam effects. When the effects of the JAM or the looper are open, the MIDI pads and keys play them.",
                 "- **Install it:** the app is now a web app (PWA). Add it to the Home Screen (iPhone: Safari ▸ Share; Android and desktop: Chrome ▸ Install app) and it opens like an app and works offline. The welcome note and **OPTIONS** have an **INSTALL** button that knows when the app is already installed. The Android APK is retired.",
+                "- **Loops are kept:** the looper saves its loops by itself and brings them back when you reopen it. TUNINGS ▸ **FILES** saves sets of loops by name, exports and imports them as files, and shows the storage used. Custom tunings moved to a `tune.` key (they move over by themselves).",
+                "- **Install it:** the app is now a web app (PWA). Add it to the Home Screen (iPhone: Safari ▸ Share; Android and desktop: Chrome ▸ Install app) and it opens like an app and works offline. The Android APK is retired.",
                 "- **Looper:** the tempo and the bar length are locked while a recording counts in or runs, and the count-in never shows more than one bar (it once showed hundreds).",
                 "- **MIDI starting assignment:** known controllers (Akai MPK, Launchkey…) now start with a function on each knob and pad, shown as tags with a line on the DEVICE drawing: the pads hold the JAM effects (Flanger, Filter, Echo…) and knob 1 sets the tempo, and the keys play the piano as always. ASSIGN, LEARN and the **DEFAULTS** switch in DEVICE change it, and CLEAR turns it off.",
                 "- **MIDI:** the DEVICE view draws your controller (Akai MPK, Launchkey, Synido, Casio, nanoPAD) and lights its keys, pads, knobs and joystick as you play; TEST counts different keys, not presses; the same five buttons (ASSIGN, CLEAR, TEST, DEVICE, SOUND) in all three apps, and SOUND turns the app's own sound off for keyboards with speakers.",
@@ -9524,6 +9825,8 @@
                 "- **Entrada de audio (OPCIONES):** elige una interfaz de audio USB (o cualquier entrada) y el afinador y el looper la escuchan directamente, sin procesar, en vez del micrófono, con elección de canal (izquierdo, derecho, ambos) y una GAIN guardada por entrada para las flojas. PRUEBA muestra el nivel, la nota y lo que el navegador entrega de verdad: canales, frecuencia de muestreo y latencia.",
                 "- **Teclas del JAM:** el espacio vacío del JAM muestra una forma de onda y rota a un **piano** y **pads de batería** (el último botón de la barra de abajo). Un nuevo instrumento **KEYS PLAY** en SOUNDS elige lo que tocan las teclas, en pantalla y desde un teclado MIDI, con los efectos del jam. Con los efectos del JAM o del looper abiertos, los pads y teclas MIDI los tocan.",
                 "- **Instálala:** la app ahora es una web app (PWA). Añádela a la pantalla de inicio (iPhone: Safari ▸ Compartir; Android y escritorio: Chrome ▸ Instalar app) y se abre como una app y funciona sin conexión. La nota de bienvenida y **OPTIONS** tienen un botón **INSTALL** que sabe si la app ya está instalada. El APK de Android se retira.",
+                "- **Los loops se conservan:** el looper guarda sus loops solo y los devuelve al volver a abrirlo. TUNINGS ▸ **FILES** guarda conjuntos de loops con nombre, los exporta e importa como archivos y muestra el almacenamiento usado. Las afinaciones propias pasaron a una clave `tune.` (se mueven solas).",
+                "- **Instálala:** la app ahora es una web app (PWA). Añádela a la pantalla de inicio (iPhone: Safari ▸ Compartir; Android y escritorio: Chrome ▸ Instalar app) y se abre como una app y funciona sin conexión. El APK de Android se retira.",
                 "- **Looper:** el tempo y la longitud del compás se bloquean mientras una grabación cuenta o graba, y la cuenta nunca muestra más de un compás (una vez mostró cientos).",
                 "- **Asignación MIDI inicial:** los controladores conocidos (Akai MPK, Launchkey…) empiezan con una función en cada pote y pad, mostrada como etiquetas con una línea en el dibujo de DEVICE: los pads mantienen los efectos del JAM (Flanger, Filtro, Eco…) y el pote 1 ajusta el tempo, y las teclas tocan el piano como siempre. ASSIGN, LEARN y el interruptor **DEFAULTS** de DEVICE la cambian, y CLEAR la desactiva.",
                 "- **MIDI:** la vista DEVICE dibuja tu controlador (Akai MPK, Launchkey, Synido, Casio, nanoPAD) e ilumina sus teclas, pads, potes y joystick al tocar; TEST cuenta teclas distintas, no pulsaciones; los mismos cinco botones (ASSIGN, CLEAR, TEST, DEVICE, SOUND) en las tres apps, y SOUND apaga el sonido de la app para teclados con altavoces.",

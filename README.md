@@ -90,7 +90,7 @@ They were surprinsingly designed by Claude from some sketches, so go figure.
 
 ### Your settings
 
-Settings and custom tunings are stored in your browser (`localStorage`); they are not uploaded anywhere. Tunings saved by the old LFTuner load automatically. Clearing browser storage removes them.
+Settings and custom tunings are stored in your browser (`localStorage`). The looper's loops are kept in the browser's IndexedDB, saved by themselves and by name in TUNINGS ▸ FILES, where they can also be exported and imported as files. Nothing is uploaded anywhere. Tunings saved by the old LFTuner load automatically. Clearing browser storage removes everything, so export the loop sessions you want to keep.
 
 ## Install it as an app (PWA)
 

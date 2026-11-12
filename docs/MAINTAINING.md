@@ -42,7 +42,8 @@ after a gesture.
   the loop exactly (`lpCut`), corrected by the phone's recording delay (`lpLat`).
 
 ## Storage
-- localStorage only: `tune.state`, `tune.theme`, `tune.lang`, `customTunings`, the MIDI map (`tune.midi.map`)
+- localStorage: `tune.state`, `tune.theme`, `tune.lang`, `tune.customTunings` (moved from `customTunings` on first start), the MIDI map (`tune.midi.map`)
+- IndexedDB `tune-pocket`, store `kv`: `autosave` (the looper's loops as 16 bit PCM with their tempo, written every 3 s when they change and removed when the pads are empty), `session:<name>` (loops saved by name), `meta` (the list shown in TUNINGS ▸ FILES). Everything read from a file or the store goes through `lpVet` first
   and the MIDI sound switch (`tune.midi.snd`).
 - Loops live in memory: they go when the app closes.
 
