@@ -2517,7 +2517,7 @@
     }
     // a control nobody assigned, doing what its model's starting assignment says
     function fallback(from, key, cc, on, value) {
-      if (MI.holdDefaults && MI.holdDefaults()) return false; // the app is using the pads and keys for something on screen
+      if (!cc && MI.holdDefaults && MI.holdDefaults()) return false; // the app is using the pads and keys for something on screen (a knob keeps its starting function)
       const e = effective(from, profOf(from), controlOf(from, key)), action = e && e[0] && MI.actions().find((a) => a.id === e[0]);
       if (!action) return false;
       run(action, from + "/" + key, cc, on, value);
