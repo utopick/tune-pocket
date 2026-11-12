@@ -128,3 +128,24 @@ test("a device map read from a file keeps only known fields in range", () => {
   assert.equal(vetHw("x"), null);
   assert.deepEqual(Object.keys(vetHw({ keys: 61, fn: { play: "n0:300", stop: "rt:252" } }).fn), ["stop"]);
 });
+
+test("the MPK Play mk3 layout is told from the messages only one layout sends", () => {
+  const storage = new Map();
+  const context = { performance, setTimeout, window: {}, location: { pathname: "/track-pocket/" }, localStorage: { getItem: (k) => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v) } };
+  vm.createContext(context);
+  vm.runInContext(source, context);
+  const MI = { names: ["MPK mini Play mk3"], map: {}, actions: () => [] };
+  const panel = context.window.createMidiPanel(MI, () => {}, () => {});
+  const mpk = "MPK mini Play mk3";
+  assert.equal(panel.padNo(mpk, 38), 1); // the internal-sounds layout (drum kit order) until told otherwise
+  panel.observe([0xb0, 70, 20], mpk); // CC 70 only exists in the standard layout
+  assert.equal(panel.padNo(mpk, 38), 2); // pads 36 to 43 in order
+  assert.equal(panel.padNo(mpk, 46), 2); // bank B, 44 to 51
+  assert.equal(panel.susCc(mpk), 64);
+  panel.observe([0xb0, 91, 20], mpk); // CC 91 only exists in the internal one
+  assert.equal(panel.padNo(mpk, 38), 1);
+  panel.observe([0x99, 41, 100], mpk); // pad note 41 only in the standard
+  assert.equal(panel.padNo(mpk, 38), 2);
+  panel.observe([0xb0, 74, 20], "Some Keyboard"); // other devices are left alone
+  assert.equal(panel.padNo("Some Keyboard", 38), 2); // generic: (38 - 36) % 8
+});

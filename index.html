@@ -2369,7 +2369,9 @@
   // cc0 = the CC number of knob 1 when the model is known (its knobs are cc0, cc0 + 1 ...); without it knobs go by rank
   const PROFILES = {
     synido: { title: "Synido Scale Pocket", shape: "mini", keys: 25, base: 48, pads: 0, knobs: 1, source: "https://www.synido.com/products/scale-pocket-portable-mini-piano-midi-controller-learn-scales-play-music" },
-    akai: { title: "Akai MPK mini Play mk3", shape: "mpk", keys: 25, base: 48, pads: 8, knobs: 8, cc0: 2, expr: 11, padNotes: [[36, 38, 42, 46, 48, 45, 51, 49], [60, 62, 63, 64, 58, 75, 56, 77]], ccs: [74, 71, 91, 93, 73, 72, 6], source: "https://www.akaipro.com/mpk-mini-play-mk3/" },
+    akai: { title: "Akai MPK mini Play mk3 · internal sounds", shape: "mpk", keys: 25, base: 48, pads: 8, knobs: 8, cc0: 2, expr: 11, padNotes: [[36, 38, 42, 46, 48, 45, 51, 49], [60, 62, 63, 64, 58, 75, 56, 77]], ccs: [74, 71, 91, 93, 73, 72, 6], source: "https://www.akaipro.com/mpk-mini-play-mk3/" },
+    // the standard layout: FAVORITE + pad 5 (GARAGEBAND). Read from a real MPK mini Play mk3: 8 knobs on CC 70 to 77, 16 pads on channel 10 (36 to 43, 44 to 51)
+    akaigb: { title: "Akai MPK mini Play mk3 · standard (FAVORITE + pad 5)", shape: "mpk", keys: 25, base: 48, pads: 8, knobs: 8, cc0: 0, expr: 11, padNotes: [[36, 37, 38, 39, 40, 41, 42, 43], [44, 45, 46, 47, 48, 49, 50, 51]], ccs: [70, 71, 72, 73, 74, 75, 76, 77], source: "https://www.akaipro.com/mpk-mini-play-mk3/" },
     korgpad: { title: "Korg nanoPAD2 · pads", shape: "pads", keys: 0, base: 36, pads: 16, padCh: 0, knobs: 0, source: "https://www.korg.com/us/products/computergear/nanopad2/" },
     korgkey: { title: "Korg nanoKEY2 · 25 keys", shape: "nkey", keys: 25, base: 48, pads: 0, knobs: 0, source: "https://www.korg.com/us/products/computergear/nanokey2/" },
     casio: { title: "Casio PX-S1100", shape: "piano", keys: 88, base: 21, pads: 0, knobs: 0, source: "https://www.casio.com/us/electronic-musical-instruments/product.PX-S1100BK/" },
@@ -2914,9 +2916,47 @@
       }
       return null;
     }
+    // The Play mk3 sends one of two layouts depending on its program (FAVORITE + pad 5 = the standard one). A message that only one layout has says which one it is.
+    const GB_NOTES = new Set([37, 39, 40, 41, 43, 44, 47, 50]), INT_NOTES = new Set([60, 62, 63, 64, 58, 75, 56, 77]);
+    function sniffLayout(from, d) {
+      if (guess(from) !== "akai") return;
+      const st = d[0], a = d[1], cmd = st & 0xf0;
+      const l = cmd === 0xb0 ? ([70, 75, 76, 77].includes(a) ? "akaigb" : [91, 93, 6].includes(a) ? "akai" : "") : cmd === 0x90 && (st & 15) === 9 && d[2] > 0 ? (GB_NOTES.has(a) ? "akaigb" : INT_NOTES.has(a) ? "akai" : "") : "";
+      if (!l) return;
+      const r = (saved[from] = saved[from] || { profile: guess(from), map: {}, controls: {} });
+      if (r.profile !== l && (r.profile === "akai" || r.profile === "akaigb")) {
+        r.profile = l; persist();
+        if (el && from === device) { draw(); hint(`This MPK is sending its ${l === "akai" ? "internal-sounds" : "standard"} layout.`); }
+      }
+      if (l === "akai" && !hw[from]) layoutTip();
+    }
+    // a dialog, once: how to get the standard layout (the apps work with the internal one too, but its knobs are fewer and shared)
+    function layoutTip() {
+      let seen = ""; try { seen = sessionStorage.getItem("pocket.midi.tip") || localStorage.getItem("pocket.midi.tip.off") || ""; } catch {}
+      if (seen || typeof document === "undefined" || document.getElementById("mdTip")) return;
+      try { sessionStorage.setItem("pocket.midi.tip", "1"); } catch {}
+      const meta = document.querySelector('meta[name="apple-mobile-web-app-title"]'), app = ((meta && meta.content) || "").slice(0, 4).toLowerCase();
+      let l = ""; try { l = localStorage.getItem(app + (document.title.startsWith("TEST") ? "-test" : "") + ".lang") || ""; } catch {}
+      const es = (l || navigator.language || "en").toLowerCase().startsWith("es");
+      const T = es
+        ? ["Tu MPK mini Play usa su disposición de sonidos internos", "Esta disposición tiene menos potes separados y otras notas en los pads. Para la disposición estándar (8 potes y 16 pads): mantén FAVORITE y pulsa el pad 5.", "ENTENDIDO", "NO MOSTRAR MÁS"]
+        : ["Your MPK mini Play is on its internal-sounds layout", "This layout has fewer separate knobs and other notes on the pads. For the standard layout (8 knobs and 16 pads): hold FAVORITE and press pad 5.", "GOT IT", "DON'T SHOW AGAIN"];
+      const box = document.createElement("div");
+      box.id = "mdTip"; box.setAttribute("role", "alertdialog");
+      box.style.cssText = "position:fixed;inset:0;z-index:9050;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:12px";
+      box.innerHTML = '<div style="width:min(100%,460px);display:flex;flex-direction:column;gap:10px;padding:16px;background:var(--panel,#161a20);color:var(--text,#e8ecf1);border:2px solid var(--hot,#ffbf52);border-radius:var(--r,10px);font:14px/1.4 system-ui,sans-serif"><h3 style="margin:0;font-size:16px;color:var(--hot,#ffbf52)"></h3><p style="margin:0"></p><div style="display:flex;gap:8px"><button type="button" data-t="ok" style="flex:1;min-height:48px;font-weight:800"></button><button type="button" data-t="off" style="flex:1;min-height:48px;font-weight:800"></button></div></div>';
+      box.querySelector("h3").textContent = T[0]; box.querySelector("p").textContent = T[1];
+      box.querySelector('[data-t="ok"]').textContent = T[2]; box.querySelector('[data-t="off"]').textContent = T[3];
+      box.onclick = (e) => {
+        const t = e.target.closest("[data-t]")?.dataset.t;
+        if (t === "off") { try { localStorage.setItem("pocket.midi.tip.off", "1"); } catch {} }
+        if (t || e.target === box) box.remove();
+      };
+      document.body.appendChild(box);
+    }
     function observe(data, from) {
       const [st, a, b] = data, cmd = st & 0xf0;
-      if (from) tally(data, from);
+      if (from) { tally(data, from); if (!(wiz && el && from === device)) sniffLayout(from, data); }
       if (wiz && el && from === device) { wizMsg(data); return true; } // MAP is listening: the app must not react
       if (st >= 0xf0 || !from) return;
       const noteOn = cmd === 0x90 && b > 0, noteOff = cmd === 0x80 || (cmd === 0x90 && b === 0), cc = cmd === 0xb0;
