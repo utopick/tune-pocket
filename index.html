@@ -1990,6 +1990,17 @@
       /* dark text on the bright green of dark */
       html:not([data-theme]) .dia .nb.root text, html[data-theme="dark"] .dia .nb.root text, html:not([data-theme]) .dia .nb.done text, html[data-theme="dark"] .dia .nb.done text { fill: #06100a; }
 </style>
+      <style id="selpick-css">
+      /* the shared list picker (every dropdown opens as a list of big buttons): the same in the four apps */
+      #selPick { position: fixed; inset: 0; z-index: 9000; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; }
+      #selPick[hidden] { display: none; }
+      #selPick .sp-card { width: min(100%, 520px); max-height: 92%; overflow: auto; display: flex; flex-direction: column; gap: 6px; padding: 12px; margin: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; color: var(--text); }
+      #selPick h3 { margin: 4px 0 0; font-size: 13px; letter-spacing: 1px; }
+      #selPick .sp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+      #selPick .sp-grid button { min-height: 44px; min-width: 0; padding: 6px; font-size: 12px; overflow-wrap: anywhere; }
+      #selPick .sp-grid button.on { background: var(--acc); border-color: var(--acc); color: var(--ink, #000); }
+      #selPick .sp-grid button:disabled { opacity: 0.4; }
+    </style>
   </head>
   <body class="pocket">
     <canvas id="bgfx" aria-hidden="true"></canvas>
@@ -9833,6 +9844,7 @@
             b: {
               en: [
                 "## Version 2.4.0",
+                "- **Lists:** every dropdown now opens as a list of big buttons, grouped like the dropdown was, instead of the browser's own list. Tap one to choose, tap outside or CLOSE to leave.",
                 "- **Audio input (OPTIONS):** pick a USB audio interface (or any input) and the tuner and the looper listen to it directly, raw, instead of the microphone, with a channel choice (left, right, both) and a GAIN kept per input for quiet ones. **LIVE** shows the level, the note and what the browser really gave: channels, sample rate, latency.",
                 "- **Audio input tests:** OPTIONS ▸ Audio input ▸ **TESTS** runs guided checks like the MIDI TEST: noise floor, level and clipping, which channels carry signal, pitch steadiness, and the round-trip latency (clicks out, heard back). **COPY REPORT** gives a text to paste, and the latency test sets the looper's **REC DELAY**.",
                 "- **JAM keys:** the empty space of the JAM view shows a waveform and rotates to a **piano** and **drum pads** (the last button of the bottom row). A new **KEYS PLAY** instrument in SOUNDS sets what the keys play, on screen and from a MIDI keyboard, through the jam effects. When the effects of the JAM or the looper are open, the MIDI pads and keys play them.",
@@ -9849,6 +9861,7 @@
               ],
               es: [
                 "## Versión 2.4.0",
+                "- **Listas:** cada desplegable ahora se abre como una lista de botones grandes, agrupada como estaba el desplegable, en vez de la lista del navegador. Toca uno para elegir, toca fuera o CLOSE para salir.",
                 "- **Entrada de audio (OPCIONES):** elige una interfaz de audio USB (o cualquier entrada) y el afinador y el looper la escuchan directamente, sin procesar, en vez del micrófono, con elección de canal (izquierdo, derecho, ambos) y una GAIN guardada por entrada para las flojas. **LIVE** muestra el nivel, la nota y lo que el navegador entrega de verdad: canales, frecuencia de muestreo y latencia.",
                 "- **Pruebas de entrada de audio:** OPCIONES ▸ Entrada de audio ▸ **TESTS** hace comprobaciones guiadas como el TEST de MIDI: ruido de fondo, nivel y saturación, qué canales llevan señal, estabilidad de la nota y la latencia de ida y vuelta (suenan clics y se escuchan de vuelta). **COPY REPORT** da un texto para pegar, y la prueba de latencia fija el **REC DELAY** del looper.",
                 "- **Teclas del JAM:** el espacio vacío del JAM muestra una forma de onda y rota a un **piano** y **pads de batería** (el último botón de la barra de abajo). Un nuevo instrumento **KEYS PLAY** en SOUNDS elige lo que tocan las teclas, en pantalla y desde un teclado MIDI, con los efectos del jam. Con los efectos del JAM o del looper abiertos, los pads y teclas MIDI los tocan.",
@@ -10689,6 +10702,63 @@
       try {
         if (!localStorage.getItem("tune.welcome")) welcome();
       } catch {}
+    </script>
+      <script id="selpick">
+      // The shared list picker: a tap on any <select> opens its options as a list of big buttons (grouped as the <optgroup>s are),
+      // sets the select and fires "input" and "change". The select still works with a keyboard. Identical in the four apps.
+      (() => {
+        const box = document.createElement("div");
+        box.id = "selPick";
+        box.hidden = true;
+        box.innerHTML = '<div class="sp-card" role="dialog" aria-modal="true" aria-label="Choose"><h3 id="spT"></h3><div id="spL"></div><button id="spX" type="button" title="Close the list">CLOSE</button></div>';
+        document.body.appendChild(box);
+        const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+        let cur = null;
+        const close = () => ((box.hidden = true), (cur = null));
+        function open(sel) {
+          if (!box.hidden && cur === sel) return;
+          cur = sel;
+          const lab = sel.closest("label"),
+            title = sel.getAttribute("aria-label") || sel.title || (lab && lab.textContent.replace(/\s+/g, " ").trim().slice(0, 40)) || "Choose";
+          box.querySelector("#spT").textContent = title;
+          const btn = (o, i) => `<button type="button" data-i="${i}" class="${o.selected ? "on" : ""}"${o.disabled ? " disabled" : ""}>${esc(o.textContent.trim() || "·")}</button>`;
+          let h = "",
+            loose = "";
+          const flush = () => ((h += loose ? `<div class="sp-grid">${loose}</div>` : ""), (loose = ""));
+          [...sel.children].forEach((c) => {
+            if (c.tagName === "OPTGROUP") {
+              flush();
+              h += `<h3>${esc(c.label)}</h3><div class="sp-grid">${[...c.children].map((o) => btn(o, o.index)).join("")}</div>`;
+            } else if (c.tagName === "OPTION") loose += btn(c, c.index);
+          });
+          flush();
+          box.querySelector("#spL").innerHTML = h;
+          box.hidden = false;
+          const on = box.querySelector("button.on");
+          if (on) on.scrollIntoView({ block: "center" });
+        }
+        const hit = (e) => {
+          const s = e.target && e.target.closest ? e.target.closest("select") : null;
+          return s && !box.contains(s) && !s.disabled && !s.multiple && s.size <= 1 ? s : null;
+        };
+        // the browser's own dropdown opens on press (a mouse) or on release (a finger): both are stopped, and the list opens on the tap
+        for (const t of ["pointerdown", "mousedown"]) document.addEventListener(t, (e) => hit(e) && e.preventDefault(), true);
+        document.addEventListener("touchend", (e) => { const s = hit(e); if (s) (e.preventDefault(), open(s)); }, { capture: true, passive: false });
+        document.addEventListener("click", (e) => { const s = hit(e); if (s) (e.preventDefault(), open(s)); }, true);
+        box.addEventListener("click", (e) => {
+          if (e.target === box || e.target.closest("#spX")) return close();
+          const b = e.target.closest("[data-i]");
+          if (!b || !cur) return;
+          const s = cur;
+          close();
+          if (s.selectedIndex !== +b.dataset.i) {
+            s.selectedIndex = +b.dataset.i;
+            s.dispatchEvent(new Event("input", { bubbles: true }));
+            s.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+        });
+        addEventListener("keydown", (e) => e.key === "Escape" && !box.hidden && close());
+      })();
     </script>
   </body>
 </html>
