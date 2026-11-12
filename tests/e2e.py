@@ -115,6 +115,129 @@ class Track(Page):
                 self.reopen()
                 self.assertTrue(self.js("return song.patterns.length > 0 && !!document.querySelector('#grid, #pk')"), "does not boot")
 
+    def test_qr_readers_read_what_the_app_draws(self):
+        """Both readers behind SCAN (ours and jsQR) read the app's own codes from a turned, tilted picture, and nothing from noise."""
+        self.open()
+        if not self.js("return typeof qrRead === 'function'"): self.skipTest("no QR reader in this build")
+        bad = self.js("""const bad = [], shot = (Q, deg, tilt) => {
+            const W = 960, H = 720, N = Q.length, size = 500 / (N + 8), c = Math.cos(deg * Math.PI / 180), s = Math.sin(deg * Math.PI / 180), data = new Uint8ClampedArray(W * H * 4);
+            for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+              let X = x - W / 2, Y = y - H / 2; const w = 1 + tilt * (X + 0.6 * Y); X /= w; Y /= w;
+              const u = (c * X + s * Y) / size + N / 2, v = (-s * X + c * Y) / size + N / 2, k = (y * W + x) * 4;
+              const page = u >= -4 && v >= -4 && u < N + 4 && v < N + 4, on = u >= 0 && v >= 0 && u < N && v < N && Q[Math.floor(v)][Math.floor(u)];
+              data[k] = data[k + 1] = data[k + 2] = (page ? (on ? 40 : 215) : 90 + 60 * Math.sin(x / 37) * Math.cos(y / 23)) * (0.75 + 0.25 * x / W); data[k + 3] = 255;
+            }
+            return { data, width: W, height: H };
+          };
+          for (const t of ['https://x.test/', 'https://x.test/#a=' + 'Ab3-_9'.repeat(28), 'ñ€' + 'Z9'.repeat(200)]) for (const [deg, tilt] of [[0, 0], [-23, 0.0001], [187, 0.0001]]) {
+            const p = shot(qrMake(t), deg, tilt);
+            if (qrRead(p) !== t) bad.push('own ' + t.length + ' ' + deg);
+            if ((jsQR(p.data, p.width, p.height) || {}).data !== t) bad.push('jsQR ' + t.length + ' ' + deg);
+          }
+          const noise = { data: Uint8ClampedArray.from({ length: 320 * 240 * 4 }, (_, i) => (i * 2654435761 >>> 24)), width: 320, height: 240 };
+          if (qrRead(noise) !== null) bad.push('own read noise');
+          return bad""")
+        self.assertEqual(bad, [])
+
+    def test_camera_reads_a_code_in_the_pairing_dialog(self):
+        self.open()
+        if not self.js("return !!document.querySelector('#syScanA')"): self.skipTest("no SCAN in this build")
+        self.assertTrue(self.js("syFace(); return document.querySelector('#syHQ').hidden"))
+        self.js("syCamScan(false)"); self.wait(0.2)  # no pairing running: the camera stays closed
+        self.assertTrue(self.js("return !SYM.cam && document.querySelector('#syCam').hidden"))
+        # a pretend camera that shows a code: each reader sees it in the camera loop, and STOP closes the camera
+        self.js("""const c = document.createElement('canvas'), g = c.getContext('2d'), Q = qrMake('https://x.test/#j=abc'), k = 500 / (Q.length + 8);
+          c.width = c.height = 1000; g.fillStyle = '#fff'; g.fillRect(0, 0, 1000, 1000); g.fillStyle = '#000';  // the code in the middle: only that part is read
+          Q.forEach((row, r) => row.forEach((on, x) => on && g.fillRect(250 + (x + 4) * k, 250 + (r + 4) * k, k + 0.5, k + 0.5)));
+          setInterval(() => g.clearRect(0, 0, 1, 1), 50);
+          navigator.mediaDevices.getUserMedia = async () => c.captureStream(15);""")
+        for lib, name in ((False, "Own reader"), (True, "jsQR")):
+            with self.subTest(name):
+                self.js("syDlg({ scan: 'a', txt: 'x' }); syCamScan(arguments[0])", lib); self.wait(1.5)
+                self.assertFalse(self.js("return document.querySelector('#syCam').hidden"))
+                self.assertTrue(self.js("const b = document.querySelector('#syHQBody'), r = document.querySelector('#syCam').getBoundingClientRect(); return r.width > 199 && Math.abs(r.width - r.height) < 2 && b.scrollHeight <= b.clientHeight"), "the camera view needs scrolling")
+                self.assertTrue(self.js("return syLog.some(l => l.includes(arguments[0] + ' read a code'))", name), "the camera loop read nothing")
+                self.js("syStop(true)")
+                self.assertTrue(self.js("return !SYM.cam && document.querySelector('#syHQ').hidden"))
+        self.assertEqual(self.errors(), [])
+
+    def until(self, code, what, secs=12):
+        end = __import__("time").time() + secs
+        while __import__("time").time() < end:
+            v = self.js(code)
+            if v: return v
+            self.wait(0.15)
+        self.fail("never happened: " + what + " | log: " + str(self.js("return syLog.slice(-6)")))
+
+    def test_three_devices_sync(self):
+        """Three tabs pair through the dialog (the codes are handed over in place of the camera): more than one guest, the list, knobs, the Variator."""
+        self.open()
+        if not self.js("return typeof syDlg === 'function'"): self.skipTest("no QR sync in this build")
+        tabs = [self.d.current_window_handle]
+        for _ in range(2):
+            self.d.switch_to.new_window("tab"); self.open(); tabs.append(self.d.current_window_handle)
+        on = lambda i: self.d.switch_to.window(tabs[i])
+        for g in (1, 2):
+            on(0); self.js("syHost()")
+            inv = self.until("return SYNC.ui && SYNC.ui.qr", "the host's code")
+            self.assertFalse(self.js("return document.querySelector('#syHQ').hidden || document.querySelector('#syScanBar').hidden"))
+            on(g); self.js("syJoinRead(arguments[0].split('#j=')[1])", inv)
+            ans = self.until("return SYNC.ui && SYNC.ui.qr", "the guest's answer code")
+            on(0); self.assertTrue(self.js("return syAnswerIn(arguments[0].split('#a=')[1])", ans))
+            num = self.until("return SYNC.ui && SYNC.ui.chk && SYNC.ui.num", "the check on the host")
+            self.assertFalse(self.js("return document.querySelector('#syChkBar').hidden"))
+            on(g); self.assertEqual(self.until("return SYNC.ui && SYNC.ui.num", "the check on the guest"), num)
+            self.assertFalse(self.js("return document.querySelector('#syHQ').hidden"), "the guest waits in the dialog")
+            on(0); self.js("document.querySelector('#syYes').click()")
+            self.until("return syN() === %d && document.querySelector('#syHQ').hidden" % g, "guest %d confirmed, the earlier ones still in" % g)
+            on(g); self.until("return syN() === 1 && document.querySelector('#syHQ').hidden", "the guest is in and its dialog closed")
+        on(0); self.assertEqual(self.js("return document.querySelectorAll('#syList div').length"), 4)  # the title and three devices
+        on(1); self.until("return SYNC.who && SYNC.who.l.length === 3 && document.querySelectorAll('#syList div').length === 4", "the guest's list of devices")
+        # knobs: the value and its drawing follow on the other devices
+        self.js("showTab('mix')"); before = self.js("return [document.querySelector('#mstK').innerHTML, document.querySelector('#mixRows .kn[data-k=vol]').innerHTML]")
+        on(0); self.js("document.querySelector('#master').value = 0.33; mixSet(S.col, 'vol', 0.21)")
+        on(1); self.until("return +document.querySelector('#master').value === 0.33 && song.mix[S.col].vol === 0.21", "the knob values on a guest")
+        after = self.js("return [document.querySelector('#mstK').innerHTML, document.querySelector('#mixRows .kn[data-k=vol]').innerHTML]")
+        self.assertNotEqual(before[0], after[0], "the master knob was not drawn again"); self.assertNotEqual(before[1], after[1], "the channel knob was not drawn again")
+        # one device makes the sound: the host at first, then the one that takes it
+        on(0); self.assertFalse(self.js("return SYNC.silent")); on(2); self.assertTrue(self.js("return SYNC.silent"))
+        on(1); self.assertTrue(self.js("return SYNC.silent")); self.js("document.querySelector('#sySound').click()")
+        on(0); self.until("return SYNC.silent && /sound/.test(document.querySelectorAll('#syList div')[2].textContent)", "the host went silent and lists who sounds")
+        on(2); self.until("return SYNC.silent && SYNC.who.snd === 1", "the other guest stays silent and knows who sounds")
+        self.js("document.querySelector('#sySoundAll').click()")  # SOUND EVERYWHERE from a guest: all of them sound
+        for i in (0, 1, 2):
+            on(i); self.until("return !SYNC.silent && document.querySelector('#sySoundAll').classList.contains('on')", "sound everywhere on device %d" % i)
+        on(1); self.js("document.querySelector('#sySound').click()")  # and back to one
+        on(0); self.until("return SYNC.silent", "the host silent again"); on(2); self.until("return SYNC.silent", "the other guest silent again")
+        on(1); self.until("return !SYNC.silent && document.querySelector('#sySound').classList.contains('on')", "the sound on the guest that took it")
+        # the Variator opened on a guest: every device is in it, with the same seed and patterns, and no piano gets locked to its key
+        on(0); name0, scale0 = self.js("return [song.name, S.scaleT]")
+        on(1); self.js("VAR.seed = 777; showTab('var')"); sig = "return varAway && VAR.seed === %d && JSON.stringify([song.order, song.patterns.map(p => p.len), song.bpm, song.chInst])"
+        same = lambda seed, want, what: self.until("return (() => { %s })() === arguments[0]".replace("arguments[0]", __import__("json").dumps(want)) % (sig % seed), what)
+        want = self.js(sig % 777)
+        for i in (0, 2):
+            on(i); same(777, want, "the Variator on device %d" % i)
+            self.assertEqual(self.js("return S.scaleT"), scale0, "the Variator's key locked the piano")
+        on(0); self.js("showTab('var')"); self.assertEqual(self.js("return +document.querySelector('#vSeed').value"), 777)
+        self.js("VAR.seed = 778; varRegen()"); want = self.js(sig % 778)
+        on(1); same(778, want, "the new seed on the guest that opened it")
+        self.assertEqual(self.js("return +document.querySelector('#vSeed').value"), 778, "the Variator screen was not drawn again")
+        # another screen: the song keeps playing on all
+        self.js("togglePlay()")
+        self.until("return S.playing", "play on the guest"); on(0); self.until("return S.playing", "play on the host")
+        on(1); self.js("showTab('smp')"); self.wait(0.8)
+        self.assertTrue(self.js("return S.playing && !!varAway"), "leaving the Variator screen stopped the song")
+        on(0); self.assertTrue(self.js("return S.playing")); self.js("togglePlay()"); self.until("return !S.playing", "stop")
+        # BACK TO OUR SONG on one device ends the Variator on all
+        self.js("varLeave(); showTab('trk')")
+        for i in (1, 2):
+            on(i); self.until("return !varAway && song.name === arguments[0]" .replace("arguments[0]", __import__("json").dumps(name0)), "the song came back on device %d" % i)
+        # a guest opens the Variator again and leaves the sync on another screen: its own song comes back there, and the others stay
+        on(1); self.js("showTab('var'); showTab('file'); syLeave()"); self.assertTrue(self.js("return !varAway && !syN()"))
+        on(0); self.until("return syN() === 1 && document.querySelectorAll('#syList div').length === 3 && !SYNC.silent", "the host's list after the guest with the sound left, and the sound back on the host")
+        for i in range(3):
+            on(i); self.assertEqual(self.errors(), [])
+
 
 @unittest.skipUnless(APP == "tune", "TUNE only")
 class Tune(Page):
@@ -156,6 +279,7 @@ class Tune(Page):
         # a good one passes, and out-of-range numbers are brought into range
         got = self.js("const o = lpVet({bpm: 9999, beats: 99, loops: [{pcm: 'AAAA', rate: 44100, bars: 500, a: 1e9, o: -1e9, vol: 99}]}); return [o.bpm === BMAX, o.beats, o.loops[0].bars, o.loops[0].a, o.loops[0].o, o.loops[0].vol]")
         self.assertEqual(got, [True, 16, 64, 4096, -64, 2])
+
     def test_circle_of_fifths_chords_fit_every_instrument(self):
         self.open()
         got = self.js("""const out = {};
