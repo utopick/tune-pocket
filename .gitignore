@@ -8,3 +8,4 @@ _legacy/
 # test environment
 .venv/
 __pycache__/
+.claude/settings.local.json
