@@ -6411,21 +6411,29 @@
       };
       function midiAssign() {
         if (!MI.names.length) return toast("Connect a MIDI device first");
-        MI.learn = { i: 0, t: 0 };
+        MI.learn = { i: 0, t: 0, got: {} }; // got: the control each step took in this run (one control, one function)
         miLearnFace();
       }
       function miLearnMsg(key, cc, ch, num) {
         const L = MI.learn;
-        if (performance.now() - L.t < 450) return; // a knob sends many values: one control per step
+        const now = performance.now();
+        if (now - L.t < 450) return; // a knob sends many values: one control per step
         if (!cc && ch === 0) {
           const pc = num % 12;
           if (pc === 0) return miStep(1);
           if (pc === 4) return miStep(-1);
           if (pc === 9) return midiAssignEnd();
         }
+        if (Object.values(L.got).includes(key)) {
+          // a control already taken in this run (a knob still turning after its step, or the same one again): wait until it rests
+          if (now - (L.warn || 0) > 2500) toast("That control already has a function. Use another one, or SKIP");
+          L.warn = L.t = now;
+          return;
+        }
         const a = MI.actions()[L.i];
         for (const k in MI.map) if (MI.map[k] === a.id) delete MI.map[k]; // one control per action
         MI.map[key] = a.id; // and one action per control
+        L.got[L.i] = key;
         miSave();
         miStep(1);
       }
@@ -6437,6 +6445,7 @@
           while (L.i < acts.length && acts[L.i].group === g) L.i++;
         } else L.i += d;
         L.i = Math.max(0, L.i);
+        if (d === -1) delete L.got[L.i]; // going back frees that step's control
         L.t = performance.now();
         if (L.i >= acts.length) return midiAssignEnd();
         miLearnFace();
@@ -6471,6 +6480,7 @@
             else if (k === "clear") {
               const id = MI.actions()[MI.learn.i].id;
               for (const x in MI.map) if (MI.map[x] === id) delete MI.map[x];
+              delete MI.learn.got[MI.learn.i];
               miSave();
               miLearnFace();
             } else midiAssignEnd();
