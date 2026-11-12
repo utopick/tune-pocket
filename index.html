@@ -2369,7 +2369,7 @@
   // cc0 = the CC number of knob 1 when the model is known (its knobs are cc0, cc0 + 1 ...); without it knobs go by rank
   const PROFILES = {
     synido: { title: "Synido Scale Pocket", shape: "mini", keys: 25, base: 48, pads: 0, knobs: 1, source: "https://www.synido.com/products/scale-pocket-portable-mini-piano-midi-controller-learn-scales-play-music" },
-    akai: { title: "Akai MPK mini Play mk3", shape: "mpk", keys: 25, base: 48, pads: 8, knobs: 8, cc0: 2, padNotes: [[36, 38, 42, 46, 48, 45, 51, 49], [60, 62, 63, 64, 58, 75, 56, 77]], ccs: [74, 71, 91, 93, 73, 72, 6], source: "https://www.akaipro.com/mpk-mini-play-mk3/" },
+    akai: { title: "Akai MPK mini Play mk3", shape: "mpk", keys: 25, base: 48, pads: 8, knobs: 8, cc0: 2, expr: 11, padNotes: [[36, 38, 42, 46, 48, 45, 51, 49], [60, 62, 63, 64, 58, 75, 56, 77]], ccs: [74, 71, 91, 93, 73, 72, 6], source: "https://www.akaipro.com/mpk-mini-play-mk3/" },
     korgpad: { title: "Korg nanoPAD2 · pads", shape: "pads", keys: 0, base: 36, pads: 16, padCh: 0, knobs: 0, source: "https://www.korg.com/us/products/computergear/nanopad2/" },
     korgkey: { title: "Korg nanoKEY2 · 25 keys", shape: "nkey", keys: 25, base: 48, pads: 0, knobs: 0, source: "https://www.korg.com/us/products/computergear/nanokey2/" },
     casio: { title: "Casio PX-S1100", shape: "piano", keys: 88, base: 21, pads: 0, knobs: 0, source: "https://www.casio.com/us/electronic-musical-instruments/product.PX-S1100BK/" },
@@ -2413,6 +2413,7 @@
     if (int(o.sus, 0, 127)) c.sus = o.sus;
     if (int(o.bend, 0, 15)) c.bend = o.bend;
     if (int(o.mod, 0, 127)) c.mod = o.mod;
+    if (int(o.expr, 0, 127)) c.expr = o.expr;
     if (o.fn && typeof o.fn === "object") { const f = {}; for (const [k, v] of Object.entries(o.fn)) if (/^(?:play|stop|rec|f\d{1,2})$/.test(k) && TOK.test(v)) f[k] = v; if (Object.keys(f).length) c.fn = f; }
     return Object.keys(c).length ? c : null;
   };
@@ -2679,6 +2680,7 @@
       sus: ["SUSTAIN", "Press the sustain pedal or button. To skip: the rightmost key, then the leftmost key, or NEXT."],
       bend: ["PITCH BEND", "Move the pitch bend wheel or stick. To skip: the rightmost key, then the leftmost key, or NEXT."],
       mod: ["MOD", "Move the mod wheel (or the other axis of the stick). To skip: the rightmost key, then the leftmost key, or NEXT."],
+      expr: ["EXPRESSION", "Move the stick along its expression axis (the one that sends CC 11 on an MPK: down or left, depending on the model), or an expression pedal. To skip: the rightmost key, then the leftmost key, or NEXT."],
       play: ["PLAY", "Press the PLAY button. To skip: the rightmost key, then the leftmost key, or NEXT."],
       stop: ["STOP", "Press the STOP button. To skip: the rightmost key, then the leftmost key, or NEXT."],
       rec: ["RECORD", "Press the RECORD button. To skip: the rightmost key, then the leftmost key, or NEXT."],
@@ -2696,7 +2698,7 @@
     const wizSay = (m) => { wiz.msg = m; const e = el?.querySelector("#mdWizSt"); if (e) e.textContent = m; };
     function wizStart() {
       learning = false;
-      wiz = { step: "hello", lo: null, hi: null, loCh: null, padCh: null, pads: [], ccs: [], sus: null, bend: null, mod: null, fn: {}, extra: 0, last: [], msg: "Listening to " + device + "..." };
+      wiz = { step: "hello", lo: null, hi: null, loCh: null, padCh: null, pads: [], ccs: [], sus: null, bend: null, mod: null, expr: null, fn: {}, extra: 0, last: [], msg: "Listening to " + device + "..." };
       wizShow();
     }
     function wizGo(step) { wiz.step = step; wiz.last = []; wiz.msg = ""; wizShow(); }
@@ -2715,7 +2717,7 @@
       else if (step === "hi") w.hi = null;
       else if (step === "pads") { w.pads = []; w.padCh = null; }
       else if (step === "knobs") w.ccs = [];
-      else if (step === "sus" || step === "bend" || step === "mod") w[step] = null;
+      else if (step === "sus" || step === "bend" || step === "mod" || step === "expr") w[step] = null;
       else if (step === "fn") { for (const k of Object.keys(w.fn)) if (/^f\d/.test(k)) delete w.fn[k]; w.extra = 0; }
       else delete w.fn[step];
     }
@@ -2741,6 +2743,7 @@
       if (w.sus != null) { c.sus = w.sus; bits.push("sustain CC " + w.sus); }
       if (w.bend != null) { c.bend = w.bend; bits.push("bend"); }
       if (w.mod != null) { c.mod = w.mod; bits.push("mod CC " + w.mod); }
+      if (w.expr != null) { c.expr = w.expr; bits.push("expression CC " + w.expr); }
       if (Object.keys(w.fn).length) { c.fn = w.fn; bits.push(Object.keys(w.fn).length + " function buttons"); }
       if (Object.keys(c).length) { hw[device] = { ...(hw[device] || {}), ...c }; persistHw(); }
       wizShow(); draw();
@@ -2784,9 +2787,10 @@
       if (w.step === "sus") { if (cc && b >= 64 && ![0, 32, 98, 99, 100, 101].includes(a)) { w.sus = a; wizSay("Sustain: CC " + a); wizNext(); } return; }
       if (w.step === "bend") { if (cmd === 0xe0) { w.bend = ch; wizSay("Pitch bend on channel " + (ch + 1)); wizNext(); } return; }
       if (w.step === "mod") { if (cc && ![0, 32, 98, 99, 100, 101].includes(a) && !w.ccs.includes(a) && a !== w.sus) { w.mod = a; wizSay("Mod: CC " + a); wizNext(); } return; }
+      if (w.step === "expr") { if (cc && ![0, 32, 98, 99, 100, 101].includes(a) && !w.ccs.includes(a) && a !== w.sus && a !== w.mod) { w.expr = a; wizSay("Expression: CC " + a); wizNext(); } return; }
       // the function buttons: not a gesture key, not a knob, not the sustain
       const tok = fnToken(d);
-      if (!tok || gestureKey || (cc && (w.ccs.includes(a) || a === w.sus || a === w.mod))) return;
+      if (!tok || gestureKey || (cc && (w.ccs.includes(a) || a === w.sus || a === w.mod || a === w.expr))) return;
       if (Object.values(w.fn).includes(tok)) return;
       if (w.step === "fn") { if (w.extra < 16) { w.fn["f" + ++w.extra] = tok; wizSay(`F${w.extra} = ${tok}`); } return; }
       w.fn[w.step] = tok; wizSay(`${STEP[w.step][0]} = ${tok}`); wizNext();
@@ -2892,7 +2896,7 @@
     // the controls that are neither keys, pads nor knobs: [control, text] for a message, or null
     function special(p, cmd, cc, a, b, bound) {
       if (bound) return null;
-      if (p.shape === "mpk" && (cmd === 0xe0 || (cc && a === (p.mod ?? 1)))) return ["j", cmd === 0xe0 ? "Joystick · pitch bend" : `Joystick · mod (CC ${a}) = ${b}`];
+      if (p.shape === "mpk" && (cmd === 0xe0 || (cc && (a === (p.mod ?? 1) || a === p.expr)))) return ["j", cmd === 0xe0 ? "Joystick · pitch bend" : a === p.expr ? `Joystick · expression (CC ${a}) = ${b}` : `Joystick · mod (CC ${a}) = ${b}`];
       if (p.shape === "pads" && cc) return ["xy", `X-Y pad · CC ${a} = ${b}`];
       if (p.shape === "nkey") {
         if (cmd === 0xe0) return [b >= 64 ? "b+" : "b-", "Pitch bend button"];

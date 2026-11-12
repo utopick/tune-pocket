@@ -122,8 +122,8 @@ test("a device map read from a file keeps only known fields in range", () => {
   vm.createContext(context);
   vm.runInContext(source, context);
   const { vetHw } = context.window.pocketMidiHelpers;
-  const good = vetHw({ keys: 25, pads: 8, padCh: 9, padNotes: [[36, 38]], ccs: [74, 6], sus: 64, bend: 0, mod: 1, fn: { play: "rt:250", stop: "n9:80", f1: "c0:117", rec: "mmc:6" } });
-  assert.deepEqual(JSON.parse(JSON.stringify(good)), { keys: 25, pads: 8, padCh: 9, padNotes: [[36, 38]], ccs: [74, 6], knobs: 2, cc0: 0, sus: 64, bend: 0, mod: 1, fn: { play: "rt:250", stop: "n9:80", f1: "c0:117", rec: "mmc:6" } });
+  const good = vetHw({ keys: 25, pads: 8, padCh: 9, padNotes: [[36, 38]], ccs: [74, 6], sus: 64, bend: 0, mod: 1, expr: 11, fn: { play: "rt:250", stop: "n9:80", f1: "c0:117", rec: "mmc:6" } });
+  assert.deepEqual(JSON.parse(JSON.stringify(good)), { keys: 25, pads: 8, padCh: 9, padNotes: [[36, 38]], ccs: [74, 6], knobs: 2, cc0: 0, sus: 64, bend: 0, mod: 1, expr: 11, fn: { play: "rt:250", stop: "n9:80", f1: "c0:117", rec: "mmc:6" } });
   assert.equal(vetHw({ keys: 9999, ccs: ["x"], padNotes: [[300]], fn: { play: "<script>", evil: "n0:1" } }), null);
   assert.equal(vetHw("x"), null);
   assert.deepEqual(Object.keys(vetHw({ keys: 61, fn: { play: "n0:300", stop: "rt:252" } }).fn), ["stop"]);
