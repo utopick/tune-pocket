@@ -3061,7 +3061,9 @@
     const susCc = (from) => profOf(from).sus ?? 64;
     // the MOD switch (MIDI options): on by default; off, and the pads and knobs stay the first set
     const modPedal = (on) => { if (on !== undefined) { try { localStorage.setItem(MODP, on ? "1" : "0"); } catch {} for (const k in layer) layer[k] = false; } return modPedalOn(); };
-    return { open, close, observe, route, fallback, defaultsOff, isPad, padNo, susCc, modPedal, layerOf: (from) => !!layer[from] };
+    // is this control ("c0:64", "n0:60") the mod key of this device?
+    const isMod = (from, tok) => { const mk = profOf(from).modKey; return modPedalOn() && (mk ? tok === mk : /^c\d+:64$/.test(tok)); };
+    return { open, close, observe, route, fallback, defaultsOff, isPad, padNo, susCc, modPedal, layerOf: (from) => !!layer[from], isMod };
   }
   window.createMidiPanel = createMidiPanel;
   window.pocketMidiHelpers = { padIndex, knobRank, guess, vetHw };
@@ -6476,10 +6478,11 @@
           cc = cmd === 0xb0;
         if (!on && !off && !cc) return;
         const key = (cc ? "c" : "n") + ch + ":" + a;
-        if (MI.learn) return on || (cc && b > 0) ? miLearnMsg(key, cc, ch, a) : undefined;
+        const modK = midiPanel.layerOf(from) && !midiPanel.isMod(from, key) ? "m+" + key : ""; // with the MOD key held: a function can be mapped to MOD + this control
+        if (MI.learn) return miLearnMsg(key, modK, cc, ch, a, on, off, b, from);
         if (midiPanel.route(from, key, cc, on, b)) return;
-        const act = MI.map[key] && MI.actions().find((x) => x.id === MI.map[key]);
-        if (act) return miRun(act, key, cc, on, b);
+        const act = (modK && MI.map[modK] && MI.actions().find((x) => x.id === MI.map[modK])) || (MI.map[key] && MI.actions().find((x) => x.id === MI.map[key]));
+        if (act) return miRun(act, modK && MI.map[modK] === act.id ? modK : key, cc, on, b);
         if (midiPanel.fallback(from, key, cc, on, b)) return; // the model's starting assignment
         if (cc && a === midiPanel.susCc(from)) {
           // the sustain pedal: notes let go while it is down end when it comes up
@@ -6647,36 +6650,87 @@
       // ---- ASSIGN
       const MI_NN = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
       const miKeyName = (k) => {
-        const [, t, ch, n] = k.match(/^([nc])(\d+):(\d+)$/);
-        return t === "n" ? `${MI_NN[n % 12]}${Math.floor(n / 12) - 1} · ch ${+ch + 1}` : `knob ${n} · ch ${+ch + 1}`;
+        const m = k.startsWith("m+"),
+          [, t, ch, n] = k.replace(/^m\+/, "").match(/^([nc])(\d+):(\d+)$/);
+        return (m ? "MOD + " : "") + (t === "n" ? `${MI_NN[n % 12]}${Math.floor(n / 12) - 1} · ch ${+ch + 1}` : `knob ${n} · ch ${+ch + 1}`);
       };
+      // The function mapper, like a console emulator's: it learns the leftmost and the rightmost key first (they never get a function: pressed
+      // rightmost then leftmost they skip the function, leftmost then rightmost they end the mapper), then asks for each function: turn a knob,
+      // or HOLD a key, pad or button for 3 seconds (so a normal key is not taken by accident). With the MOD key held it maps MOD + the control.
+      const ML_HOLD = 3000;
       function midiAssign() {
         if (!MI.names.length) return toast("Connect a MIDI device first");
-        MI.learn = { i: 0, t: 0, got: {} }; // got: the control each step took in this run (one control, one function)
+        MI.learn = { i: 0, t: 0, got: {}, pre: true, lo: null, hi: null, ch: null, seq: [], hold: null, done: null }; // got: the control each step took in this run (one control, one function)
         miLearnFace();
       }
-      function miLearnMsg(key, cc, ch, num) {
+      function miHoldStop() {
         const L = MI.learn;
-        const now = performance.now();
-        if (now - L.t < 450) return; // a knob sends many values: one control per step
-        if (!cc && ch === 0) {
-          const pc = num % 12;
-          if (pc === 0) return miStep(1);
-          if (pc === 4) return miStep(-1);
-          if (pc === 9) return midiAssignEnd();
+        if (L && L.hold) (clearTimeout(L.hold.timer), clearInterval(L.hold.tick));
+        if (L) L.hold = null;
+        const bar = document.getElementById("mlBar");
+        if (bar) bar.style.width = "0";
+      }
+      function miTake(key) {
+        const L = MI.learn,
+          a = MI.actions()[L.i];
+        for (const k in MI.map) if (MI.map[k] === a.id) delete MI.map[k]; // one control per action
+        MI.map[key] = a.id; // and one action per control
+        L.got[L.i] = key;
+        L.done = key.replace(/^m\+/, ""); // still held: it is not a new press
+        miSave();
+        miStep(1);
+      }
+      function miLearnMsg(key, modK, cc, ch, num, on, off, b, from) {
+        const L = MI.learn,
+          now = performance.now(),
+          full = modK || key,
+          isKey = !cc && L.lo != null && ch === L.ch && (num === L.lo || num === L.hi);
+        if (off || (cc && b < 64 && !(b > 0 && b < 127))) {
+          // a release: a held key that is let go early is not taken, and the next press must be a new one
+          if (L.hold && L.hold.key === full) miHoldStop();
+          if (L.done === key) L.done = null;
+          if (!cc) return;
         }
-        if (Object.values(L.got).includes(key)) {
-          // a control already taken in this run (a knob still turning after its step, or the same one again): wait until it rests
+        if (cc && midiPanel.isMod(from, key)) return; // the MOD key itself only shifts
+        // the first step: the leftmost key, then the rightmost
+        if (L.pre) {
+          if (!on) return;
+          if (L.lo == null) { L.lo = L.hi = num; L.ch = ch; return miLearnFace(); }
+          if (num === L.lo) return;
+          L.hi = num;
+          if (L.hi < L.lo) [L.lo, L.hi] = [L.hi, L.lo];
+          L.pre = false;
+          L.t = now;
+          return miLearnFace();
+        }
+        if (isKey && on) {
+          L.seq = [...L.seq, num].slice(-2);
+          if (L.seq[0] === L.hi && L.seq[1] === L.lo) return (L.seq = []), miStep(1); // rightmost then leftmost: skip this function
+          if (L.seq[0] === L.lo && L.seq[1] === L.hi) return (L.seq = []), midiAssignEnd(); // leftmost then rightmost: done
+          return;
+        }
+        const a = MI.actions()[L.i];
+        if (now - L.t < 450) return; // a knob sends many values: one control per step
+        if (L.done === key) return; // the control of the last step, still held or still turning
+        if (Object.values(L.got).includes(full)) {
+          // a control already taken in this run: wait until it rests
           if (now - (L.warn || 0) > 2500) toast("That control already has a function. Use another one, or SKIP");
           L.warn = L.t = now;
           return;
         }
-        const a = MI.actions()[L.i];
-        for (const k in MI.map) if (MI.map[k] === a.id) delete MI.map[k]; // one control per action
-        MI.map[key] = a.id; // and one action per control
-        L.got[L.i] = key;
-        miSave();
-        miStep(1);
+        if (a.kind === "knob") {
+          if (!cc) return;
+          return miTake(full);
+        }
+        // a key, pad or button: held for 3 seconds. A CC button sends 127 then 0, a knob sends in between values.
+        if (cc && b > 0 && b < 127) { if (now - (L.warn || 0) > 2500) toast("That is a knob. Hold a key, pad or button for this function"); L.warn = now; return; }
+        if (!(on || (cc && b >= 127)) || L.hold) return;
+        const t0 = now;
+        L.hold = {
+          key: full,
+          timer: setTimeout(() => { const h = MI.learn && MI.learn.hold; if (h && h.key === full) (miHoldStop(), miTake(full)); }, ML_HOLD),
+          tick: setInterval(() => { const bar = document.getElementById("mlBar"); if (bar) bar.style.width = Math.min(100, ((performance.now() - t0) / ML_HOLD) * 100) + "%"; }, 80),
+        };
       }
       function miStep(d) {
         const acts = MI.actions(),
@@ -6685,6 +6739,7 @@
           const g = acts[L.i].group;
           while (L.i < acts.length && acts[L.i].group === g) L.i++;
         } else L.i += d;
+        miHoldStop();
         L.i = Math.max(0, L.i);
         if (d === -1) delete L.got[L.i]; // going back frees that step's control
         L.t = performance.now();
@@ -6692,6 +6747,7 @@
         miLearnFace();
       }
       function midiAssignEnd() {
+        miHoldStop();
         MI.learn = null;
         const el = document.getElementById("miLearn");
         if (el) el.remove();
@@ -6718,6 +6774,7 @@
             if (k === "skip") miStep(1);
             else if (k === "back") miStep(-1);
             else if (k === "group") miStep("group");
+            else if (k === "nokeys") ((MI.learn.pre = false), (MI.learn.t = performance.now()), miLearnFace());
             else if (k === "clear") {
               const id = MI.actions()[MI.learn.i].id;
               for (const x in MI.map) if (MI.map[x] === id) delete MI.map[x];
@@ -6727,11 +6784,17 @@
             } else midiAssignEnd();
           };
         }
-        const acts = MI.actions(),
-          a = acts[MI.learn.i],
+        const L = MI.learn,
+          acts = MI.actions(),
+          a = acts[Math.min(L.i, acts.length - 1)],
           cur = Object.keys(MI.map).filter((k) => MI.map[k] === a.id),
-          how = a.kind === "knob" ? "Turn the knob or move the slider for" : a.kind === "hold" ? "Press the pad or key (it works while held) for" : "Press the pad, key or button for";
-        el.innerHTML = `<div class="mlBox"><i>MIDI ASSIGN · ${MI.learn.i + 1} / ${acts.length} · ${a.group}</i><p>${how}</p><h2>${a.name}</h2><p class="mlCur">${cur.length ? "Now: " + cur.map(miKeyName).join(", ") : "Not assigned"}</p><div class="mlB"><button data-ml="back">◀ BACK</button><button data-ml="skip">SKIP ▶</button><button data-ml="group">SKIP ${a.group.toUpperCase()} ▶▶</button><button data-ml="clear">CLEAR</button><button data-ml="done" class="on">DONE</button></div><p class="mlKeys">On the keyboard: C skips · E goes back · A exits</p></div>`;
+          btns = (extra) => `<div class="mlB">${extra}<button data-ml="done" class="on">DONE</button></div>`;
+        if (L.pre) {
+          el.innerHTML = `<div class="mlBox"><i>MIDI ASSIGN · FIRST THE KEYS</i><p>${L.lo == null ? "Press the leftmost key of the keyboard" : "Now the rightmost key"}</p><h2>${L.lo == null ? "LEFTMOST" : "RIGHTMOST"}</h2><p class="mlKeys">They never get a function: rightmost then leftmost skips a function, leftmost then rightmost ends the mapper. Whatever the octave, but do not change it now.</p>${btns('<button data-ml="nokeys">NO KEYS</button>')}</div>`;
+          return;
+        }
+        const how = a.kind === "knob" ? "Turn the knob or move the slider for" : "Hold the pad, key or button for 3 seconds for";
+        el.innerHTML = `<div class="mlBox"><i>MIDI ASSIGN · ${L.i + 1} / ${acts.length} · ${a.group}</i><p>${how}</p><h2>${a.name}</h2><p class="mlCur">${cur.length ? "Now: " + cur.map(miKeyName).join(", ") : "Not assigned"}</p><div class="mlProg"><b id="mlBar"></b></div><div class="mlB"><button data-ml="back">◀ BACK</button><button data-ml="skip">SKIP ▶</button><button data-ml="group">SKIP ${a.group.toUpperCase()} ▶▶</button><button data-ml="clear">CLEAR</button><button data-ml="done" class="on">DONE</button></div><p class="mlKeys">Hold the MOD pedal while you press or turn, to map MOD + that control. On the keyboard: rightmost then leftmost skips, leftmost then rightmost ends.</p></div>`;
       }
       {
         const st = document.createElement("style");
@@ -6741,6 +6804,7 @@
 #miLearn h2{margin:4px 0 10px;font:900 22px var(--mono,monospace);color:var(--acc)}
 #miLearn p{margin:10px 0 0;font:600 12px var(--mono,monospace);color:var(--dim)}
 #miLearn .mlCur{color:var(--text)}
+#miLearn .mlProg{height:8px;margin-top:12px;border-radius:4px;background:var(--line);overflow:hidden}#miLearn .mlProg b{display:block;height:100%;width:0;background:var(--acc)}
 #miLearn .mlB{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
 #miLearn .mlB button{flex:1 1 30%;min-height:40px;font:800 11px var(--mono,monospace)}
 #miLearn .mtBox{text-align:left;max-height:90vh;overflow:auto}
@@ -10288,6 +10352,7 @@
             b: {
               en: [
                 "## Version 2.4.0",
+                "- **ASSIGN is a function mapper:** it learns your leftmost and rightmost key first (they never get a function), then asks for each function: turn a knob, or hold a key, pad or button for 3 seconds. Rightmost then leftmost skips a function, leftmost then rightmost ends the mapper. Hold the MOD pedal while you press or turn to map MOD + that control. A control is taken only once in a run.",
                 "- **MOD pedal:** on every keyboard the sustain pedal (or button) is now a shift: while it is held, the default pad and knob functions become a second set (knob 1 acts as knob 9, and so on). It keeps sustaining notes. The MOD button in the MIDI options turns this on or off; MAP can pick another key instead of the pedal.",
                 "- **MIDI DEVICE panel without scrolling:** it fits the screen. On an upright phone it turns sideways, and on a short window the controls go beside the diagram.",
                 "- **Knob card:** turning a MIDI knob shows a small card in the middle of the screen with its name, a little knob and its value, so you see what you are changing. It does not appear where the screen already shows that knob (the mixer, the Variator's own views, the metronome).",
@@ -10313,6 +10378,7 @@
               ],
               es: [
                 "## Versión 2.4.0",
+                "- **ASSIGN es un mapeador de funciones:** primero aprende tu tecla de más a la izquierda y la de más a la derecha (nunca reciben función), y luego pide cada función: gira un pote, o mantén una tecla, pad o botón 3 segundos. La de la derecha y luego la de la izquierda salta una función, la de la izquierda y luego la de la derecha termina. Mantén el pedal MOD mientras pulsas o giras para asignar MOD + ese control. Un control se usa solo una vez por sesión.",
                 "- **Pedal MOD:** en todos los teclados el pedal (o botón) de sustain es ahora una tecla de cambio: mientras se mantiene, las funciones por defecto de pads y potes pasan a ser un segundo juego (el pote 1 actúa como el 9, y así). Sigue sosteniendo notas. El botón MOD de las opciones MIDI lo activa o desactiva, y MAP puede elegir otra tecla en lugar del pedal.",
                 "- **Panel MIDI DEVICE sin desplazamiento:** cabe en la pantalla. En un móvil vertical se gira de lado, y en una ventana baja los controles van junto al dibujo.",
                 "- **Tarjeta del pote:** al girar un pote MIDI aparece una tarjeta pequeña en el centro con su nombre, un potenciómetro y su valor, para ver qué estás cambiando. No aparece donde la pantalla ya muestra ese pote (el mezclador, las vistas del Variator, el metrónomo).",

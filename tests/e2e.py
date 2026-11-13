@@ -114,13 +114,38 @@ class Common(Page):
 
     def test_assign_takes_each_control_once(self):
         self.midi_open()
+        if self.js("return MI.actions().filter((a) => a.kind === 'knob').length") < 3: self.skipTest("this app has fewer than three knob functions")
         self.js("document.querySelector('#midiMap').click()"); self.wait(0.3)
-        step = lambda: self.js("return document.querySelector('#miLearn i').textContent.split('/')[0].split('·').pop().trim()")
+        self.js("document.querySelector('[data-ml=nokeys]').click(); MI.learn.i = MI.actions().findIndex((a) => a.kind === 'knob'); miLearnFace()")
+        step = lambda: self.js("return MI.learn.i")
         first = step()
         for i in range(30): self.midi(0xb0, 74, i * 4); self.wait(0.05)  # one knob kept turning for 1.5 s
-        self.assertEqual(int(step()), int(first) + 1)
-        self.wait(0.7); self.midi(0xb0, 71, 10); self.wait(0.6); self.assertEqual(int(step()), int(first) + 2)
-        self.wait(0.6); self.midi(0xb0, 74, 99); self.wait(0.2); self.assertEqual(int(step()), int(first) + 2)  # taken already
+        self.assertEqual(step(), first + 1)
+        self.wait(0.7)
+        while self.js("return MI.actions()[MI.learn.i].kind") != "knob": self.js("miStep(1)")  # the next knob function
+        n = step(); self.midi(0xb0, 71, 10); self.wait(0.6); self.assertEqual(step(), n + 1)
+        while self.js("return MI.actions()[MI.learn.i].kind") != "knob": self.js("miStep(1)")
+        n = step(); self.wait(0.6); self.midi(0xb0, 74, 99); self.wait(0.2); self.assertEqual(step(), n)  # taken already
+        self.assertEqual(self.errors(), [])
+
+    def test_function_mapper_holds_keys_skips_with_two_keys_and_maps_mod(self):
+        self.midi_open()
+        self.js("document.querySelector('#midiMap').click()"); self.wait(0.3)
+        self.midi(0x90, 48, 90); self.midi(0x90, 72, 90)  # the leftmost and the rightmost key
+        self.js("MI.learn.i = MI.actions().findIndex((a, i, l) => a.kind !== 'knob' && l[i + 1] && l[i + 1].kind !== 'knob'); miLearnFace()")
+        i0 = self.js("return MI.learn.i")
+        self.midi(0x99, 36, 100); self.wait(1.0); self.midi(0x89, 36, 0)  # let go early: not taken
+        self.assertEqual(self.js("return Object.keys(MI.map).length"), 0)
+        self.midi(0x90, 72, 90); self.midi(0x90, 48, 90)  # rightmost then leftmost: skip this function
+        self.assertEqual(self.js("return MI.learn.i"), i0 + 1)
+        self.wait(0.5); self.midi(0x99, 37, 100); self.wait(3.4)  # held 3 seconds: taken
+        self.assertEqual(self.js("return MI.map['n9:37']"), self.js("return MI.actions()[%d].id" % (i0 + 1)))
+        self.midi(0x89, 37, 0)
+        self.js("MI.learn.i = MI.actions().findIndex((a) => a.kind !== 'knob' && !Object.values(MI.map).includes(a.id)); miLearnFace()")
+        self.wait(0.5); self.midi(0xb0, 64, 127); self.midi(0x99, 38, 100); self.wait(3.4); self.midi(0x89, 38, 0); self.midi(0xb0, 64, 0)  # MOD + a pad
+        self.assertIn("m+n9:38", self.js("return Object.keys(MI.map)"))
+        self.midi(0x90, 48, 90); self.midi(0x90, 72, 90)  # leftmost then rightmost: done
+        self.assertIsNone(self.js("return MI.learn"))
         self.assertEqual(self.errors(), [])
 
     def test_sustain_pedal_is_the_mod_key_and_the_switch_turns_it_off(self):
