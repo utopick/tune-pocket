@@ -3254,8 +3254,9 @@
         ["lofi", "Lo-fi", "Lazy beat", 80, "lofibeat"],
         ["synthwave", "Synthwave", "Driving 8ths", 110, "synthdrive"],
         ["dungeon", "Dungeon", "Slow march", 66, "march"],
+        ["techno", "Techno", "Four on the floor", 128, "fourfloor"],
       ];
-      const PAT_NAMES = { straight4: "Straight 4", shuffle: "Shuffle", funk16: "Funk 16", reggae: "One drop", metal: "Metal DK", swing: "Swing", bossa: "Bossa nova", boombap: "Boom bap", lofibeat: "Lazy beat", synthdrive: "Driving 8ths", march: "Slow march" };
+      const PAT_NAMES = { straight4: "Straight 4", shuffle: "Shuffle", funk16: "Funk 16", reggae: "One drop", metal: "Metal DK", swing: "Swing", bossa: "Bossa nova", boombap: "Boom bap", lofibeat: "Lazy beat", synthdrive: "Driving 8ths", march: "Slow march", fourfloor: "Four on the floor" };
       // 16 steps of [kick, snare, hihat, open hat]
       const PATTERNS = {
         straight4: [[1,0,1,0],[0,0,1,0],[0,1,1,0],[0,0,1,0],[1,0,1,0],[0,0,1,0],[0,1,1,0],[0,0,1,0],[1,0,1,0],[0,0,1,0],[0,1,1,0],[0,0,1,0],[1,0,1,0],[1,0,1,0],[0,1,1,0],[0,0,1,0]],
@@ -3269,6 +3270,7 @@
         lofibeat: [[1,0,1,0],[0,0,0,0],[0,0,1,0],[0,0,0,0],[0,1,1,0],[0,0,0,0],[0,0,1,0],[1,0,0,0],[0,0,1,0],[0,0,0,0],[1,0,1,0],[0,0,0,0],[0,1,1,0],[0,0,0,0],[0,0,1,0],[0,0,0,0]],
         synthdrive: [[1,0,0,0],[0,0,0,0],[0,0,1,0],[0,0,0,0],[1,1,0,0],[0,0,0,0],[0,0,1,0],[0,0,0,0],[1,0,0,0],[0,0,0,0],[0,0,1,0],[0,0,0,0],[1,1,0,0],[0,0,0,0],[0,0,1,1],[0,0,0,0]],
         march: [[1,0,1,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[1,1,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]],
+        fourfloor: [[1,0,1,0],[0,0,1,0],[0,0,0,1],[0,0,1,0],[1,1,1,0],[0,0,1,0],[0,0,0,1],[0,0,1,0],[1,0,1,0],[0,0,1,0],[0,0,0,1],[0,0,1,0],[1,1,1,0],[0,0,1,0],[0,0,0,1],[0,0,1,0]],
       };
       const BASS_PATTERNS = {
         straight4: [0,null,0,null,7,null,null,null,0,null,5,null,7,null,null,null],
@@ -3282,6 +3284,7 @@
         lofibeat: [0,null,null,null,null,null,null,7,null,null,0,null,null,null,null,null],
         synthdrive: [0,null,0,null,0,null,0,null,0,null,0,null,0,null,7,null],
         march: [0,null,null,null,null,null,null,null,0,null,null,null,null,null,null,null],
+        fourfloor: [null,null,0,null,null,null,0,null,null,null,0,null,null,null,0,null],
       };
       // [step, intervals of the chord above the key]; major chords, made minor by MINOR (3rds lowered)
       const CHORD_PATTERNS = {
@@ -3296,6 +3299,7 @@
         lofibeat: [[0,[0,4,7,11]],[8,[5,9,12,16]]],
         synthdrive: [[0,[0,4,7]],[6,[0,4,7]],[8,[5,9,12]],[14,[5,9,12]]],
         march: [[0,[0,4,7]],[8,[5,9,12]]],
+        fourfloor: [[2,[0,4,7]],[6,[0,4,7]],[10,[0,4,7]],[14,[0,4,7]]],
       };
 
       // ======================================================================
@@ -7080,6 +7084,7 @@
         lofi: [0, "Fingered bass", "Rhodes"],
         synthwave: [1, "Synth bass 2", "Polysynth"],
         dungeon: [7, "Cave drone", "Dungeon choir"],
+        techno: [1, "Acid bass", "Polysynth"],
       };
       function genreSnd(g) {
         const [kit, b, c] = GENRE_SND[g] || GENRE_SND.rock;
@@ -7517,6 +7522,7 @@
         lofi: { maj: ["ii7 V7 Imaj7 vi7", "Imaj7 iii7 IVmaj7 V7"], min: ["i7 iv7 VImaj7 v7", "i7 i7 iv7 v7"] },
         synthwave: { maj: ["I V vi IV", "vi IV I V"], min: ["i VI III VII", "i VII VI VII"] },
         dungeon: { maj: ["I IV I V", "I vi IV V"], min: ["i VI III VII", "i iv v i"] },
+        techno: { maj: ["I I IV I", "I V I IV"], min: ["i i VI i", "i VII i VII"] },
       };
       function chordOf(sym, minor) {
         const x = /^([b#]?)(VII|VI|V|IV|III|II|I|vii|vi|v|iv|iii|ii|i)(maj7|ø7|7|5)?$/.exec(sym),
@@ -10352,6 +10358,7 @@
             b: {
               en: [
                 "## Version 2.4.0",
+                "- **Techno** joins the JAM styles (four on the floor, off-beat open hats, off-beat stabs and an acid bass), the same style as the Variator in TRACK.",
                 "- **ASSIGN is a function mapper:** it learns your leftmost and rightmost key first (they never get a function), then asks for each function: turn a knob, or hold a key, pad or button for 3 seconds. Rightmost then leftmost skips a function, leftmost then rightmost ends the mapper. Hold the MOD pedal while you press or turn to map MOD + that control. A control is taken only once in a run.",
                 "- **MOD pedal:** on every keyboard the sustain pedal (or button) is now a shift: while it is held, the default pad and knob functions become a second set (knob 1 acts as knob 9, and so on). It keeps sustaining notes. The MOD button in the MIDI options turns this on or off; MAP can pick another key instead of the pedal.",
                 "- **MIDI DEVICE panel without scrolling:** it fits the screen. On an upright phone it turns sideways, and on a short window the controls go beside the diagram.",
@@ -10378,6 +10385,7 @@
               ],
               es: [
                 "## Versión 2.4.0",
+                "- **Techno** se une a los estilos de JAM (bombo a negras, hats abiertos a contratiempo, stabs a contratiempo y bajo ácido), el mismo estilo que el Variator de TRACK.",
                 "- **ASSIGN es un mapeador de funciones:** primero aprende tu tecla de más a la izquierda y la de más a la derecha (nunca reciben función), y luego pide cada función: gira un pote, o mantén una tecla, pad o botón 3 segundos. La de la derecha y luego la de la izquierda salta una función, la de la izquierda y luego la de la derecha termina. Mantén el pedal MOD mientras pulsas o giras para asignar MOD + ese control. Un control se usa solo una vez por sesión.",
                 "- **Pedal MOD:** en todos los teclados el pedal (o botón) de sustain es ahora una tecla de cambio: mientras se mantiene, las funciones por defecto de pads y potes pasan a ser un segundo juego (el pote 1 actúa como el 9, y así). Sigue sosteniendo notas. El botón MOD de las opciones MIDI lo activa o desactiva, y MAP puede elegir otra tecla en lugar del pedal.",
                 "- **Panel MIDI DEVICE sin desplazamiento:** cabe en la pantalla. En un móvil vertical se gira de lado, y en una ventana baja los controles van junto al dibujo.",
