@@ -2027,6 +2027,17 @@
       #miCard .mk-v { stroke: var(--hi, var(--acc, #4af)); }
       #miCard b { font-size: 22px; font-weight: 800; letter-spacing: 0.5px; }
       #miCard i { font-style: normal; font-size: 10px; letter-spacing: 1px; opacity: 0.75; overflow-wrap: anywhere; }
+      .kn { touch-action: none; cursor: ns-resize; user-select: none; }
+      .kn svg { width: 100%; height: 100%; pointer-events: none; }
+      .kn .kt { fill: none; stroke: var(--line); stroke-width: 5; stroke-linecap: round; }
+      .kn .kv { fill: none; stroke: var(--acc); stroke-width: 5; stroke-linecap: round; }
+      .kn .kb { fill: var(--panel2, var(--panel)); stroke: var(--line); }
+      .kn .kp { stroke: var(--text); stroke-width: 3; stroke-linecap: round; }
+      .kn text { fill: var(--text); font: 800 11px var(--mono, monospace); text-anchor: middle; }
+      .jKn { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 6px; margin: 6px 0; justify-items: center; }
+      .jKn > div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+      .jKn .kn { width: 66px; height: 66px; }
+      .jKn b { font: 800 10px var(--mono, monospace); letter-spacing: 0.08em; color: var(--dim); }
     </style>
   </head>
   <body class="pocket">
@@ -2154,14 +2165,7 @@
           ><button id="jSong" class="tb" title="Song: change the part (verse, chorus, break) every few bars"></button>
         </div>
         <div class="jp" data-jp="mix">
-        <div class="prow">
-          <label class="knob"><i>BPM</i><b id="bpmTxt">100</b><input id="jBpm" type="range" min="40" max="220" step="1" value="100" /></label>
-          <label class="knob"><i>DRUMS</i><b id="mixDrumsTxt"></b><input id="mixDrums" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
-        </div>
-        <div class="prow">
-          <label class="knob"><i>BASS</i><b id="mixBassTxt"></b><input id="mixBass" type="range" min="0" max="1" step="0.01" value="0.6" /></label>
-          <label class="knob"><i>CHORDS</i><b id="mixChordTxt"></b><input id="mixChord" type="range" min="0" max="1" step="0.01" value="0.35" /></label>
-        </div>
+        <div class="jKn" id="jKn"></div>
         <div class="jprog" id="jProg"></div>
         <div class="pads" id="steps"></div>
         </div>
@@ -3254,7 +3258,7 @@
         ["lofi", "Lo-fi", "Lazy beat", 80, "lofibeat"],
         ["synthwave", "Synthwave", "Driving 8ths", 110, "synthdrive"],
         ["dungeon", "Dungeon", "Slow march", 66, "march"],
-        ["techno", "Techno", "Four on the floor", 128, "fourfloor"],
+        ["techno", "Techno", "4 on the floor", 128, "fourfloor"],
       ];
       const PAT_NAMES = { straight4: "Straight 4", shuffle: "Shuffle", funk16: "Funk 16", reggae: "One drop", metal: "Metal DK", swing: "Swing", bossa: "Bossa nova", boombap: "Boom bap", lofibeat: "Lazy beat", synthdrive: "Driving 8ths", march: "Slow march", fourfloor: "Four on the floor" };
       // 16 steps of [kick, snare, hihat, open hat]
@@ -6879,7 +6883,8 @@
       // (the keys play the piano as always). The user's own ASSIGN, LEARN and DEFAULTS off take precedence.
       MI.defaults = () => ({
         keys: "PLAY THE PIANO",
-        knobs: [["bpm", "TEMPO"]],
+        // the JAM screen: the six knobs on screen, in order (1 master, 2 swing, 3 bass, 4 tempo, 5 chords, 6 drums); elsewhere knob 4 is the tempo
+        knobs: S.view === "jam" ? ["master", "swing", "bass", "bpm", "chord", "drums"].map((k) => ["jk:" + k, JK[k].n]) : [null, null, null, ["bpm", "TEMPO"]],
         pads: JFX.map(([id, n]) => ["jfx:" + id, n.toUpperCase().slice(0, 12)]),
       });
       MI.actions = () => [
@@ -6890,6 +6895,7 @@
         { id: "voicing", group: "Scales", name: "POSITION / VOICING", kind: "tap", run: () => $("#sOct").click() },
         { id: "jam", group: "Jam", name: "JAM PLAY / STOP", kind: "tap", run: () => jamToggle() },
         { id: "met", group: "Tempo", name: "METRONOME", kind: "tap", run: () => metToggle() },
+        ...Object.entries(JK).map(([k, o]) => ({ id: "jk:" + k, group: "Jam", name: "JAM " + o.n, kind: "knob", run: (v) => jamKnob(k, v), vis: () => S.view === "jam", fmt: (x) => o.txt(x) + (k === "bpm" ? " BPM" : "%") })),
         { id: "bpm", group: "Tempo", name: "TEMPO (BPM)", kind: "knob", run: (v) => setBpm(BMIN + v * (BMAX - BMIN)), vis: () => S.view === "met", fmt: (x) => Math.round(BMIN + x * (BMAX - BMIN)) + " BPM" },
         ...JFX.map(([id, n]) => ({ id: "jfx:" + id, group: "Jam FX", name: n.toUpperCase(), kind: "hold", run: (on) => midiJamFx(id, on) })),
       ];
@@ -7124,13 +7130,7 @@
           .join("");
         $("#jPat").value = S.jam.pattern;
         $("#patTxt").innerHTML = `<i>PATTERN</i>${PAT_NAMES[S.jam.pattern]}`;
-        $("#jBpm").value = S.jam.bpm;
-        $("#bpmTxt").textContent = S.jam.bpm;
-        for (const k of ["drums", "bass", "chord"]) {
-          const id = "mix" + k[0].toUpperCase() + k.slice(1);
-          $("#" + id).value = S.jam.mix[k];
-          $("#" + id + "Txt").textContent = Math.round(S.jam.mix[k] * 100) + "%";
-        }
+        jamKnobs();
         $("#steps").innerHTML = PATTERNS[S.jam.pattern]
           .map(
             ([k, s, hh, oh], i) =>
@@ -7158,11 +7158,58 @@
         jamProgFace(J.on ? jamBar(Math.floor(J.step / 16)) : null);
         jamPanelFace();
       }
+      // a knob as SVG (the same as TRACK's): f = 0..1 around 270 degrees, txt in the middle
+      function knobSvg(f, txt) {
+        const a0 = 0.75 * Math.PI, a = a0 + clamp(f, 0, 1) * 1.5 * Math.PI,
+          P = (ang, rr) => [32 + Math.cos(ang) * rr, 32 + Math.sin(ang) * rr].map((x) => x.toFixed(1)).join(" "),
+          arc = (from, to, rr) => `M${P(from, rr)} A${rr} ${rr} 0 ${to - from > Math.PI ? 1 : 0} 1 ${P(to, rr)}`;
+        return `<svg viewBox="0 0 64 64"><path class="kt" d="${arc(a0, a0 + 1.5 * Math.PI, 26)}"/>${a - a0 > 0.01 ? `<path class="kv" d="${arc(a0, a, 26)}"/>` : ""}<circle class="kb" cx="32" cy="32" r="18"/><path class="kp" d="M${P(a, 8)} L${P(a, 17)}"/><text x="32" y="36.5">${txt}</text></svg>`;
+      }
+      // drag a knob up or down (about 160 px for the whole range), double tap: back to its default
+      function knobDrag(root, sel, get, set) {
+        let d = null;
+        root.addEventListener("pointerdown", (e) => {
+          const k = e.target.closest(sel);
+          if (!k || !root.contains(k)) return;
+          e.preventDefault();
+          k.setPointerCapture(e.pointerId);
+          const now = performance.now();
+          if (d && d.el === k && now - d.t < 300) { set(k, null); d = null; return; }
+          d = { el: k, y: e.clientY, v: get(k), t: now };
+        });
+        root.addEventListener("pointermove", (e) => { if (d && e.buttons) set(d.el, clamp(d.v + (d.y - e.clientY) / 160, 0, 1)); });
+      }
+      // ---- the JAM knobs, in the order of the first MIDI knobs: master, swing, bass, tempo, chords, drums
+      const jamSwingNative = () => (S.jam.pattern === "swing" || S.jam.pattern === "shuffle" ? 0.33 : S.jam.pattern === "lofibeat" ? 0.16 : 0); // of a step
+      const JK = {
+        master: { n: "MASTER", def: 0.8, get: () => S.jam.master ?? 0.8, set: (f) => (S.jam.master = f), txt: (f) => Math.round(f * 100) },
+        swing: { n: "SWING", def: null, get: () => (S.jam.swing ?? jamSwingNative()) / 0.5, set: (f) => (S.jam.swing = f == null ? null : f * 0.5), txt: (f) => Math.round(f * 100) },
+        bass: { n: "BASS", def: 0.6, get: () => S.jam.mix.bass, set: (f) => (S.jam.mix.bass = f), txt: (f) => Math.round(f * 100) },
+        bpm: { n: "BPM", def: (100 - 40) / 180, get: () => (S.jam.bpm - 40) / 180, set: (f) => (S.jam.bpm = Math.round(40 + f * 180)), txt: (f) => Math.round(40 + f * 180) },
+        chord: { n: "CHORDS", def: 0.35, get: () => S.jam.mix.chord, set: (f) => (S.jam.mix.chord = f), txt: (f) => Math.round(f * 100) },
+        drums: { n: "DRUMS", def: 0.8, get: () => S.jam.mix.drums, set: (f) => (S.jam.mix.drums = f), txt: (f) => Math.round(f * 100) },
+      };
+      function jamKnobs() {
+        const box = $("#jKn");
+        if (!box) return;
+        if (!box.children.length) box.innerHTML = Object.entries(JK).map(([k, o]) => `<div><div class="kn" data-jk="${k}"></div><b>${o.n}</b></div>`).join("");
+        for (const el of box.querySelectorAll(".kn")) { const o = JK[el.dataset.jk], f = o.get(); el.innerHTML = knobSvg(f, o.txt(f)); }
+      }
+      // from a finger or a MIDI knob (f = 0..1, null: the default)
+      function jamKnob(k, f) {
+        const o = JK[k];
+        o.set(f == null ? o.def : f);
+        if (k === "bpm") jamFx();
+        jamMix();
+        jamKnobs();
+        saveState();
+      }
       function jamMix() {
         if (!J.g) return;
         J.g.drums.gain.value = S.jam.mix.drums;
         J.g.bass.gain.value = S.jam.mix.bass;
         J.g.chord.gain.value = S.jam.mix.chord;
+        if (J.mg) J.mg.gain.value = S.jam.master ?? 0.8;
       }
       function jamGraph(c) {
         if (J.g) return;
@@ -7174,7 +7221,9 @@
         J.an.fftSize = 2048;
         comp.connect(J.an);
         J.fx = TK.buildFxChain(c);
-        J.fx.out.connect(comp);
+        J.mg = c.createGain(); // the master volume of the band
+        J.fx.out.connect(J.mg);
+        J.mg.connect(comp);
         J.g = { drums: c.createGain(), bass: c.createGain(), chord: c.createGain(), lead: c.createGain() }; // lead: the keys, through the same effects
         Object.values(J.g).forEach((g) => g.connect(J.fx.in));
       }
@@ -7577,7 +7626,7 @@
           sd = jStep(),
           ri = NOTE_NAMES.indexOf(S.jam.key),
           snd = S.jam.snd,
-          swing = S.jam.pattern === "swing" || S.jam.pattern === "shuffle" ? sd * 0.33 : S.jam.pattern === "lofibeat" ? sd * 0.16 : 0; // lo-fi: a lazy, light swing
+          swing = sd * (S.jam.swing ?? jamSwingNative()); // the SWING knob, else the style's own (shuffle, swing, a light one for lo-fi)
         TK.song.kit = snd.kit;
         TK.song.bpm = S.jam.bpm;
         while (J.next < c.currentTime + 0.12) {
@@ -7644,21 +7693,7 @@
         renderJam();
         saveState();
       };
-      $("#jBpm").oninput = (e) => {
-        S.jam.bpm = +e.target.value;
-        $("#bpmTxt").textContent = S.jam.bpm;
-        jamFx();
-        saveState();
-      };
-      for (const k of ["drums", "bass", "chord"]) {
-        const id = "mix" + k[0].toUpperCase() + k.slice(1);
-        $("#" + id).oninput = (e) => {
-          S.jam.mix[k] = +e.target.value;
-          $("#" + id + "Txt").textContent = Math.round(S.jam.mix[k] * 100) + "%";
-          jamMix();
-          saveState();
-        };
-      }
+      knobDrag($("#jKn"), ".kn", (el) => JK[el.dataset.jk].get(), (el, f) => jamKnob(el.dataset.jk, f));
       let taps = [];
       $("#jTap").onclick = () => {
         const now = performance.now();
@@ -7668,8 +7703,7 @@
           const bpm = Math.round((60000 * (taps.length - 1)) / (now - taps[0]));
           S.jam.bpm = Math.max(40, Math.min(220, bpm));
           jamFx();
-          $("#jBpm").value = S.jam.bpm;
-          $("#bpmTxt").textContent = S.jam.bpm;
+          jamKnobs();
           saveState();
         }
       };
@@ -10358,6 +10392,7 @@
             b: {
               en: [
                 "## Version 2.4.0",
+                "- **JAM knobs:** the bars are now six knobs: MASTER (new), SWING (new), BASS, BPM, CHORDS and DRUMS, in the order of the first MIDI knobs (1 is the master, 4 the tempo).",
                 "- **Techno** joins the JAM styles (four on the floor, off-beat open hats, off-beat stabs and an acid bass), the same style as the Variator in TRACK.",
                 "- **ASSIGN is a function mapper:** it learns your leftmost and rightmost key first (they never get a function), then asks for each function: turn a knob, or hold a key, pad or button for 3 seconds. Rightmost then leftmost skips a function, leftmost then rightmost ends the mapper. Hold the MOD pedal while you press or turn to map MOD + that control. A control is taken only once in a run.",
                 "- **MOD pedal:** on every keyboard the sustain pedal (or button) is now a shift: while it is held, the default pad and knob functions become a second set (knob 1 acts as knob 9, and so on). It keeps sustaining notes. The MOD button in the MIDI options turns this on or off; MAP can pick another key instead of the pedal.",
@@ -10385,6 +10420,7 @@
               ],
               es: [
                 "## Versión 2.4.0",
+                "- **Potes de JAM:** las barras son ahora seis potes: MASTER (nuevo), SWING (nuevo), BASS, BPM, CHORDS y DRUMS, en el orden de los primeros potes MIDI (el 1 es el master, el 4 el tempo).",
                 "- **Techno** se une a los estilos de JAM (bombo a negras, hats abiertos a contratiempo, stabs a contratiempo y bajo ácido), el mismo estilo que el Variator de TRACK.",
                 "- **ASSIGN es un mapeador de funciones:** primero aprende tu tecla de más a la izquierda y la de más a la derecha (nunca reciben función), y luego pide cada función: gira un pote, o mantén una tecla, pad o botón 3 segundos. La de la derecha y luego la de la izquierda salta una función, la de la izquierda y luego la de la derecha termina. Mantén el pedal MOD mientras pulsas o giras para asignar MOD + ese control. Un control se usa solo una vez por sesión.",
                 "- **Pedal MOD:** en todos los teclados el pedal (o botón) de sustain es ahora una tecla de cambio: mientras se mantiene, las funciones por defecto de pads y potes pasan a ser un segundo juego (el pote 1 actúa como el 9, y así). Sigue sosteniendo notas. El botón MOD de las opciones MIDI lo activa o desactiva, y MAP puede elegir otra tecla en lugar del pedal.",

@@ -359,6 +359,16 @@ class Tune(Page):
                 self.js("if (J.on) jamStop()")
                 self.assertClean()
 
+    def test_jam_knobs_are_master_swing_bass_bpm_chords_drums_on_midi(self):
+        self.d.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": FAKE_MIDI})
+        self.open()
+        self.js("localStorage.setItem('pocket.midi.hw.v1', JSON.stringify({'MPK mini Play mk3': {keys: 25, pads: 8, padCh: 9, padNotes: [[36,37,38,39,40,41,42,43]], ccs: [70,71,72,73,74,75,76,77], knobs: 8, cc0: 0}}))")
+        self.reopen(); self.js("document.querySelector('#midiDev').click(); document.querySelector('button[data-v=jam]').click()"); self.wait(0.9)
+        self.assertEqual(self.js("return [...document.querySelectorAll('#jKn b')].map((e) => e.textContent)"), ["MASTER", "SWING", "BASS", "BPM", "CHORDS", "DRUMS"])
+        for i in range(6): self.midi(0xb0, 70 + i, 0 if i % 2 == 0 else 127)
+        self.assertEqual(self.js("return [S.jam.master, S.jam.swing, S.jam.mix.bass, S.jam.bpm, S.jam.mix.chord, S.jam.mix.drums]"), [0, 0.5, 0, 220, 0, 1])
+        self.assertEqual(self.errors(), [])
+
     def test_custom_tuning_name_is_escaped(self):
         self.open()
         self.js("localStorage.setItem('customTunings', JSON.stringify([{name: arguments[0], instrument: 'guitar', strings: ['E2','A2']}]))", EVIL % "tuning")
@@ -419,6 +429,17 @@ class Tune(Page):
 
 @unittest.skipUnless(APP == "sing", "SING only")
 class Sing(Page):
+    def test_master_and_tempo_knobs_on_midi(self):
+        self.d.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": FAKE_MIDI})
+        self.open()
+        self.js("localStorage.setItem('pocket.midi.hw.v1', JSON.stringify({'MPK mini Play mk3': {keys: 25, pads: 8, padCh: 9, padNotes: [[36,37,38,39,40,41,42,43]], ccs: [70,71,72,73,74,75,76,77], knobs: 8, cc0: 0}}))")
+        self.reopen(); self.js("document.querySelector('#midiDev').click(); getCtx()"); self.wait(0.9)
+        self.midi(0xb0, 70, 64)
+        self.assertEqual(self.js("return [Math.round(S.master * 100), Math.round(ctx.masterGain.gain.value * 100), ctx.destination === ctx.masterGain]"), [50, 50, True])
+        self.midi(0xb0, 73, 127)
+        self.assertEqual(self.js("return S.bpm"), 160)
+        self.assertEqual(self.errors(), [])
+
     def test_exercise_name_is_escaped(self):
         self.open()
         self.js("localStorage.setItem('sing.state', JSON.stringify({cex: [{name: arguments[0], n: [60, 62], d: [1, 1]}]}))", EVIL % "exercise")
