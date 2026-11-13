@@ -67,6 +67,16 @@ class Page(unittest.TestCase):
         self.open()
         self.js("document.querySelector('#midiDev').click()"); self.wait(0.9)
 
+    def midi_pads_open(self):
+        """The fake MPK with eight pads on notes 36 to 43 (pad N is note 35 + N) and the MIDI device connected."""
+        self.d.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": FAKE_MIDI})
+        self.open()
+        self.js("localStorage.setItem('pocket.midi.hw.v1', JSON.stringify({'MPK mini Play mk3': {keys: 25, pads: 8, padCh: 9, padNotes: [[36,37,38,39,40,41,42,43]], ccs: [70,71,72,73,74,75,76,77], knobs: 8, cc0: 0}}))")
+        self.reopen(); self.js("document.querySelector('#midiDev').click()"); self.wait(0.9)
+
+    def pad(self, n, hold=0.1):
+        self.midi(0x99, 35 + n, 100); self.wait(hold); self.midi(0x89, 35 + n, 0); self.wait(0.15)
+
     def midi(self, *d): self.js("window.__inp.onmidimessage({ data: new Uint8Array(arguments[0]) })", list(d))
 
     def reopen(self, wait=1.2): self.d.refresh(); self.wait(wait)
@@ -346,6 +356,23 @@ class Common(Page):
 
 @unittest.skipUnless(APP == "track", "TRACK only")
 class Track(Page):
+    def test_midi_pads_follow_the_screen(self):
+        self.midi_pads_open()
+        self.assertIsNone(self.js("return MI.defaults().pads"))  # the editor: keys, and drum pads on a drum channel
+        self.js("pkGo('pats')"); self.wait(0.3)
+        self.assertEqual(self.js("return MI.defaults().pads.slice(0, 2).map((p) => p[0])"), ["pad0", "pad1"])
+        n = self.js("return song.patterns.length")
+        self.assertLess(n, 8)
+        self.pad(n + 1); self.wait(0.3)  # the pad over the "+" square (left to right, from the top left) makes a new pattern
+        self.assertEqual(self.js("return song.patterns.length"), n + 1)
+        self.js("showTab('smp')"); self.wait(0.3)
+        self.assertEqual(self.js("return MI.defaults().pads.length"), 16)
+        self.pad(3); self.wait(0.2)
+        self.assertEqual(self.js("return S.smpSel"), 2)  # pad 3 is the third sample square
+        self.js("showTab('trk'); pkGo('edit')"); self.wait(0.3)
+        self.assertIsNone(self.js("return MI.defaults().pads"))
+        self.assertEqual(self.errors(), [])
+
     def song(self, mutate):
         return self.js("const e = JSON.parse(serialize()); (%s)(e); return e" % mutate)
 
@@ -543,6 +570,21 @@ class Track(Page):
 
 @unittest.skipUnless(APP == "tune", "TUNE only")
 class Tune(Page):
+    def test_midi_pads_follow_the_screen(self):
+        self.midi_pads_open()
+        self.js("document.querySelector('button[data-v=cof]').click()"); self.wait(0.4)
+        self.assertEqual(self.js("return [MI.holdDefaults(), MI.defaults().pads.length > 0]"), [False, True])
+        self.pad(3); self.wait(0.1)  # pad 3: the third chord of the key
+        self.assertTrue(self.js("return !!document.querySelector('#cofPads [data-ch=\"2\"].lit')"))
+        self.js("document.querySelector('button[data-v=loop]').click()"); self.wait(0.4)
+        self.assertEqual(self.js("return MI.defaults().pads[0][0]"), "pad0")
+        self.js("document.querySelector('#lPads').addEventListener('pointerdown', (e) => (window.__lp = e.target.closest('[data-p]').dataset.p), true)")
+        self.pad(2); self.wait(0.2)  # pad 2: the second loop pad (a recording needs the microphone, so only the touch is checked)
+        self.assertEqual(self.js("return window.__lp"), "1")
+        self.js("document.querySelector('button[data-v=jam]').click()"); self.wait(0.3)
+        self.assertEqual(self.js("return MI.defaults().pads[0][0]"), "jfx:" + self.js("return JFX[0][0]"))  # the JAM keeps its own
+        self.assertEqual(self.errors(), [])
+
     def test_tempo_is_locked_while_recording(self):
         self.open()
         self.assertEqual(self.js("const a = S.met.bpm; LP.rec = {i: 0}; setBpm(a + 40); const held = S.met.bpm === a; LP.rec = null; setBpm(a + 40); return [held, S.met.bpm === a + 40]"), [True, True])
@@ -645,6 +687,16 @@ class Tune(Page):
 
 @unittest.skipUnless(APP == "sing", "SING only")
 class Sing(Page):
+    def test_midi_pads_follow_the_screen(self):
+        self.midi_pads_open()
+        self.assertEqual(self.js("return MI.defaults().pads[0][0]"), "pad0")  # the warm-up: the exercise squares
+        self.pad(3); self.wait(0.3)
+        self.assertEqual(self.js("return S.ex === EXS[2].id"), True)
+        self.js("if (W.on) warmStop()")
+        self.js("document.querySelector('#hViews [data-v=vox]').click()"); self.wait(0.3)
+        self.assertEqual(self.js("return MI.defaults().pads[0][0]"), "vx0")  # the sampler keeps its own
+        self.assertEqual(self.errors(), [])
+
     def test_master_and_tempo_knobs_on_midi(self):
         self.d.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": FAKE_MIDI})
         self.open()
