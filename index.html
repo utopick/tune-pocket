@@ -2287,7 +2287,7 @@
           <div id="nnBar"><button data-nn="abc">A B C</button><button data-nn="sol">DO RE MI</button></div>
           <div class="hint">Letters or solfège, for every app: TRACK, TUNE and SING.Pocket.</div>
           <h3 style="margin-top: 12px">MIDI device</h3>
-          <div id="midiBar"><button id="midiDev">CONNECT</button><div class="mrow"><button id="midiMap">ASSIGN</button><button id="midiClr">CLEAR</button><button id="midiTest" title="Map your controller step by step: keys, pads, knobs, sustain, bend, transport. Saved, exported, imported.">MAP</button><button id="midiMon" title="See what your device sends: keys, pads, knobs, channels, clock. A report to copy.">MONITOR</button><button id="midiView" title="Live device diagram and assignments">DEVICE</button><button id="midiSnd" title="The keys sound in the app. Turn it off for a keyboard with its own speakers.">SOUND</button></div></div>
+          <div id="midiBar"><button id="midiDev">CONNECT</button><div class="mrow"><button id="midiMap">ASSIGN</button><button id="midiClr">CLEAR</button><button id="midiTest" title="Map your controller step by step: keys, pads, knobs, sustain, bend, transport. Saved, exported, imported.">MAP</button><button id="midiMon" title="See what your device sends: keys, pads, knobs, channels, clock. A report to copy.">MONITOR</button><button id="midiView" title="Live device diagram and assignments">DEVICE</button><button id="midiSnd" title="The keys sound in the app. Turn it off for a keyboard with its own speakers.">SOUND</button><button id="midiMod" title="MOD: while the sustain pedal (or the key MAP found) is held, the pads and knobs become a second set. Tap to turn it on or off.">MOD</button></div></div>
           <div class="hint">
             Experimental. The keys sound with a piano (<b>SOUND</b> turns it off, for keyboards with their own speakers).
             In SCALES the keys light the notes you play, PRACTICE listens to them instead of the microphone, and a
@@ -2405,7 +2405,15 @@
 #mdPanel .mdKey{fill:#1b232d;stroke:#9fb2c6;stroke-width:1;cursor:pointer;outline:none}#mdPanel .mdBlack{fill:#090d12}#mdPanel .mdKey:focus-visible{stroke:#69ccfa;stroke-width:2}
 #mdPanel .mdKey.lit{fill:#38d5fb;filter:drop-shadow(0 0 5px #38d5fb)}#mdPanel .mdKey.chosen{stroke:#ffbf52;stroke-width:3}
 #mdPanel .mdMap{border-top:1px solid #647486;padding-top:10px}#mdPanel .mdMap select{max-width:100%;min-width:200px}#mdPanel .mdHint{min-height:1.5em;color:#ffce84}
-#mdPanel .mdDevice{overflow-x:auto}#mdPanel .mdDevice svg{min-width:720px}
+#mdPanel .mdBody,#mdPanel .mdSide{display:contents}#mdPanel .mdSide>.mdRow:nth-child(1){order:1}#mdPanel .mdSide>.mdRow:nth-child(2){order:2}#mdPanel #mdWiz{order:3}#mdPanel #mdLive{order:4}#mdPanel .mdDevWrap{order:5}#mdPanel .mdSide>.mdMap{order:6}
+#mdPanel .mdCard{display:flex;flex-direction:column}#mdPanel .mdDevice{overflow:hidden}
+/* an upright phone: the card turns sideways, so the diagram has the whole width. A short window: controls on the right, the diagram fills the rest, no scrolling */
+#mdPanel.rot .mdCard{position:fixed;top:0;left:100vw;width:100vh;height:100vw;max-height:none;transform-origin:0 0;transform:rotate(90deg)}
+#mdPanel.cmp .mdCard{padding:8px 12px;overflow:hidden}#mdPanel.cmp h2{font-size:15px}#mdPanel.cmp .mdCard>header{flex:none}
+#mdPanel.cmp .mdBody{display:flex;flex-direction:row;gap:10px;flex:1;min-height:0}#mdPanel.cmp .mdSide{display:flex;flex-direction:column;width:300px;flex:none;overflow:auto;min-height:0}
+#mdPanel.cmp .mdSide>*{order:0!important}#mdPanel.cmp .mdSide>.mdMap{order:9!important}#mdPanel.cmp .mdRow{margin:4px 0;gap:5px}#mdPanel.cmp button,#mdPanel.cmp select{min-height:30px;padding:4px 7px}
+#mdPanel.cmp .mdDevWrap{order:0;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}#mdPanel.cmp .mdDevWrap small,#mdPanel.cmp .mdMap small,#mdPanel.cmp .mdMap p{display:none}
+#mdPanel.cmp .mdDevice{margin:0}#mdPanel.cmp .mdDevice svg{max-height:calc(var(--mdH) - 60px);margin:auto}
 #mdPanel .tg path{fill:none;stroke:#ffbf52;stroke-width:1.1;opacity:.75}#mdPanel .tg rect{fill:#1a2029;stroke:#ffbf52;stroke-width:1.2}#mdPanel .tg text{fill:#ffd28a;font:700 11.5px system-ui;text-anchor:middle;pointer-events:none}
 #mdPanel #mdWiz{border:2px solid #ffbf52;border-radius:10px;padding:10px;margin:10px 0}#mdPanel #mdWiz[hidden]{display:none}#mdPanel #mdWiz h3{margin:0 0 4px;font-size:15px;color:#ffce84}#mdPanel #mdWiz .mdSt{min-height:1.5em;color:#8bd5fc;font-weight:700}
 #mdPanel #mdLive{color:#9fb2c6;font:12px/1.4 ui-monospace,monospace;min-height:1.4em;overflow-wrap:anywhere}
@@ -2529,6 +2537,8 @@
     // the model's profile with the device's own measures on top (what MAP found)
     const withMap = (p, name) => (hw[name] ? { ...p, ...hw[name] } : p);
     const layer = {}; // device -> is its mod key held
+    const MODP = "pocket.midi.modpedal"; // "0": the mod key (the sustain pedal, or the one MAP found) is off
+    const modPedalOn = () => { try { return localStorage.getItem(MODP) !== "0"; } catch { return true; } };
     const prof = () => withMap(PROFILES[profile] || PROFILES.generic, device);
     // ---- the starting assignment: what a control does before anyone assigns it (the app lists it in MI.defaults)
     const defs = () => (typeof MI.defaults === "function" ? MI.defaults() : MI.defaults) || {};
@@ -2707,6 +2717,7 @@
       box.hidden = !wiz;
       if (!wiz) return;
       const [t, d] = STEP[wiz.step];
+      setTimeout(fitPanel, 0);
       box.innerHTML = `<h3>MAP · ${ORDER.indexOf(wiz.step) + 1} / ${ORDER.length} · ${t}</h3><div>${d}</div><div class="mdSt" id="mdWizSt" aria-live="polite">${esc(wiz.msg || "")}</div><div class="mdRow"><button data-do="wizBack"${wiz.step === "hello" ? " disabled" : ""}>BACK</button><button data-do="wizNext">${wiz.step === "fn" ? "FINISH" : "NEXT"}</button><button data-do="wizCancel">CANCEL</button></div>`;
     }
     const wizSay = (m) => { wiz.msg = m; const e = el?.querySelector("#mdWizSt"); if (e) e.textContent = m; };
@@ -2841,9 +2852,11 @@
       device = MI.names[0];
       const style = document.createElement("style"); style.textContent = css; style.id = "mdStyle"; document.head.appendChild(style);
       el = document.createElement("div"); el.id = "mdPanel";
-      el.innerHTML = `<div class="mdCard" role="dialog" aria-modal="true" aria-label="MIDI device diagram"><header><h2>MIDI DEVICE · LIVE DIAGRAM</h2><button data-do="close">DONE</button></header><div class="mdRow"><label>Input port<select id="mdSource"></select></label><label>Diagram<select id="mdProfile"></select></label></div><div class="mdRow"><button data-do="map" title="Step by step: the connection, the lowest and highest key, every pad, every knob, the sustain pedal, the bend, mod and transport buttons. The panel learns your device.">MAP DEVICE</button><button data-do="unmap" id="mdUnmap" title="Forget what MAP found and go back to the model's own">RESET MAP</button><button data-do="export" title="Save the device's map as a file (to keep it, to share it, to add the device to the Pocket apps)">EXPORT</button><button data-do="import" title="Read a device map from a file">IMPORT</button><button data-do="report" title="Copy a report of everything this device sent, to paste in an issue or a message">COPY REPORT</button><button data-do="lights" title="Send notes to the device: pads with lights light up if the device takes lights from the computer">LIGHT TEST</button><input type="file" id="mdFile" accept=".json,application/json" hidden></div><div id="mdWiz" hidden></div><div id="mdLive" aria-live="off"></div><small>A line sketch of the layout, not to scale. Pick the model that matches yours. Keys, pads and knobs light up as you use them; knobs are matched in the order of their CC numbers. LEARN pins a drawn control to the real one.</small><div class="mdDevice"></div><div class="mdMap"><div class="mdRow"><strong id="mdSelected">Select a key, pad or knob</strong><label>Pocket function<select id="mdAction"></select></label><button data-do="learn">LEARN FROM HARDWARE</button><button data-do="clear">CLEAR CONTROL</button><button data-do="defaults" id="mdDefaults" title="The functions the app gives the knobs and pads before you assign anything"></button></div><div class="mdHint" id="mdHint"></div><small>Choose a diagram control and a Pocket function, then press or turn its real counterpart. Assignments are saved for this input port and this Pocket app. Unassigned keys still play normally. Click a drawn key to preview it.</small><p><a id="mdSourceLink" target="_blank" rel="noopener noreferrer">Manufacturer reference ↗</a></p></div></div>`;
+      el.innerHTML = `<div class="mdCard" role="dialog" aria-modal="true" aria-label="MIDI device diagram"><header><h2>MIDI DEVICE · LIVE DIAGRAM</h2><button data-do="close">DONE</button></header><div class="mdBody"><div class="mdSide"><div class="mdRow"><label>Input port<select id="mdSource"></select></label><label>Diagram<select id="mdProfile"></select></label></div><div class="mdRow"><button data-do="map" title="Step by step: the connection, the lowest and highest key, every pad, every knob, the sustain pedal, the bend, mod and transport buttons. The panel learns your device.">MAP DEVICE</button><button data-do="unmap" id="mdUnmap" title="Forget what MAP found and go back to the model's own">RESET MAP</button><button data-do="export" title="Save the device's map as a file (to keep it, to share it, to add the device to the Pocket apps)">EXPORT</button><button data-do="import" title="Read a device map from a file">IMPORT</button><button data-do="report" title="Copy a report of everything this device sent, to paste in an issue or a message">COPY REPORT</button><button data-do="lights" title="Send notes to the device: pads with lights light up if the device takes lights from the computer">LIGHT TEST</button><input type="file" id="mdFile" accept=".json,application/json" hidden></div><div id="mdWiz" hidden></div><div id="mdLive" aria-live="off"></div><div class="mdMap"><div class="mdRow"><strong id="mdSelected">Select a key, pad or knob</strong><label>Pocket function<select id="mdAction"></select></label><button data-do="learn">LEARN FROM HARDWARE</button><button data-do="clear">CLEAR CONTROL</button><button data-do="defaults" id="mdDefaults" title="The functions the app gives the knobs and pads before you assign anything"></button></div><div class="mdHint" id="mdHint"></div><small>Choose a diagram control and a Pocket function, then press or turn its real counterpart. Assignments are saved for this input port and this Pocket app. Unassigned keys still play normally. Click a drawn key to preview it.</small><p><a id="mdSourceLink" target="_blank" rel="noopener noreferrer">Manufacturer reference ↗</a></p></div></div><div class="mdDevWrap"><small>A line sketch of the layout, not to scale. Pick the model that matches yours. Keys, pads and knobs light up as you use them; knobs are matched in the order of their CC numbers. LEARN pins a drawn control to the real one.</small><div class="mdDevice"></div></div></div></div>`;
       document.body.appendChild(el);
       sourceOptions();
+      addEventListener("resize", fitPanel);
+      fitPanel();
       el.querySelector("#mdSource").onchange = (e) => { device = e.target.value; learning = false; wiz = null; wizShow(); selected = ""; draw(); };
       el.querySelector("#mdProfile").onchange = (e) => { profile = e.target.value; record().profile = profile; persist(); selected = ""; draw(); };
       el.querySelector("#mdFile").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f && f.size < 100000) f.text().then(importHw).catch(() => hint("Could not read that file.")); };
@@ -2874,7 +2887,17 @@
       draw();
       if (o?.map) wizStart();
     }
-    function close() { learning = false; wiz = null; el?.remove(); el = null; document.getElementById("mdStyle")?.remove(); }
+    // an upright phone turns the card sideways; a window shorter than 560 px (a phone on its side too) puts the controls beside the diagram
+    function fitPanel() {
+      if (!el) return;
+      const rot = innerWidth < 600 && innerHeight > innerWidth * 1.1, h = rot ? innerWidth : innerHeight;
+      el.classList.toggle("rot", rot);
+      el.style.setProperty("--mdH", h + "px");
+      el.classList.toggle("cmp", h < 560);
+      const card = el.querySelector(".mdCard");
+      if (!el.classList.contains("cmp") && card.scrollHeight > card.clientHeight + 1) el.classList.add("cmp"); // too tall as one column: controls beside the diagram
+    }
+    function close() { learning = false; wiz = null; removeEventListener("resize", fitPanel); el?.remove(); el = null; document.getElementById("mdStyle")?.remove(); }
     function hint(text) { if (el) el.querySelector("#mdHint").textContent = text; }
     function draw() {
       if (!el) return;
@@ -2885,6 +2908,7 @@
       const link = el.querySelector("#mdSourceLink"); link.hidden = !p.source; link.href = p.source;
       drawDevice(); select("");
       hint("Listening to " + device + ". Press a key, a pad or turn a knob to see it light up.");
+      fitPanel();
     }
     function drawDevice() {
       if (!el) return;
@@ -2961,8 +2985,8 @@
       let l = ""; try { l = localStorage.getItem(app + (document.title.startsWith("TEST") ? "-test" : "") + ".lang") || ""; } catch {}
       const es = (l || navigator.language || "en").toLowerCase().startsWith("es");
       const T = es
-        ? ["Tu MPK mini Play usa su disposición de sonidos internos", "Esta disposición tiene menos potes separados y otras notas en los pads. Para la disposición estándar (8 potes y 16 pads): mantén FAVORITE y pulsa el pad 5.", "ENTENDIDO", "NO MOSTRAR MÁS"]
-        : ["Your MPK mini Play is on its internal-sounds layout", "This layout has fewer separate knobs and other notes on the pads. For the standard layout (8 knobs and 16 pads): hold FAVORITE and press pad 5.", "GOT IT", "DON'T SHOW AGAIN"];
+        ? ["Tu MPK mini Play usa su disposición de sonidos internos", "Esta disposición tiene menos potes separados y otras notas en los pads. Para la disposición estándar (8 potes y 16 pads): mantén FAVORITE y pulsa el pad 5. La pantalla dirá «FAV: Garageband».", "ENTENDIDO", "NO MOSTRAR MÁS"]
+        : ["Your MPK mini Play is on its internal-sounds layout", "This layout has fewer separate knobs and other notes on the pads. For the standard layout (8 knobs and 16 pads): hold FAVORITE and press pad 5. The screen will read FAV: Garageband.", "GOT IT", "DON'T SHOW AGAIN"];
       const box = document.createElement("div");
       box.id = "mdTip"; box.setAttribute("role", "alertdialog");
       box.style.cssText = "position:fixed;inset:0;z-index:9050;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:12px";
@@ -2978,10 +3002,11 @@
     }
     // the mod key: a note (down and up) or a CC (64 and up is down). The key itself still does its normal job.
     function modTrack(from, d) {
-      const mk = profOf(from).modKey, st = d[0], cmd = st & 0xf0;
-      if (!mk || (cmd !== 0x90 && cmd !== 0x80 && cmd !== 0xb0)) return;
-      const tok = (cmd === 0xb0 ? "c" : "n") + (st & 15) + ":" + d[1], down = cmd === 0xb0 ? d[2] >= 64 : cmd === 0x90 && d[2] > 0;
-      if (tok === mk && !!layer[from] !== down) { layer[from] = down; if (el && from === device) hint(down ? "MOD held: the pads and knobs are the second set." : "MOD released."); }
+      const st = d[0], cmd = st & 0xf0;
+      if (cmd !== 0x90 && cmd !== 0x80 && cmd !== 0xb0) return;
+      const mk = profOf(from).modKey, tok = (cmd === 0xb0 ? "c" : "n") + (st & 15) + ":" + d[1], down = cmd === 0xb0 ? d[2] >= 64 : cmd === 0x90 && d[2] > 0;
+      if (!modPedalOn()) { layer[from] = false; return; }
+      if ((mk ? tok === mk : cmd === 0xb0 && d[1] === 64) && !!layer[from] !== down) { layer[from] = down; if (el && from === device) hint(down ? "MOD held: the pads and knobs are the second set." : "MOD released."); }
     }
     function observe(data, from) {
       const [st, a, b] = data, cmd = st & 0xf0;
@@ -3034,7 +3059,9 @@
     const padNo = (from, n) => { const p = profOf(from); return padIndex(p.pads || 8, n, p.padNotes) + (layer[from] ? p.pads || 8 : 0); };
     // susCc: the CC of this device's sustain (64 unless MAP found another)
     const susCc = (from) => profOf(from).sus ?? 64;
-    return { open, close, observe, route, fallback, defaultsOff, isPad, padNo, susCc };
+    // the MOD switch (MIDI options): on by default; off, and the pads and knobs stay the first set
+    const modPedal = (on) => { if (on !== undefined) { try { localStorage.setItem(MODP, on ? "1" : "0"); } catch {} for (const k in layer) layer[k] = false; } return modPedalOn(); };
+    return { open, close, observe, route, fallback, defaultsOff, isPad, padNo, susCc, modPedal, layerOf: (from) => !!layer[from] };
   }
   window.createMidiPanel = createMidiPanel;
   window.pocketMidiHelpers = { padIndex, knobRank, guess, vetHw };
@@ -6754,6 +6781,13 @@
         const b = document.getElementById(id);
         if (b) b.onclick = f;
       });
+      // MOD: the sustain pedal (or the key MAP found) as a shift for the pads and knobs
+      const modBtn = document.getElementById("midiMod");
+      if (modBtn) {
+        const modFace = () => ((modBtn.textContent = "MOD " + (midiPanel.modPedal() ? "ON" : "OFF")), modBtn.classList.toggle("on", midiPanel.modPedal()));
+        modFace();
+        modBtn.onclick = () => (midiPanel.modPedal(!midiPanel.modPedal()), modFace(), toast(midiPanel.modPedal() ? "MOD on: hold the sustain pedal and the pads and knobs become a second set" : "MOD off: the pads and knobs stay the first set"));
+      }
       // SOUND: whether the keys make a sound in the app (a keyboard with its own speakers does not need it)
       MI.sound = () => localStorage.getItem(MI_KEY + ".snd") !== "0";
       const sndBtn = document.getElementById("midiSnd");
@@ -10254,6 +10288,8 @@
             b: {
               en: [
                 "## Version 2.4.0",
+                "- **MOD pedal:** on every keyboard the sustain pedal (or button) is now a shift: while it is held, the default pad and knob functions become a second set (knob 1 acts as knob 9, and so on). It keeps sustaining notes. The MOD button in the MIDI options turns this on or off; MAP can pick another key instead of the pedal.",
+                "- **MIDI DEVICE panel without scrolling:** it fits the screen. On an upright phone it turns sideways, and on a short window the controls go beside the diagram.",
                 "- **Knob card:** turning a MIDI knob shows a small card in the middle of the screen with its name, a little knob and its value, so you see what you are changing. It does not appear where the screen already shows that knob (the mixer, the Variator's own views, the metronome).",
                 "- **Three more JAM styles:** Lo-fi (lazy beat, a light swing), Synthwave (driving 8ths) and Dungeon (slow march), the same styles as the Variator in TRACK, with their own drums, bass, chords and sounds.",
                 "- **MOD key:** MAP asks if you want a MOD key (the sustain pedal is a good one, and keeps its own job). While it is held, the pads and knobs become a second set: knob 1 acts as knob 9, and so on, so a few controls do double duty. The leftmost and rightmost keys cannot be the MOD key.",
@@ -10277,6 +10313,8 @@
               ],
               es: [
                 "## Versión 2.4.0",
+                "- **Pedal MOD:** en todos los teclados el pedal (o botón) de sustain es ahora una tecla de cambio: mientras se mantiene, las funciones por defecto de pads y potes pasan a ser un segundo juego (el pote 1 actúa como el 9, y así). Sigue sosteniendo notas. El botón MOD de las opciones MIDI lo activa o desactiva, y MAP puede elegir otra tecla en lugar del pedal.",
+                "- **Panel MIDI DEVICE sin desplazamiento:** cabe en la pantalla. En un móvil vertical se gira de lado, y en una ventana baja los controles van junto al dibujo.",
                 "- **Tarjeta del pote:** al girar un pote MIDI aparece una tarjeta pequeña en el centro con su nombre, un potenciómetro y su valor, para ver qué estás cambiando. No aparece donde la pantalla ya muestra ese pote (el mezclador, las vistas del Variator, el metrónomo).",
                 "- **Tres estilos más en JAM:** Lo-fi (ritmo perezoso, con un swing ligero), Synthwave (corcheas constantes) y Dungeon (marcha lenta), los mismos estilos que el Variator de TRACK, con sus propias baterías, bajos, acordes y sonidos.",
                 "- **Tecla MOD:** MAP pregunta si quieres una tecla MOD (el pedal de sustain es buena opción y sigue haciendo su trabajo). Mientras se mantiene pulsada, los pads y potes pasan a ser un segundo juego: el pote 1 actúa como el 9, y así, para que pocos controles hagan doble trabajo. La tecla de más a la izquierda y la de más a la derecha no pueden ser la tecla MOD.",

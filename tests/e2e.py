@@ -38,12 +38,17 @@ def setUpModule():
 def tearDownModule(): SRV.shutdown()
 
 
+# a fake MIDI keyboard (an MPK mini Play mk3 by name): the tests send it messages with self.midi(...)
+FAKE_MIDI = """(() => { const inp = { id: 'm', name: 'MPK mini Play mk3', manufacturer: 'AKAI', state: 'connected', type: 'input', onmidimessage: null }; window.__inp = inp;
+  navigator.requestMIDIAccess = () => Promise.resolve({ inputs: new Map([['m', inp]]), outputs: new Map(), onstatechange: null, sysexEnabled: false }); })();"""
+
+
 class Page(unittest.TestCase):
     """A fresh Chrome (empty storage) for each test."""
     def setUp(self):
         o = webdriver.ChromeOptions()
         if not os.environ.get("HEAD"): o.add_argument("--headless=new")
-        o.add_argument("--window-size=390,844"); o.add_argument("--autoplay-policy=no-user-gesture-required")
+        o.add_argument("--mute-audio"); o.add_argument("--window-size=390,844"); o.add_argument("--autoplay-policy=no-user-gesture-required")
         if APP == "play":  # the rig needs an input: Chrome's pretend microphone (a beep), allowed without asking
             o.add_argument("--use-fake-device-for-media-stream"); o.add_argument("--use-fake-ui-for-media-stream")
         self.d = webdriver.Chrome(options=o)
@@ -56,6 +61,13 @@ class Page(unittest.TestCase):
     def js(self, code, *a): return self.d.execute_script(code, *a)
 
     def wait(self, s): __import__("time").sleep(s)
+
+    def midi_open(self):
+        self.d.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": FAKE_MIDI})
+        self.open()
+        self.js("document.querySelector('#midiDev').click()"); self.wait(0.9)
+
+    def midi(self, *d): self.js("window.__inp.onmidimessage({ data: new Uint8Array(arguments[0]) })", list(d))
 
     def reopen(self, wait=1.2): self.d.refresh(); self.wait(wait)
 
@@ -80,6 +92,47 @@ class Common(Page):
     def test_boots_and_every_view_opens(self):
         self.open(); self.tour(); self.assertClean()
 
+    # ---- MIDI: the MAP wizard and ASSIGN, on a fake keyboard
+    def test_map_wizard_learns_a_keyboard_and_goes_back(self):
+        self.midi_open()
+        self.js("document.querySelector('#midiTest').click()"); self.wait(0.4)
+        step = lambda: self.js("return document.querySelector('#mdWiz h3').textContent")
+        self.midi(0x90, 60, 9); self.assertIn("LEFTMOST", step())
+        self.midi(0x90, 48, 90); self.midi(0x90, 72, 90); self.assertIn("MOD KEY", step())
+        self.midi(0x90, 48, 90)  # the leftmost key cannot be the mod key
+        self.assertIn("MOD KEY", step())
+        self.js("document.querySelector('[data-do=wizBack]').click()"); self.assertIn("RIGHTMOST", step())
+        self.midi(0x90, 72, 90); self.assertIn("MOD KEY", step())
+        self.midi(0xb0, 64, 127); self.assertIn("PADS", step())  # the pedal is the mod key
+        for n in (36, 38, 42): self.midi(0x99, n, 100)
+        self.midi(0x90, 72, 90); self.midi(0x90, 48, 90); self.assertIn("KNOBS", step())  # rightmost then leftmost ends the list
+        for cc in (74, 71, 91, 99, 98, 6): self.midi(0xb0, cc, 50)  # 98 and 99 are NRPN selectors, not knobs
+        for _ in range(8): self.js("var b = document.querySelector('[data-do=wizNext]'); b && b.click()")
+        m = json.loads(self.js("return localStorage.getItem('pocket.midi.hw.v1')"))["MPK mini Play mk3"]
+        self.assertEqual((m["keys"], m["ccs"], m["modKey"], m["padNotes"]), (25, [74, 71, 91, 6], "c0:64", [[36, 38, 42]]))
+        self.assertEqual(self.errors(), [])
+
+    def test_assign_takes_each_control_once(self):
+        self.midi_open()
+        self.js("document.querySelector('#midiMap').click()"); self.wait(0.3)
+        step = lambda: self.js("return document.querySelector('#miLearn i').textContent.split('/')[0].split('·').pop().trim()")
+        first = step()
+        for i in range(30): self.midi(0xb0, 74, i * 4); self.wait(0.05)  # one knob kept turning for 1.5 s
+        self.assertEqual(int(step()), int(first) + 1)
+        self.wait(0.7); self.midi(0xb0, 71, 10); self.wait(0.6); self.assertEqual(int(step()), int(first) + 2)
+        self.wait(0.6); self.midi(0xb0, 74, 99); self.wait(0.2); self.assertEqual(int(step()), int(first) + 2)  # taken already
+        self.assertEqual(self.errors(), [])
+
+    def test_sustain_pedal_is_the_mod_key_and_the_switch_turns_it_off(self):
+        self.midi_open()
+        self.js("document.querySelector('#midiView').click()"); self.wait(0.3)
+        self.midi(0xb0, 64, 127)
+        self.assertTrue(self.js("return !!document.querySelector('#mdHint') && /MOD held/.test(document.querySelector('#mdHint').textContent)"))
+        self.midi(0xb0, 64, 0)
+        self.js("document.querySelector('[data-do=close]').click(); document.querySelector('#midiMod').click()"); self.wait(0.2)
+        self.assertEqual(self.js("return document.querySelector('#midiMod').textContent"), "MOD OFF")
+        self.assertEqual(self.errors(), [])
+
     def test_installable_files_are_served(self):
         for f in ("manifest.webmanifest", "sw.js", "icons/icon-192.png", "icons/icon-512.png"):
             with urllib.request.urlopen(BASE + f) as r: self.assertEqual(r.status, 200, f)
@@ -97,6 +150,23 @@ class Common(Page):
 class Track(Page):
     def song(self, mutate):
         return self.js("const e = JSON.parse(serialize()); (%s)(e); return e" % mutate)
+
+    def test_midi_variator_knobs_and_pads(self):
+        self.d.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": FAKE_MIDI})
+        self.open()
+        self.js("localStorage.setItem('pocket.midi.hw.v1', JSON.stringify({'MPK mini Play mk3': {keys: 25, pads: 8, padCh: 9, padNotes: [[36,37,38,39,40,41,42,43]], ccs: [70,71,72,73,74,75,76,77], knobs: 8, cc0: 0}}))")
+        self.reopen(); self.js("document.querySelector('#midiDev').click()"); self.wait(0.9)
+        self.js("document.querySelector('button[data-v=var]').click()"); self.wait(0.5)
+        self.js("document.querySelector('#vVars').click()"); self.wait(0.3)
+        for i in range(8): self.midi(0xb0, 70 + i, 0 if i % 2 == 0 else 127)
+        self.wait(0.7)
+        self.assertEqual(self.js("return [VAR.k.dens, VAR.k.swing, VAR.k.fill, VAR.k.chg, VAR.k.range, VAR.k.rep, VAR.k.len, +$('#master').value]"), [0, 1, 0, 1, 0, 1, 0, 1])
+        self.js("document.querySelector('#vChs').click(); VAR.low = 'pats'; varRender()"); self.wait(0.3)
+        self.midi(0x99, 38, 100); self.wait(0.1); self.midi(0x89, 38, 0); self.wait(0.4)  # a short press: the song goes on from that pattern
+        self.assertEqual(self.js("return [S.playing, S.mode, S.ordSel]"), [True, "song", 2])
+        self.midi(0x99, 40, 100); self.wait(0.6); self.midi(0x89, 40, 0); self.wait(0.4)  # a held press loops it
+        self.assertEqual(self.js("return [S.mode, VAR.liveSlot]"), ["live", 4])
+        self.assertEqual(self.errors(), [])
 
     def test_song_file_cannot_run_script(self):
         self.open()

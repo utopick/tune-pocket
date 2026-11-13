@@ -175,3 +175,28 @@ test("with the mod key held, pads and knobs act as the second set", () => {
   assert.equal(vetHw({ keys: 25, modKey: "rt:250" }).modKey, undefined);
   assert.equal(vetHw({ keys: 25, modKey: "<b>" }).modKey, undefined);
 });
+
+test("the sustain pedal is the mod key by default, and one switch turns it off", () => {
+  const storage = new Map();
+  const mpk = "MPK mini Play mk3", other = "Some Keyboard";
+  const context = { performance, setTimeout, window: {}, location: { pathname: "/track-pocket/" }, localStorage: { getItem: (k) => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v) } };
+  vm.createContext(context);
+  vm.runInContext(source, context);
+  const MI = { names: [mpk, other], map: {}, actions: () => [] };
+  const panel = context.window.createMidiPanel(MI, () => {}, () => {});
+  assert.equal(panel.modPedal(), true);
+  for (const d of [mpk, other]) {
+    assert.equal(panel.layerOf(d), false);
+    panel.observe([0xb0, 64, 127], d); // the pedal goes down
+    assert.equal(panel.layerOf(d), true);
+    panel.observe([0xb0, 64, 0], d);
+    assert.equal(panel.layerOf(d), false);
+  }
+  panel.observe([0xb0, 64, 127], mpk);
+  assert.equal(panel.padNo(mpk, 38), 9); // the second set: 8 more
+  panel.modPedal(false); // the switch: off, and a held pedal is let go
+  assert.equal(panel.layerOf(mpk), false);
+  panel.observe([0xb0, 64, 127], mpk);
+  assert.equal(panel.layerOf(mpk), false);
+  assert.equal(panel.modPedal(), false);
+});
