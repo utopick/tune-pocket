@@ -2462,7 +2462,7 @@
   };
   // Knobs are matched in the order of their CC numbers (mod wheel, sustain and the like are not knobs).
   const NOT_KNOB = new Set([0, 1, 32, 64, 98, 99, 100, 101]);
-  const knobRank = (seen, cc, cc0, ccs) => (ccs ? ccs.indexOf(cc) : cc0 != null ? (cc >= cc0 ? cc - cc0 : -1) : NOT_KNOB.has(cc) || cc >= 120 ? -1 : [...seen].filter((x) => !NOT_KNOB.has(x) && x < 120).sort((a, b) => a - b).indexOf(cc));
+  const knobRank = (seen, cc, cc0, ccs) => (ccs ? ccs.indexOf(cc) : cc0 != null ? (cc >= cc0 ? cc - cc0 : -1) : NOT_KNOB.has(cc) || cc >= 120 ? -1 : [...(seen || [])].filter((x) => !NOT_KNOB.has(x) && x < 120).sort((a, b) => a - b).indexOf(cc));
 
   // ---------- the wireframes (SVG, 840 wide)
   const W = 840;
@@ -2543,10 +2543,11 @@
     const layer = {}; // device -> is its mod key held
     const MODP = "pocket.midi.modpedal"; // "0": the mod key (the sustain pedal, or the one MAP found) is off
     const modPedalOn = () => { try { return localStorage.getItem(MODP) !== "0"; } catch { return true; } };
-    const prof = () => withMap(PROFILES[profile] || PROFILES.generic, device);
+    const profById = (id) => (typeof id === "string" && Object.prototype.hasOwnProperty.call(PROFILES, id) ? PROFILES[id] : PROFILES.generic);
+    const prof = () => withMap(profById(profile), device);
     // ---- the starting assignment: what a control does before anyone assigns it (the app lists it in MI.defaults)
     const defs = () => (typeof MI.defaults === "function" ? MI.defaults() : MI.defaults) || {};
-    const profOf = (from) => withMap(PROFILES[saved[from]?.profile || guess(from)] || PROFILES.generic, from);
+    const profOf = (from) => withMap(profById(saved[from]?.profile || guess(from)), from);
     const shortName = (id) => String((MI.actions().find((x) => x.id === id) || { name: id }).name).replace("VOLUME ", "VOL ").slice(0, 12);
     // [action id, label] a model gives control id (a pad "p3", a knob "c1"), or null. Knobs need a known first CC.
     function factory(p, id) {
@@ -2572,10 +2573,13 @@
       const r = t === "c" ? knobRank(seenCC[from], +n, p.cc0, p.ccs) : -1;
       return p.cc0 != null && r >= 0 && r < p.knobs ? "c" + (r + (layer[from] ? p.knobs : 0)) : "";
     }
+    const downAs = {};
     // a control nobody assigned, doing what its model's starting assignment says
     function fallback(from, key, cc, on, value) {
       if (!cc && MI.holdDefaults && MI.holdDefaults()) return false; // the app is using the pads and keys for something on screen (a knob keeps its starting function)
-      const e = effective(from, profOf(from), controlOf(from, key)), action = e && e[0] && MI.actions().find((a) => a.id === e[0]);
+      const dk = from + "|" + key, id = !cc && !on && downAs[dk] != null ? downAs[dk] : controlOf(from, key);
+      if (!cc) { if (on) downAs[dk] = id; else delete downAs[dk]; } // a note let go after the MOD key still ends the function it started
+      const e = effective(from, profOf(from), id), action = e && e[0] && MI.actions().find((a) => a.id === e[0]);
       if (!action) return false;
       run(action, from + "/" + key, cc, on, value);
       return true;
@@ -2684,7 +2688,7 @@
       if (!c && o.map) return hint("Nothing usable in that map.");
       if (c) hw[device] = c; else delete hw[device];
       persistHw();
-      if (typeof o.model === "string" && PROFILES[o.model]) { record().profile = o.model; persist(); }
+      if (typeof o.model === "string" && Object.prototype.hasOwnProperty.call(PROFILES, o.model)) { record().profile = o.model; persist(); }
       draw();
       hint("Map imported for " + device + (c ? "" : " (model only)") + ".");
     }
@@ -3014,7 +3018,7 @@
     }
     function observe(data, from) {
       const [st, a, b] = data, cmd = st & 0xf0;
-      if (from) { tally(data, from); if (!(wiz && el && from === device)) { sniffLayout(from, data); modTrack(from, data); } }
+      if (from) { tally(data, from); modTrack(from, data); if (!(wiz && el && from === device)) sniffLayout(from, data); }
       if (wiz && el && from === device) { wizMsg(data); return true; } // MAP is listening: the app must not react
       if (st >= 0xf0 || !from) return;
       const noteOn = cmd === 0x90 && b > 0, noteOff = cmd === 0x80 || (cmd === 0x90 && b === 0), cc = cmd === 0xb0;
@@ -6699,7 +6703,7 @@
           if (L.done === key) L.done = null;
           if (!cc) return;
         }
-        if (cc && midiPanel.isMod(from, key)) return; // the MOD key itself only shifts
+        if (midiPanel.isMod(from, key)) return; // the MOD key itself only shifts
         // the first step: the leftmost key, then the rightmost
         if (L.pre) {
           if (!on) return;
@@ -7180,10 +7184,12 @@
         root.addEventListener("pointermove", (e) => { if (d && e.buttons) set(d.el, clamp(d.v + (d.y - e.clientY) / 160, 0, 1)); });
       }
       // ---- the JAM knobs, in the order of the first MIDI knobs: master, swing, bass, tempo, chords, drums
+      const jamMaster = () => (Number.isFinite(S.jam.master) ? clamp(S.jam.master, 0, 1) : 0.8); // a damaged saved value is not used
+      const jamSwing = () => (Number.isFinite(S.jam.swing) ? clamp(S.jam.swing, 0, 0.5) : null);
       const jamSwingNative = () => (S.jam.pattern === "swing" || S.jam.pattern === "shuffle" ? 0.33 : S.jam.pattern === "lofibeat" ? 0.16 : 0); // of a step
       const JK = {
-        master: { n: "MASTER", def: 0.8, get: () => S.jam.master ?? 0.8, set: (f) => (S.jam.master = f), txt: (f) => Math.round(f * 100) },
-        swing: { n: "SWING", def: null, get: () => (S.jam.swing ?? jamSwingNative()) / 0.5, set: (f) => (S.jam.swing = f == null ? null : f * 0.5), txt: (f) => Math.round(f * 100) },
+        master: { n: "MASTER", def: 0.8, get: () => jamMaster(), set: (f) => (S.jam.master = f), txt: (f) => Math.round(f * 100) },
+        swing: { n: "SWING", def: null, get: () => (jamSwing() ?? jamSwingNative()) / 0.5, set: (f) => (S.jam.swing = f == null ? null : f * 0.5), txt: (f) => Math.round(f * 100) },
         bass: { n: "BASS", def: 0.6, get: () => S.jam.mix.bass, set: (f) => (S.jam.mix.bass = f), txt: (f) => Math.round(f * 100) },
         bpm: { n: "BPM", def: (100 - 40) / 180, get: () => (S.jam.bpm - 40) / 180, set: (f) => (S.jam.bpm = Math.round(40 + f * 180)), txt: (f) => Math.round(40 + f * 180) },
         chord: { n: "CHORDS", def: 0.35, get: () => S.jam.mix.chord, set: (f) => (S.jam.mix.chord = f), txt: (f) => Math.round(f * 100) },
@@ -7209,7 +7215,7 @@
         J.g.drums.gain.value = S.jam.mix.drums;
         J.g.bass.gain.value = S.jam.mix.bass;
         J.g.chord.gain.value = S.jam.mix.chord;
-        if (J.mg) J.mg.gain.value = S.jam.master ?? 0.8;
+        if (J.mg) J.mg.gain.value = jamMaster();
       }
       function jamGraph(c) {
         if (J.g) return;
@@ -7626,7 +7632,7 @@
           sd = jStep(),
           ri = NOTE_NAMES.indexOf(S.jam.key),
           snd = S.jam.snd,
-          swing = sd * (S.jam.swing ?? jamSwingNative()); // the SWING knob, else the style's own (shuffle, swing, a light one for lo-fi)
+          swing = sd * (jamSwing() ?? jamSwingNative()); // the SWING knob, else the style's own (shuffle, swing, a light one for lo-fi)
         TK.song.kit = snd.kit;
         TK.song.bpm = S.jam.bpm;
         while (J.next < c.currentTime + 0.12) {

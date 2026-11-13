@@ -158,6 +158,179 @@ class Common(Page):
         self.assertEqual(self.js("return document.querySelector('#midiMod').textContent"), "MOD OFF")
         self.assertEqual(self.errors(), [])
 
+    # ---- MIDI: hostile input, every MAP step, state across a reload (QA additions)
+    STEPS = ["CONNECTION", "LEFTMOST", "RIGHTMOST", "MOD KEY", "PADS", "KNOBS", "SUSTAIN", "STICK", "PLAY", "STOP", "RECORD", "OTHER FUNCTION"]
+
+    def step(self): return self.js("var h = document.querySelector('#mdWiz:not([hidden]) h3'); return h ? h.textContent : ''")
+
+    def click(self, sel): self.js("document.querySelector(arguments[0]).click()", sel)
+
+    def test_map_back_works_at_every_step_and_cancel_keeps_nothing(self):
+        self.midi_open()
+        self.click("#midiTest"); self.wait(0.4)
+        self.assertTrue(self.js("return document.querySelector('[data-do=wizBack]').disabled"), "BACK at the first step")
+        self.midi(0x90, 60, 9); self.midi(0x90, 48, 90); self.midi(0x90, 72, 90)
+        for want in self.STEPS[3:]:
+            self.assertIn(want, self.step()); self.click("[data-do=wizNext]") if want != "OTHER FUNCTION" else None
+        for want in reversed(self.STEPS[:-1]):  # BACK from each step to the one before it
+            self.click("[data-do=wizBack]"); self.assertIn(want, self.step())
+        self.click("[data-do=wizNext]"); self.click("[data-do=wizNext]")  # NEXT at LEFTMOST skips both key steps
+        self.assertIn("MOD KEY", self.step())
+        self.click("[data-do=wizBack]"); self.assertIn("LEFTMOST", self.step())  # and BACK goes round them too
+        self.click("[data-do=wizCancel]")
+        self.assertEqual(self.step(), "")
+        self.assertIsNone(self.js("return localStorage.getItem('pocket.midi.hw.v1')"))
+        self.assertEqual(self.errors(), [])
+
+    def test_map_is_kept_after_a_reload_and_reset_map_forgets_it(self):
+        self.midi_open()
+        self.click("#midiTest"); self.wait(0.4)
+        self.midi(0x90, 60, 9); self.midi(0x90, 48, 90); self.midi(0x90, 72, 90); self.click("[data-do=wizNext]")
+        self.click("[data-do=wizNext]")  # no pads
+        for cc in (20, 21, 22): self.midi(0xb0, cc, 30)
+        self.midi(0x90, 72, 90); self.midi(0x90, 48, 90)  # rightmost then leftmost ends the knobs
+        while self.step(): self.click("[data-do=wizNext]")
+        self.reopen(); self.click("#midiDev"); self.wait(0.9); self.click("#midiView"); self.wait(0.4)
+        self.assertEqual(json.loads(self.js("return localStorage.getItem('pocket.midi.hw.v1')"))["MPK mini Play mk3"]["ccs"], [20, 21, 22])
+        self.midi(0xb0, 21, 40)
+        self.assertIn("Knob 2", self.js("return document.querySelector('#mdHint').textContent"), "the map was not used after the reload")
+        self.assertFalse(self.js("return document.querySelector('#mdUnmap').hidden"))
+        self.click("#mdUnmap")
+        self.assertTrue(self.js("return document.querySelector('#mdUnmap').hidden"))
+        self.assertNotIn("MPK mini Play mk3", json.loads(self.js("return localStorage.getItem('pocket.midi.hw.v1')")))
+        self.midi(0xb0, 21, 41)
+        self.assertNotIn("Knob", self.js("return document.querySelector('#mdHint').textContent"), "RESET MAP kept the knobs")
+        self.assertEqual(self.errors(), [])
+
+    IMPORT = """const dt = new DataTransfer(); dt.items.add(new File([arguments[0]], 'map.json', {type: 'application/json'}));
+      const i = document.querySelector('#mdFile'); i.files = dt.files; i.dispatchEvent(new Event('change'));"""
+
+    def test_import_refuses_damaged_and_oversized_device_maps(self):
+        self.midi_open()
+        self.click("#midiView"); self.wait(0.4)
+        hint = lambda: self.js("return document.querySelector('#mdHint').textContent")
+        hw = lambda: self.js("return localStorage.getItem('pocket.midi.hw.v1')")
+        for text, want in (("{broken", "not a device map"), ("null", "not a device map"), ("[]", "not a device map"), ('{"format": "other", "map": {"keys": 25}}', "not a device map"),
+                           ('{"format": "pocket-device", "map": {"keys": 9999, "ccs": ["x"], "fn": {"play": "<script>"}}}', "Nothing usable"),
+                           ('{"format": "pocket-device", "map": "keys"}', "Nothing usable")):
+            with self.subTest(text):
+                self.js(self.IMPORT, text); self.wait(0.3)
+                self.assertIn(want, hint()); self.assertIsNone(hw())
+        self.js("document.querySelector('#mdHint').textContent = 'x'")
+        self.js(self.IMPORT, '{"format": "pocket-device", "map": {"keys": 61}, "pad": "%s"}' % ("x" * 120000)); self.wait(0.3)  # over 100 kB: not read at all
+        self.assertEqual((hint(), hw()), ("x", None))
+        self.js(self.IMPORT, json.dumps({"format": "pocket-device", "model": "generic", "name": EVIL % "import", "map": {"keys": 61, "ccs": [20, 21], "extra": EVIL % "map"}})); self.wait(0.3)
+        self.assertIn("Map imported", hint())
+        self.assertEqual(json.loads(hw())["MPK mini Play mk3"], {"keys": 61, "ccs": [20, 21], "knobs": 2, "cc0": 0})
+        self.click("[data-do=report]"); self.click("[data-do=export]"); self.wait(0.3)
+        self.assertClean()
+
+    # (was a bug, fixed) importHw checks the model with PROFILES[o.model], so "constructor" / "__proto__" / "toString" pass and are kept
+    def test_import_keeps_only_a_known_model(self):
+        self.midi_open()
+        self.click("#midiView"); self.wait(0.4)
+        self.js(self.IMPORT, '{"format": "pocket-device", "model": "constructor", "map": null}'); self.wait(0.3)
+        rec = json.loads(self.js("return localStorage.getItem(Object.keys(localStorage).find(k => k.startsWith('pocket.midi.devices.v1.')))") or "{}")
+        self.assertNotEqual(rec.get("MPK mini Play mk3", {}).get("profile"), "constructor")
+
+    def test_device_with_a_hostile_name_is_shown_as_text(self):
+        evil = EVIL % "device"
+        self.d.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": FAKE_MIDI.replace("'MPK mini Play mk3'", json.dumps(evil))})
+        self.open(); self.click("#midiDev"); self.wait(0.9)
+        self.click("#midiView"); self.wait(0.4)
+        self.midi(0x90, 60, 90); self.midi(0xb0, 74, 10)
+        self.click("[data-do=map]"); self.midi(0x90, 60, 9); self.click("[data-do=wizCancel]")
+        self.click("[data-do=report]"); self.click("[data-do=lights]"); self.click("[data-do=close]")
+        self.assertClean()
+
+    ODD = [[0xf0, 0x7f, 0x7f, 0x06, 0x02, 0xf7], [0xf0, 1, 2, 3, 0xf7], [0xf8], [0xfe], [0xfa], [0xfc], [0xff], [0xf2, 1, 2], [60, 100], [0x90], [0x90, 61],
+           [0x9f, 62, 100], [0x8f, 62, 0], [0x90, 63, 0], [0x99, 36, 0], [0xbf, 74, 127], [0xb0, 99, 0], [0xb0, 98, 55], [0xb0, 6, 64], [0xb0, 38, 1], [0xb0, 101, 127], [0xb0, 100, 127],
+           [0xa0, 60, 10], [0xd0, 10], [0xc0, 5], [0xe0, 0, 64], [0xef, 127, 127], [0xb0, 120, 0], [0xb0, 123, 0]]
+
+    def test_odd_midi_messages_do_not_throw_anywhere(self):
+        self.midi_open()
+        def burst():
+            for d in self.ODD: self.midi(*d)
+            self.midi(0xb0, 64, 0)  # let the pedal up again
+        burst()  # straight to the app
+        self.click("#midiView"); self.wait(0.3); burst()  # with the panel open
+        self.click("[data-do=map]"); burst()  # while MAP listens
+        self.click("[data-do=wizCancel]"); self.click("[data-do=close]")
+        self.click("#midiMap"); self.wait(0.3); burst()  # while ASSIGN listens
+        self.midi(0x90, 48, 90); self.midi(0x90, 72, 90); burst()
+        self.js("midiAssignEnd()"); self.wait(0.2)
+        self.assertEqual(self.errors(), [])
+
+    def test_closing_the_panel_mid_map_gives_the_messages_back(self):
+        self.midi_open()
+        self.click("#midiTest"); self.wait(0.4)
+        self.midi(0x90, 60, 9); self.midi(0x90, 48, 90)
+        self.click("[data-do=close]")
+        self.assertFalse(self.js("return !!midiPanel.observe([0x90, 60, 100], 'MPK mini Play mk3')"), "MAP still takes the messages")
+        self.click("#midiView"); self.wait(0.3)
+        self.assertEqual(self.step(), "")
+        self.assertIsNone(self.js("return localStorage.getItem('pocket.midi.hw.v1')"))
+        self.assertEqual(self.errors(), [])
+
+    # (was a bug, fixed) observe() skips modTrack while MAP listens, so a pedal let go during MAP leaves the second set on
+    def test_mod_let_go_during_map_does_not_stay_held(self):
+        self.midi_open()
+        self.midi(0xb0, 64, 127)
+        self.assertTrue(self.js("return midiPanel.layerOf('MPK mini Play mk3')"))
+        self.click("#midiTest"); self.wait(0.3)
+        self.midi(0xb0, 64, 0)
+        self.click("[data-do=wizCancel]"); self.click("[data-do=close]")
+        self.assertFalse(self.js("return midiPanel.layerOf('MPK mini Play mk3')"), "MOD stuck on after MAP")
+
+    def test_two_devices_each_keep_their_own_map(self):
+        two = FAKE_MIDI.replace("window.__inp = inp;", "window.__inp = inp; const lk = { id: 'l', name: 'Launchkey 37 MIDI', manufacturer: 'Novation', state: 'connected', type: 'input', onmidimessage: null }; window.__lk = lk;").replace("new Map([['m', inp]])", "new Map([['m', inp], ['l', lk]])")
+        self.d.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": two})
+        self.open(); self.click("#midiDev"); self.wait(0.9)
+        self.assertEqual(self.js("return MI.names.length"), 2)
+        self.click("#midiView"); self.wait(0.3)
+        self.assertEqual(self.js("return [...document.querySelectorAll('#mdSource option')].map(o => o.value)"), ["MPK mini Play mk3", "Launchkey 37 MIDI"])
+        self.js("const s = document.querySelector('#mdSource'); s.value = 'Launchkey 37 MIDI'; s.dispatchEvent(new Event('change'))")
+        self.assertEqual(self.js("return document.querySelector('#mdProfile').value"), "novation37")
+        lk = lambda *d: self.js("window.__lk.onmidimessage({ data: new Uint8Array(arguments[0]) })", list(d))
+        self.click("[data-do=map]")
+        self.midi(0x90, 60, 90)  # the other device: MAP does not listen to it
+        self.assertIn("CONNECTION", self.step())
+        lk(0x90, 60, 9); lk(0x90, 48, 90); lk(0x90, 84, 90)
+        while self.step(): self.click("[data-do=wizNext]")
+        hw = json.loads(self.js("return localStorage.getItem('pocket.midi.hw.v1')"))
+        self.assertEqual(list(hw), ["Launchkey 37 MIDI"]); self.assertEqual(hw["Launchkey 37 MIDI"]["keys"], 37)
+        lk(0xb0, 64, 127)
+        self.assertEqual(self.js("return [midiPanel.layerOf('Launchkey 37 MIDI'), midiPanel.layerOf('MPK mini Play mk3')]"), [True, False])
+        lk(0xb0, 64, 0)
+        self.assertEqual(self.errors(), [])
+
+    def test_assign_moves_a_control_from_one_function_to_the_next(self):
+        self.midi_open()
+        self.click("#midiMap"); self.wait(0.3)
+        self.js("document.querySelector('[data-ml=nokeys]').click(); MI.learn.i = MI.actions().findIndex((a) => a.kind !== 'knob'); miLearnFace()")
+        a = self.js("return MI.actions()[MI.learn.i].id")
+        self.wait(0.5); self.midi(0x99, 37, 100); self.wait(3.4); self.midi(0x89, 37, 0)
+        self.assertEqual(self.js("return MI.map['n9:37']"), a)
+        self.js("midiAssignEnd()")
+        # a second run: the same pad for another function takes it away from the first one (one control, one function)
+        self.click("#midiMap"); self.wait(0.3)
+        self.js("document.querySelector('[data-ml=nokeys]').click(); MI.learn.i = MI.actions().findIndex((x) => x.kind !== 'knob' && x.id !== arguments[0]); miLearnFace()", a)
+        b = self.js("return MI.actions()[MI.learn.i].id")
+        self.wait(0.5); self.midi(0x99, 37, 100); self.wait(3.4); self.midi(0x89, 37, 0)
+        self.assertEqual(self.js("return MI.map"), {"n9:37": b})
+        self.assertEqual(self.errors(), [])
+
+    # (was a bug, fixed) miLearnMsg only ignores the MOD key when it is a CC, so a MOD key MAP found on a note starts a 3 s hold itself
+    def test_assign_with_a_mod_key_on_a_note(self):
+        self.d.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": FAKE_MIDI})
+        self.open()
+        self.js("localStorage.setItem('pocket.midi.hw.v1', JSON.stringify({'MPK mini Play mk3': {keys: 25, modKey: 'n0:50'}}))")
+        self.reopen(); self.click("#midiDev"); self.wait(0.9)
+        self.click("#midiMap"); self.wait(0.3)
+        self.js("document.querySelector('[data-ml=nokeys]').click(); MI.learn.i = MI.actions().findIndex((a) => a.kind !== 'knob'); miLearnFace()")
+        self.wait(0.5); self.midi(0x90, 50, 100); self.wait(0.2); self.midi(0x99, 38, 100); self.wait(3.4); self.midi(0x89, 38, 0); self.midi(0x80, 50, 0)  # MOD (a key) + a pad
+        self.assertEqual(list(self.js("return MI.map")), ["m+n9:38"])
+
     def test_installable_files_are_served(self):
         for f in ("manifest.webmanifest", "sw.js", "icons/icon-192.png", "icons/icon-512.png"):
             with urllib.request.urlopen(BASE + f) as r: self.assertEqual(r.status, 200, f)
@@ -191,6 +364,30 @@ class Track(Page):
         self.assertEqual(self.js("return [S.playing, S.mode, S.ordSel]"), [True, "song", 2])
         self.midi(0x99, 40, 100); self.wait(0.6); self.midi(0x89, 40, 0); self.wait(0.4)  # a held press loops it
         self.assertEqual(self.js("return [S.mode, VAR.liveSlot]"), ["live", 4])
+        self.assertEqual(self.errors(), [])
+
+    def test_keys_only_play_until_write_mode_is_on(self):
+        self.open()
+        wrote = lambda: self.js("return pat().ch[S.col][S.row] != null && pat().ch[S.col][S.row] !== 0")
+        self.js("S.row = 3; pat().ch[S.col][3] = null; noteOn('t', 60, S.col, true)")
+        self.assertFalse(wrote(), "the keys wrote with WRITE off")
+        self.js("noteOff && 0; document.querySelector('#pkLive').click()")  # the button: WRITE
+        self.assertTrue(self.js("return S.liveWrite"))
+        self.js("noteOn('t2', 62, S.col, true)")
+        self.assertTrue(wrote(), "the keys did not write with WRITE on")
+        self.js("document.querySelector('#pkLive').click(); pat().ch[S.col][3] = null; S.row = 3")  # back to PLAY
+        self.assertFalse(self.js("return S.liveWrite"))
+        # tapping a square while stopped turns WRITE on
+        self.js("document.querySelector('#sq .sq').dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, pointerId: 7, clientX: 5, clientY: 5})); dispatchEvent(new PointerEvent('pointerup', {pointerId: 7, clientX: 5, clientY: 5}))")
+        self.assertTrue(self.js("return S.liveWrite"), "a tapped square did not turn WRITE on")
+        self.assertEqual(self.errors(), [])
+
+    def test_a_square_tapped_while_playing_keeps_the_keys_on_play(self):
+        self.open()
+        self.js("togglePlay()"); self.wait(0.3)
+        self.js("document.querySelector('#sq .sq').dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, pointerId: 8, clientX: 5, clientY: 5})); dispatchEvent(new PointerEvent('pointerup', {pointerId: 8, clientX: 5, clientY: 5}))")
+        self.assertFalse(self.js("return S.liveWrite"), "a square tapped while playing turned WRITE on")
+        self.js("togglePlay()")
         self.assertEqual(self.errors(), [])
 
     def test_song_file_cannot_run_script(self):
@@ -369,6 +566,25 @@ class Tune(Page):
         self.assertEqual(self.js("return [S.jam.master, S.jam.swing, S.jam.mix.bass, S.jam.bpm, S.jam.mix.chord, S.jam.mix.drums]"), [0, 0.5, 0, 220, 0, 1])
         self.assertEqual(self.errors(), [])
 
+    # (was a bug, fixed) tune.state's jam.master / jam.swing are not checked on load; a bad value makes the band throw when it starts
+    def test_damaged_jam_master_and_swing_do_not_stop_the_band(self):
+        self.open()
+        self.js("localStorage.setItem('tune.state', JSON.stringify({view: 'jam', jam: {master: 'loud', swing: 'x'}}))")
+        self.reopen(1.5)
+        self.js("setTimeout(() => { if (!J.on) jamStart(); }, 0)"); self.wait(0.8)
+        self.js("if (J.on) jamStop()")
+        self.assertEqual(self.errors(), [])
+
+    def test_jam_knobs_drag_and_double_tap_back_to_default(self):
+        self.open()
+        self.js("document.querySelector('button[data-v=jam]').click()"); self.wait(0.3)
+        self.js("jamKnob('master', 0.2); jamKnob('swing', 1); jamKnob('bpm', 1)")
+        self.assertEqual(self.js("return [S.jam.master, S.jam.swing, S.jam.bpm]"), [0.2, 0.5, 220])
+        self.js("jamKnob('master', null); jamKnob('swing', null)")  # what a double tap does
+        self.assertEqual(self.js("return [S.jam.master, S.jam.swing]"), [0.8, None])
+        self.reopen(); self.assertEqual(self.js("return [S.jam.master, S.jam.swing, S.jam.bpm]"), [0.8, None, 220])
+        self.assertEqual(self.errors(), [])
+
     def test_custom_tuning_name_is_escaped(self):
         self.open()
         self.js("localStorage.setItem('customTunings', JSON.stringify([{name: arguments[0], instrument: 'guitar', strings: ['E2','A2']}]))", EVIL % "tuning")
@@ -438,6 +654,23 @@ class Sing(Page):
         self.assertEqual(self.js("return [Math.round(S.master * 100), Math.round(ctx.masterGain.gain.value * 100), ctx.destination === ctx.masterGain]"), [50, 50, True])
         self.midi(0xb0, 73, 127)
         self.assertEqual(self.js("return S.bpm"), 160)
+        self.assertEqual(self.errors(), [])
+
+    # (was a bug, fixed) sing.state's master is not checked on load; getCtx() throws setting the gain and the first sound fails
+    def test_damaged_master_volume_does_not_stop_the_sound(self):
+        self.open()
+        self.js("localStorage.setItem('sing.state', JSON.stringify({master: 'loud'}))")
+        self.reopen(1.5)
+        self.js("setTimeout(() => getCtx(), 0)"); self.wait(0.5)
+        self.assertEqual(self.errors(), [])
+
+    def test_play_button_stays_and_rec_is_in_the_ribbons(self):
+        self.open()
+        for v in self.js("return [...document.querySelectorAll('#hViews [data-v]')].map(e => e.dataset.v)"):
+            self.js("document.querySelector('#hViews [data-v=\"%s\"]').click()" % v); self.wait(0.15)
+            with self.subTest(v): self.assertTrue(self.js("const r = document.querySelector('#play').getBoundingClientRect(); return r.width > 0 && r.height > 0"), "the play button is hidden")
+        self.assertTrue(self.js("return !!document.querySelector('#wRec') && !!document.querySelector('#sRec')"))
+        self.assertEqual(self.js("return document.querySelectorAll('header #rec, header [id*=Rec]').length"), 0)
         self.assertEqual(self.errors(), [])
 
     def test_exercise_name_is_escaped(self):

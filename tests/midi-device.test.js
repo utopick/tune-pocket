@@ -200,3 +200,98 @@ test("the sustain pedal is the mod key by default, and one switch turns it off",
   assert.equal(panel.layerOf(mpk), false);
   assert.equal(panel.modPedal(), false);
 });
+
+// ---- hostile and odd input (QA additions)
+const fresh = (path = "/track-pocket/", storage = new Map()) => {
+  const context = { performance, setTimeout, clearTimeout, window: {}, location: { pathname: path }, localStorage: { getItem: (k) => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v) } };
+  vm.createContext(context);
+  vm.runInContext(source, context);
+  return context;
+};
+
+test("a device map file with hostile values is refused or trimmed, never kept as is", () => {
+  const { vetHw } = fresh().window.pocketMidiHelpers;
+  for (const bad of [null, 7, "x", [], true, { keys: 0 }, { keys: 129 }, { keys: 25.5 }, { keys: "25" }, { keys: -1 }, { ccs: [] }, { ccs: Array(33).fill(1) }, { ccs: [1.5] }, { ccs: [128] }, { ccs: "74" },
+    { pads: 8, padNotes: Array(9).fill([36]) }, { pads: 8, padNotes: [Array(65).fill(36)] }, { pads: 8, padNotes: [[-1]] }, { pads: 8, padNotes: [36] }, { pads: 0, padNotes: [[36]] }, { pads: 65, padNotes: [[36]] },
+    { sus: 128 }, { bend: 16 }, { mod: -1 }, { expr: 1e9 }, { modKey: "rt:250" }, { modKey: "n16:60" }, { modKey: "c0:130" }, { fn: { play: "n0:60x" } }, { fn: { __proto__: "n0:1", toString: "n0:1", f100: "n0:1" } }, { fn: "play" }])
+    assert.equal(vetHw(bad), null, JSON.stringify(bad));
+  // the fields that pass come out alone: nothing else from the file is kept
+  const c = vetHw(JSON.parse('{"keys": 61, "__proto__": {"polluted": 1}, "constructor": 1, "extra": "<img>", "padCh": 3, "fn": {"f1": "c15:127", "f2": "mmc:999"}}'));
+  assert.deepEqual(JSON.parse(JSON.stringify(c)), { keys: 61, fn: { f1: "c15:127", f2: "mmc:999" } });
+  assert.equal({}.polluted, undefined);
+  // pads: the channel falls back to 10 when the file's is out of range
+  assert.equal(vetHw({ pads: 8, padNotes: [[36]], padCh: 16 }).padCh, 9);
+  // a big map stays bounded (8 banks of 64 notes, 32 knobs)
+  const big = vetHw({ pads: 64, padNotes: Array.from({ length: 8 }, () => Array(64).fill(36)), ccs: Array.from({ length: 32 }, (_, i) => i) });
+  assert.equal(big.padNotes.flat().length, 512);
+  assert.equal(big.knobs, 32);
+});
+
+test("odd MIDI bytes pass through the panel without throwing", () => {
+  const ctx = fresh();
+  const ran = [];
+  const MI = { names: ["MPK mini Play mk3", "Other"], map: {}, defaults: () => ({ knobs: [["k0", "K0"]], pads: [["p0", "P0"]] }), actions: () => ["k0", "p0"].map((id) => ({ id, group: "g", name: id, kind: "tap" })) };
+  const panel = ctx.window.createMidiPanel(MI, (a) => ran.push(a.id), () => {});
+  const odd = [[], [0xf0], [0xf0, 0x7f, 0x7f, 0x06, 0x02, 0xf7], [0xf0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0xf7], [0xf7], [0xf8], [0xfe], [0xff], [0xfa], [0xfb], [0xfc], [0xf2, 1, 2], [0xf3, 1], [0xf6],
+    [60, 100], [0x3c], [0x90], [0x90, 60], [0x9f, 127, 127], [0x9f, 60, 0], [0x8f, 60, 64], [0xbf, 127, 127], [0xb0, 99, 0], [0xb0, 98, 55], [0xb0, 6, 64], [0xb0, 38, 1], [0xb0, 101, 0], [0xb0, 100, 0],
+    [0xa0, 60, 10], [0xd0, 10], [0xc0, 5], [0xe0, 0, 64], [0xef, 127, 127], [0x99, 36, 0], [0x89, 36, 0]];
+  for (const from of ["MPK mini Play mk3", "Other"]) for (const d of odd) {
+    assert.doesNotThrow(() => panel.observe(d, from), JSON.stringify(d));
+    const [st, a, b] = d, cc = (st & 0xf0) === 0xb0, on = (st & 0xf0) === 0x90 && b > 0;
+    const key = (cc ? "c" : "n") + (st & 15) + ":" + a;
+    assert.doesNotThrow(() => panel.route(from, key, cc, on, b));
+    assert.doesNotThrow(() => panel.fallback(from, key, cc, on, b));
+  }
+  // a velocity 0 note-on is a release: it never starts a default pad function
+  ran.length = 0;
+  panel.fallback("MPK mini Play mk3", "n9:36", false, false, 0);
+  assert.equal(panel.layerOf("Other"), false);
+  // channel 16 pads are not pads of a channel 10 model
+  assert.equal(panel.isPad("MPK mini Play mk3", 15), false);
+});
+
+test("the mod key on one device does not shift another device", () => {
+  const ctx = fresh();
+  const panel = ctx.window.createMidiPanel({ names: ["A", "B"], map: {}, actions: () => [] }, () => {}, () => {});
+  panel.observe([0xb0, 64, 127], "A");
+  assert.equal(panel.layerOf("A"), true);
+  assert.equal(panel.layerOf("B"), false);
+  assert.equal(panel.padNo("B", 36), 0);
+  assert.equal(panel.padNo("A", 36), 8);
+  // a key MAP took as the mod key: the pedal no longer shifts that device, the key does
+  const storage = new Map([["pocket.midi.hw.v1", JSON.stringify({ A: { keys: 25, modKey: "n0:50" } })]]);
+  const p2 = fresh("/track-pocket/", storage).window.createMidiPanel({ names: ["A"], map: {}, actions: () => [] }, () => {}, () => {});
+  p2.observe([0xb0, 64, 127], "A");
+  assert.equal(p2.layerOf("A"), false);
+  p2.observe([0x90, 50, 100], "A");
+  assert.equal(p2.layerOf("A"), true);
+  assert.equal(p2.isMod("A", "n0:50"), true);
+  assert.equal(p2.isMod("A", "c0:64"), false);
+  p2.observe([0x90, 50, 0], "A"); // a note-on with velocity 0 lets it go
+  assert.equal(p2.layerOf("A"), false);
+});
+
+// BUG (shared panel): an input with an empty name ("" is allowed by Web MIDI) never gets its CCs counted (observe returns on !from),
+// so the first knob it turns makes knobRank spread undefined: "seen is not iterable", thrown from onmidimessage on every CC.
+test("a knob of an input with no name does not throw", () => {
+  const panel = fresh().window.createMidiPanel({ names: [""], map: {}, actions: () => [] }, () => {}, () => {});
+  panel.observe([0xb0, 70, 10], "");
+  assert.doesNotThrow(() => panel.fallback("", "c0:70", true, false, 10));
+});
+
+// BUG (shared panel): the press of a pad goes to the second set while MOD is held, but its release goes to the first set when MOD
+// was let go first, so a "hold" function (TRACK's Variator patterns, FM1's buttons) never gets its release. 
+test("a pad released after the mod key ends the function it started", () => {
+  const storage = new Map(), mpk = "MPK mini Play mk3";
+  storage.set("pocket.midi.hw.v1", JSON.stringify({ [mpk]: { keys: 25, pads: 8, padCh: 9, padNotes: [[36, 37, 38, 39, 40, 41, 42, 43]], ccs: [70, 71, 72, 73, 74, 75, 76, 77], knobs: 8, cc0: 0 } }));
+  const ctx = fresh("/track-pocket/", storage);
+  const got = [];
+  const ids = Array.from({ length: 16 }, (_, i) => "p" + i);
+  const MI = { names: [mpk], map: {}, defaults: () => ({ pads: ids.map((id) => [id, id]) }), actions: () => ids.map((id) => ({ id, group: "g", name: id, kind: "hold" })) };
+  const panel = ctx.window.createMidiPanel(MI, (a, k, cc, on) => got.push(a.id + (on ? " down" : " up")), () => {});
+  panel.observe([0xb0, 64, 127], mpk);
+  panel.fallback(mpk, "n9:36", false, true, 100); // MOD + pad 1: pad 9
+  panel.observe([0xb0, 64, 0], mpk); // MOD up first
+  panel.fallback(mpk, "n9:36", false, false, 0); // then the pad
+  assert.deepEqual(got, ["p8 down", "p8 up"]);
+});
