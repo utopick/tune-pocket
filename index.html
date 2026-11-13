@@ -2017,6 +2017,17 @@
       #micWarn .mw-row { display: flex; gap: 8px; }
       #micWarn .mw-row button { flex: 1; min-height: 48px; font-weight: 800; }
     </style>
+    <style id="micard-css">
+      /* the card that shows which MIDI knob you are turning and its value (not where the screen already shows it) */
+      #miCard { position: fixed; left: 50%; top: 50%; z-index: 8000; width: min(40vw, 170px); transform: translate(-50%, -50%) scale(0.92); padding: 12px 10px 10px; display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--panel, #161a20); color: var(--text, #e8ecf1); border: 2px solid var(--hi, var(--acc, #4af)); border-radius: var(--r, 12px); box-shadow: 0 6px 28px rgba(0, 0, 0, 0.5); opacity: 0; pointer-events: none; transition: opacity 0.18s, transform 0.18s; font: 12px/1.2 system-ui, sans-serif; text-align: center; }
+      #miCard.on { opacity: 0.97; transform: translate(-50%, -50%) scale(1); }
+      #miCard svg { width: 64px; height: 64px; }
+      #miCard svg circle { fill: none; stroke-width: 6; stroke-linecap: round; }
+      #miCard .mk-t { stroke: rgba(128, 128, 128, 0.3); }
+      #miCard .mk-v { stroke: var(--hi, var(--acc, #4af)); }
+      #miCard b { font-size: 22px; font-weight: 800; letter-spacing: 0.5px; }
+      #miCard i { font-style: normal; font-size: 10px; letter-spacing: 1px; opacity: 0.75; overflow-wrap: anywhere; }
+    </style>
   </head>
   <body class="pocket">
     <canvas id="bgfx" aria-hidden="true"></canvas>
@@ -6571,8 +6582,35 @@
           .map(([a, b]) => `<li class="${a === "✔" ? "ok" : a === "i" ? "inf" : ""}"><b>${a}</b>${String(b).replace(/[&<>"']/g, (c) => "&#" + c.charCodeAt(0) + ";")}</li>`)
           .join("");
       }
+      // the card for a MIDI knob: its name, a little knob and the value, in the middle for a moment. An action can say where the screen already
+      // shows it (vis) and how to write its value (fmt).
+      let miCardT = 0;
+      function miCard(act, x) {
+        let el = document.getElementById("miCard");
+        if (!el) {
+          el = document.createElement("div");
+          el.id = "miCard";
+          el.setAttribute("aria-live", "polite");
+          el.innerHTML = '<svg viewBox="0 0 64 64" aria-hidden="true"><circle class="mk-t" cx="32" cy="32" r="26" /><circle class="mk-v" cx="32" cy="32" r="26" /></svg><b></b><i></i>';
+          document.body.appendChild(el);
+        }
+        const q = Math.max(0, Math.min(1, x)), C = 2 * Math.PI * 26, arc = C * 0.75, t = el.querySelector(".mk-t"), v = el.querySelector(".mk-v");
+        for (const c of [t, v]) c.setAttribute("transform", "rotate(135 32 32)");
+        t.setAttribute("stroke-dasharray", arc + " " + C);
+        v.setAttribute("stroke-dasharray", arc * q + " " + C);
+        el.querySelector("b").textContent = act.fmt ? act.fmt(q) : Math.round(q * 100) + "%";
+        el.querySelector("i").textContent = act.name;
+        el.classList.add("on");
+        clearTimeout(miCardT);
+        miCardT = setTimeout(() => el.classList.remove("on"), 1100);
+      }
       function miRun(act, key, cc, on, v) {
-        if (act.kind === "knob") return cc ? act.run(v / 127) : on && act.run(v / 127); // a pad on a knob: its velocity
+        if (act.kind === "knob") {
+          if (!cc && !on) return; // a pad on a knob: its velocity
+          act.run(v / 127);
+          if (!(act.vis && act.vis())) miCard(act, v / 127);
+          return;
+        }
         const press = cc ? v >= 64 : on; // pads in CC mode send 127 / 0
         if (press === !!MI.down.get(key)) return;
         MI.down.set(key, press);
@@ -6750,7 +6788,7 @@
         { id: "voicing", group: "Scales", name: "POSITION / VOICING", kind: "tap", run: () => $("#sOct").click() },
         { id: "jam", group: "Jam", name: "JAM PLAY / STOP", kind: "tap", run: () => jamToggle() },
         { id: "met", group: "Tempo", name: "METRONOME", kind: "tap", run: () => metToggle() },
-        { id: "bpm", group: "Tempo", name: "TEMPO (BPM)", kind: "knob", run: (v) => setBpm(BMIN + v * (BMAX - BMIN)) },
+        { id: "bpm", group: "Tempo", name: "TEMPO (BPM)", kind: "knob", run: (v) => setBpm(BMIN + v * (BMAX - BMIN)), vis: () => S.view === "met", fmt: (x) => Math.round(BMIN + x * (BMAX - BMIN)) + " BPM" },
         ...JFX.map(([id, n]) => ({ id: "jfx:" + id, group: "Jam FX", name: n.toUpperCase(), kind: "hold", run: (on) => midiJamFx(id, on) })),
       ];
       // the JAM effects, as the screen does: held, or on / off with LATCH
@@ -10216,6 +10254,7 @@
             b: {
               en: [
                 "## Version 2.4.0",
+                "- **Knob card:** turning a MIDI knob shows a small card in the middle of the screen with its name, a little knob and its value, so you see what you are changing. It does not appear where the screen already shows that knob (the mixer, the Variator's own views, the metronome).",
                 "- **Three more JAM styles:** Lo-fi (lazy beat, a light swing), Synthwave (driving 8ths) and Dungeon (slow march), the same styles as the Variator in TRACK, with their own drums, bass, chords and sounds.",
                 "- **MOD key:** MAP asks if you want a MOD key (the sustain pedal is a good one, and keeps its own job). While it is held, the pads and knobs become a second set: knob 1 acts as knob 9, and so on, so a few controls do double duty. The leftmost and rightmost keys cannot be the MOD key.",
                 "- **MAP:** the old MIDI TEST is now a step-by-step mapper, like an emulator's. Press any key, then the leftmost and the rightmost key (it counts the physical keys, whatever octave is selected), every pad and every knob in order, the sustain pedal, the bend, the mod, play, stop, record and any other function button (a list ends with the rightmost key and then the leftmost key). The map is saved for the controller (shared by the apps), and can be exported and imported as a file. It also shows the MIDI clock (BPM), start and stop, COPY REPORT, and a LIGHT TEST that sends notes to the device.",
@@ -10238,6 +10277,7 @@
               ],
               es: [
                 "## Versión 2.4.0",
+                "- **Tarjeta del pote:** al girar un pote MIDI aparece una tarjeta pequeña en el centro con su nombre, un potenciómetro y su valor, para ver qué estás cambiando. No aparece donde la pantalla ya muestra ese pote (el mezclador, las vistas del Variator, el metrónomo).",
                 "- **Tres estilos más en JAM:** Lo-fi (ritmo perezoso, con un swing ligero), Synthwave (corcheas constantes) y Dungeon (marcha lenta), los mismos estilos que el Variator de TRACK, con sus propias baterías, bajos, acordes y sonidos.",
                 "- **Tecla MOD:** MAP pregunta si quieres una tecla MOD (el pedal de sustain es buena opción y sigue haciendo su trabajo). Mientras se mantiene pulsada, los pads y potes pasan a ser un segundo juego: el pote 1 actúa como el 9, y así, para que pocos controles hagan doble trabajo. La tecla de más a la izquierda y la de más a la derecha no pueden ser la tecla MOD.",
                 "- **MAP:** el antiguo MIDI TEST ahora es un mapeador paso a paso, como el de los emuladores. Pulsa una tecla, luego la tecla de más a la izquierda y la de más a la derecha (cuenta las teclas físicas, sea cual sea la octava), cada pad y cada pote en orden, el pedal de sustain, el bend, el mod, play, stop, record y cualquier otro botón de función (una lista termina con la tecla de la derecha y luego la de la izquierda). El mapa se guarda para el controlador (compartido por las apps) y se puede exportar e importar como archivo. También muestra el reloj MIDI (BPM), start y stop, COPY REPORT y un LIGHT TEST que envía notas al dispositivo.",
