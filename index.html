@@ -2395,6 +2395,8 @@
     novation49: { title: "Novation Launchkey · 49 keys", shape: "lk", keys: 49, base: 36, pads: 16, knobs: 8, cc0: 21, source: "https://novationmusic.com/launchkey" },
     novation61: { title: "Novation Launchkey · 61 keys", shape: "lk", keys: 61, base: 36, pads: 16, knobs: 8, cc0: 21, source: "https://novationmusic.com/launchkey" },
     novation88: { title: "Novation Launchkey · 88 keys", shape: "lk", keys: 88, base: 21, pads: 16, knobs: 8, cc0: 21, source: "https://novationmusic.com/launchkey" },
+    // read from a real unit on the stock firmware: 27 keys F3 to G5 (53 to 79), channel 1, fixed velocity 90, note-off; its knobs and buttons send nothing
+    fm1: { title: "M-VAVE FM-1 · 27 keys", shape: "fm1", keys: 27, base: 53, pads: 0, knobs: 0, source: "" },
     generic: { title: "MIDI keyboard · generic", shape: "mpk", keys: 25, base: 48, pads: 8, knobs: 8, source: "" },
   };
   const css = `#mdPanel{position:fixed;inset:0;z-index:96;background:#000b;display:flex;align-items:center;justify-content:center;padding:12px;color:#eaf0f5;font:12px/1.45 system-ui}
@@ -2447,6 +2449,7 @@
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const guess = (s) => {
     if (/scale pocket|synido/i.test(s)) return "synido";
+    if (/\bfm-?1\b/i.test(s)) return "fm1";
     if (/mpk|akai/i.test(s)) return "akai";
     if (/nanokey/i.test(s)) return "korgkey";
     if (/nanopad|korg/i.test(s)) return "korgpad";
@@ -2514,6 +2517,10 @@
       case "mini": // a small keyboard: one knob, a display, scale buttons
         h = 230;
         inner = knob("c0", 58, 52, 20, "Knob 1") + screen(112, 28, 130, 50) + btnRow(272, 34, 6, 42, 32, 10) + keys(112, 100);
+        break;
+      case "fm1": // the FM-1: a screen over 27 keys (its knobs and buttons send no MIDI on the stock firmware)
+        h = 190;
+        inner = screen(24, 26, 150, 56) + keys(100, 70);
         break;
       case "piano": // 88 keys under a slim panel
         h = 210;

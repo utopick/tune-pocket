@@ -65,6 +65,8 @@ test("pads and knobs are matched without learning", () => {
   assert.equal(knobRank(new Set(), 98, 2, mpk.ccs), -1);
   assert.equal(guess("MPK mini Play mk3"), "akai");
   assert.equal(guess("nanoPAD2"), "korgpad");
+  assert.equal(guess("FM-1"), "fm1");
+  assert.equal(guess("FM-1 MIDI 1"), "fm1");
 });
 
 test("the starting assignment: pads and knobs do what the app says until the user changes it", () => {
