@@ -292,6 +292,15 @@ class Common(Page):
         self.click("[data-do=wizCancel]"); self.click("[data-do=close]")
         self.assertFalse(self.js("return midiPanel.layerOf('MPK mini Play mk3')"), "MOD stuck on after MAP")
 
+    def test_an_fm1_explains_tether_once(self):
+        self.d.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": FAKE_MIDI.replace("'MPK mini Play mk3'", "'FM-1'")})
+        self.open(); self.click("#midiDev"); self.wait(0.9)
+        self.midi(0x90, 53, 100); self.wait(0.2)
+        self.assertIn("Tether", self.js("return document.querySelector('#mdTip h3').textContent"))
+        self.js("document.querySelector('#mdTip [data-t=ok]').click()")
+        self.midi(0x90, 53, 100); self.wait(0.2)
+        self.assertEqual(self.js("return document.querySelectorAll('#mdTip').length"), 0, "the Tether note came back in the same visit")
+
     def test_two_devices_each_keep_their_own_map(self):
         two = FAKE_MIDI.replace("window.__inp = inp;", "window.__inp = inp; const lk = { id: 'l', name: 'Launchkey 37 MIDI', manufacturer: 'Novation', state: 'connected', type: 'input', onmidimessage: null }; window.__lk = lk;").replace("new Map([['m', inp]])", "new Map([['m', inp], ['l', lk]])")
         self.d.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": two})

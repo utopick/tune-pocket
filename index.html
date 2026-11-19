@@ -2391,12 +2391,15 @@
     korgkey: { title: "Korg nanoKEY2 · 25 keys", shape: "nkey", keys: 25, base: 48, pads: 0, knobs: 0, source: "https://www.korg.com/us/products/computergear/nanokey2/" },
     casio: { title: "Casio PX-S1100", shape: "piano", keys: 88, base: 21, pads: 0, knobs: 0, source: "https://www.casio.com/us/electronic-musical-instruments/product.PX-S1100BK/" },
     novation25: { title: "Novation Launchkey · 25 keys", shape: "lk", keys: 25, base: 48, pads: 16, knobs: 8, cc0: 21, source: "https://novationmusic.com/launchkey" },
-    novation37: { title: "Novation Launchkey · 37 keys", shape: "lk", keys: 37, base: 48, pads: 16, knobs: 8, cc0: 21, source: "https://novationmusic.com/launchkey" },
+    novation37: { title: "Novation Launchkey · 37 keys", shape: "lk", keys: 37, base: 48, pads: 16, knobs: 8, cc0: 21, fold: 8, lights: "novation", ccs: [21, 22, 23, 24, 25, 26, 27, 28, 31, 32, 33, 34, 35, 36, 37, 38], padNotes: [[40, 41, 42, 43, 48, 49, 50, 51, 36, 37, 38, 39, 44, 45, 46, 47]], source: "https://novationmusic.com/launchkey" },
     novation49: { title: "Novation Launchkey · 49 keys", shape: "lk", keys: 49, base: 36, pads: 16, knobs: 8, cc0: 21, source: "https://novationmusic.com/launchkey" },
     novation61: { title: "Novation Launchkey · 61 keys", shape: "lk", keys: 61, base: 36, pads: 16, knobs: 8, cc0: 21, source: "https://novationmusic.com/launchkey" },
     novation88: { title: "Novation Launchkey · 88 keys", shape: "lk", keys: 88, base: 21, pads: 16, knobs: 8, cc0: 21, source: "https://novationmusic.com/launchkey" },
     // read from a real unit on the stock firmware: 27 keys F3 to G5 (53 to 79), channel 1, fixed velocity 90, note-off; its knobs and buttons send nothing
-    fm1: { title: "M-VAVE FM-1 · 27 keys", shape: "fm1", keys: 27, base: 53, pads: 0, knobs: 0, source: "" },
+    // with the Tether firmware (0.6 and later) the FM-1 is a full controller: its 12 buttons are pads (channel 10, 36 to 47, FX to REC), its knobs
+    // CCs in the order they sit (MASTER 7, SELECT 74, PRESETS 76, ALGORITHM 75, K1 to K4 70 to 73), and (0.9) notes sent back light its pads and keys:
+    // velocity 64 and up bright, 1 to 63 dim. The stock firmware sends only the keys: the rest stays dark
+    fm1: { title: "M-VAVE FM-1 · 27 keys (Tether: 12 pads, 8 knobs, lights)", shape: "fm1", keys: 27, base: 53, pads: 12, knobs: 8, cc0: 0, ccs: [7, 74, 76, 75, 70, 71, 72, 73], padNotes: [[36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47]], lights: "tether", source: "https://github.com/utopick/fm1-pocket" },
     generic: { title: "MIDI keyboard · generic", shape: "mpk", keys: 25, base: 48, pads: 8, knobs: 8, source: "" },
   };
   const css = `#mdPanel{position:fixed;inset:0;z-index:96;background:#000b;display:flex;align-items:center;justify-content:center;padding:12px;color:#eaf0f5;font:12px/1.45 system-ui}
@@ -2421,6 +2424,18 @@
 #mdPanel.cmp .mdDevWrap{order:0;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}#mdPanel.cmp .mdDevWrap small,#mdPanel.cmp .mdMap small,#mdPanel.cmp .mdMap p{display:none}
 #mdPanel.cmp .mdDevice{margin:0}#mdPanel.cmp .mdDevice svg{max-height:calc(var(--mdH) - 60px);margin:auto}
 #mdPanel .tg path{fill:none;stroke:#ffbf52;stroke-width:1.1;opacity:.75}#mdPanel .tg rect{fill:#1a2029;stroke:#ffbf52;stroke-width:1.2}#mdPanel .tg text{fill:#ffd28a;font:700 11.5px system-ui;text-anchor:middle;pointer-events:none}
+#mdPanel .mdCard{position:relative}
+#mdPanel .mdList{position:absolute;inset:0;z-index:5;background:#0d1218f5;border-radius:14px;padding:12px;overflow:auto;display:flex;flex-direction:column;gap:8px}
+#mdPanel .mdList h3{margin:0;font-size:13px;letter-spacing:1px;color:#ffce84}#mdPanel .mdOpts{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+#mdPanel .mdList button{min-height:46px;text-align:left;font-size:14px}#mdPanel .mdList button.on{background:#ffbf52;border-color:#ffbf52;color:#1a1204;font-weight:700}
+/* a short window: the drawing takes the room, the controls are one row under it, and what a chosen control does comes up over that row */
+#mdPanel.cmp .mdBody{flex-direction:column}#mdPanel.cmp .mdDevWrap{order:1!important;flex:1;min-height:0}
+#mdPanel.cmp .mdSide{order:2!important;flex:none;width:auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:4px;overflow:visible}
+#mdPanel.cmp .mdSide>.mdRow{margin:0;flex-wrap:nowrap}#mdPanel.cmp .mdRow label{display:flex;gap:4px;align-items:center;font-size:10px}
+#mdPanel.cmp #mdLive{display:none}#mdPanel.cmp .mdMap{display:none!important}
+#mdPanel.cmp.sel .mdMap{display:block!important;position:absolute;left:8px;right:8px;bottom:8px;z-index:4;background:#1a2029;border:2px solid #ffbf52;border-radius:12px;padding:8px 10px;box-shadow:0 0 40px #000}
+#mdPanel.cmp .mdSide>.mdMap{order:0!important}
+#mdPanel.cmp .mdCard{height:calc(var(--mdH) - 24px);max-height:none}#mdPanel.cmp .tg{display:none}#mdPanel.cmp .mdDevWrap .mdDevice{flex:1;min-height:0;display:flex;margin:0}#mdPanel.cmp .mdDevWrap .mdDevice{position:relative}#mdPanel.cmp .mdDevWrap .mdDevice svg{position:absolute;inset:0;width:100%;height:100%;max-height:none;margin:0}
 #mdPanel #mdWiz{border:2px solid #ffbf52;border-radius:10px;padding:10px;margin:10px 0}#mdPanel #mdWiz[hidden]{display:none}#mdPanel #mdWiz h3{margin:0 0 4px;font-size:15px;color:#ffce84}#mdPanel #mdWiz .mdSt{min-height:1.5em;color:#8bd5fc;font-weight:700}
 #mdPanel #mdLive{color:#9fb2c6;font:12px/1.4 ui-monospace,monospace;min-height:1.4em;overflow-wrap:anywhere}
 #mdPanel .mdc .sh{fill:#141a22}#mdPanel .tg.info path{stroke:#647486}#mdPanel .tg.info rect{stroke:#647486}#mdPanel .tg.info text{fill:#9fb2c6}`;
@@ -2449,7 +2464,7 @@
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const guess = (s) => {
     if (/scale pocket|synido/i.test(s)) return "synido";
-    if (/\bfm-?1\b/i.test(s)) return "fm1";
+    if (/\bfm-?1\b|felucca|tether|gr!?mm/i.test(s)) return "fm1"; // (firmwares built on Felucca name their port after it)
     if (/mpk|akai/i.test(s)) return "akai";
     if (/nanokey/i.test(s)) return "korgkey";
     if (/nanopad|korg/i.test(s)) return "korgpad";
@@ -2465,7 +2480,7 @@
   };
   // Knobs are matched in the order of their CC numbers (mod wheel, sustain and the like are not knobs).
   const NOT_KNOB = new Set([0, 1, 32, 64, 98, 99, 100, 101]);
-  const knobRank = (seen, cc, cc0, ccs) => (ccs ? ccs.indexOf(cc) : cc0 != null ? (cc >= cc0 ? cc - cc0 : -1) : NOT_KNOB.has(cc) || cc >= 120 ? -1 : [...(seen || [])].filter((x) => !NOT_KNOB.has(x) && x < 120).sort((a, b) => a - b).indexOf(cc));
+  const knobRank = (seen, cc, cc0, ccs, fold) => { const r = (ccs ? ccs.indexOf(cc) : cc0 != null ? (cc >= cc0 ? cc - cc0 : -1) : NOT_KNOB.has(cc) || cc >= 120 ? -1 : [...(seen || [])].filter((x) => !NOT_KNOB.has(x) && x < 120).sort((a, b) => a - b).indexOf(cc)); return fold && r >= 0 ? r % fold : r; }; // fold: a second bank of the same knobs (Launchkey MK4: CC 21-28, then 31-38) counts as the same knobs
 
   // ---------- the wireframes (SVG, 840 wide)
   const W = 840;
@@ -2518,9 +2533,10 @@
         h = 230;
         inner = knob("c0", 58, 52, 20, "Knob 1") + screen(112, 28, 130, 50) + btnRow(272, 34, 6, 42, 32, 10) + keys(112, 100);
         break;
-      case "fm1": // the FM-1: a screen over 27 keys (its knobs and buttons send no MIDI on the stock firmware)
-        h = 190;
-        inner = screen(24, 26, 150, 56) + keys(100, 70);
+      case "fm1": // the FM-1: MASTER and three knobs, OCT- OCT+, the square screen, four knobs over 2 x 6 buttons (pads with Tether), 27 keys
+        h = 320;
+        inner = ["MASTER", "SELECT", "PRESETS", "ALGORITHM"].map((t, i) => knob("c" + i, 56 + (i % 2) * 70, 48 + Math.floor(i / 2) * 66, 20, t)).join("") + btnRow(32, 158, 2, 56, 26, 14) +
+          screen(196, 22, 168, 162) + [0, 1, 2, 3].map((i) => knob("c" + (4 + i), 432 + i * 92, 48, 20, "K" + (i + 1))).join("") + padGrid(410, 88, 6, p.pads, 50, 8) + keys(214, 92);
         break;
       case "piano": // 88 keys under a slim panel
         h = 210;
@@ -2559,7 +2575,7 @@
     // [action id, label] a model gives control id (a pad "p3", a knob "c1"), or null. Knobs need a known first CC.
     function factory(p, id) {
       const d = defs(), i = +id.slice(1);
-      if (id[0] === "p" && p.pads) return d.pads?.[i] || (d.padText ? ["", d.padText + " " + (i + 1)] : null);
+      if (id[0] === "p" && p.pads) return (p.pads >= 16 && d.pads16 ? d.pads16 : d.pads)?.[i] || (d.padText ? ["", d.padText + " " + (i + 1)] : null);
       if (id[0] === "c" && p.knobs && p.cc0 != null) return d.knobs?.[i] || null;
       return null;
     }
@@ -2577,8 +2593,16 @@
       if (bound) return bound;
       const [, t, ch, n] = key.match(/^([nc])(\d+):(\d+)$/) || [];
       if (t === "n") return +ch === (p.padCh ?? 9) && p.pads ? "p" + (padIndex(p.pads, +n, p.padNotes) + (layer[from] ? p.pads : 0)) : "";
-      const r = t === "c" ? knobRank(seenCC[from], +n, p.cc0, p.ccs) : -1;
+      const r = t === "c" ? knobRank(seenCC[from], +n, p.cc0, p.ccs, p.fold) : -1;
       return p.cc0 != null && r >= 0 && r < p.knobs ? "c" + (r + (layer[from] ? p.knobs : 0)) : "";
+    }
+    // the pads of a device as [{ch, note, action}] in pad order: what to light on its output (a pad MAP learned keeps its own note)
+    function padList(from) {
+      const p = profOf(from);
+      return Array.from({ length: p.pads || 0 }, (_, i) => {
+        const id = "p" + i, m = (saved[from]?.controls?.[id]?.key || "").match(/^n(\d+):(\d+)$/), e = effective(from, p, id);
+        return { ch: m ? +m[1] : p.padCh ?? 9, note: m ? +m[2] : p.padNotes?.flat()[i], action: e && e[0] };
+      }).filter((x) => x.note != null);
     }
     const downAs = {};
     // a control nobody assigned, doing what its model's starting assignment says
@@ -2861,13 +2885,31 @@
       if (!MI.names.includes(device)) device = MI.names[0] || "";
       sel.value = device;
     }
+    // a list as big buttons over the panel, in place of the browser's own dropdown (which is cramped on a phone)
+    function listPick(sel) {
+      if (el.querySelector(".mdList")) return;
+      const box = document.createElement("div"); box.className = "mdList";
+      const head = (t) => Object.assign(document.createElement("h3"), { textContent: t });
+      const grid = () => Object.assign(document.createElement("div"), { className: "mdOpts" });
+      const add = (g, o) => { const b = document.createElement("button"); b.textContent = o.textContent; if (o.value === sel.value) b.className = "on"; b.onclick = () => { sel.value = o.value; box.remove(); sel.dispatchEvent(new Event("change")); }; g.append(b); };
+      const cancel = document.createElement("button"); cancel.textContent = "CANCEL"; cancel.onclick = () => box.remove();
+      box.append(head((sel.closest("label")?.firstChild?.textContent || "Choose").trim().toUpperCase()));
+      let loose = null;
+      for (const n of sel.children) {
+        if (n.tagName === "OPTGROUP") { loose = null; const g = grid(); for (const o of n.children) add(g, o); box.append(head(n.label), g); }
+        else { if (!loose) { loose = grid(); box.append(loose); } add(loose, n); }
+      }
+      box.append(cancel);
+      el.querySelector(".mdCard").append(box);
+    }
     function open(o) {
       if (!MI.names.length) return;
+      if (el?.dataset.inline) el = null; // the inline view gives way to the full panel
       if (el) return o?.map && wizStart();
       device = MI.names[0];
       const style = document.createElement("style"); style.textContent = css; style.id = "mdStyle"; document.head.appendChild(style);
       el = document.createElement("div"); el.id = "mdPanel";
-      el.innerHTML = `<div class="mdCard" role="dialog" aria-modal="true" aria-label="MIDI device diagram"><header><h2>MIDI DEVICE · LIVE DIAGRAM</h2><button data-do="close">DONE</button></header><div class="mdBody"><div class="mdSide"><div class="mdRow"><label>Input port<select id="mdSource"></select></label><label>Diagram<select id="mdProfile"></select></label></div><div class="mdRow"><button data-do="map" title="Step by step: the connection, the lowest and highest key, every pad, every knob, the sustain pedal, the bend, mod and transport buttons. The panel learns your device.">MAP DEVICE</button><button data-do="unmap" id="mdUnmap" title="Forget what MAP found and go back to the model's own">RESET MAP</button><button data-do="export" title="Save the device's map as a file (to keep it, to share it, to add the device to the Pocket apps)">EXPORT</button><button data-do="import" title="Read a device map from a file">IMPORT</button><button data-do="report" title="Copy a report of everything this device sent, to paste in an issue or a message">COPY REPORT</button><button data-do="lights" title="Send notes to the device: pads with lights light up if the device takes lights from the computer">LIGHT TEST</button><input type="file" id="mdFile" accept=".json,application/json" hidden></div><div id="mdWiz" hidden></div><div id="mdLive" aria-live="off"></div><div class="mdMap"><div class="mdRow"><strong id="mdSelected">Select a key, pad or knob</strong><label>Pocket function<select id="mdAction"></select></label><button data-do="learn">LEARN FROM HARDWARE</button><button data-do="clear">CLEAR CONTROL</button><button data-do="defaults" id="mdDefaults" title="The functions the app gives the knobs and pads before you assign anything"></button></div><div class="mdHint" id="mdHint"></div><small>Choose a diagram control and a Pocket function, then press or turn its real counterpart. Assignments are saved for this input port and this Pocket app. Unassigned keys still play normally. Click a drawn key to preview it.</small><p><a id="mdSourceLink" target="_blank" rel="noopener noreferrer">Manufacturer reference ↗</a></p></div></div><div class="mdDevWrap"><small>A line sketch of the layout, not to scale. Pick the model that matches yours. Keys, pads and knobs light up as you use them; knobs are matched in the order of their CC numbers. LEARN pins a drawn control to the real one.</small><div class="mdDevice"></div></div></div></div>`;
+      el.innerHTML = `<div class="mdCard" role="dialog" aria-modal="true" aria-label="MIDI device diagram"><header><h2>MIDI DEVICE · LIVE DIAGRAM</h2><button data-do="close">DONE</button></header><div class="mdBody"><div class="mdSide"><div class="mdRow"><label>Input port<select id="mdSource"></select></label><label>Diagram<select id="mdProfile"></select></label></div><div class="mdRow"><button data-do="map" title="Step by step: the connection, the lowest and highest key, every pad, every knob, the sustain pedal, the bend, mod and transport buttons. The panel learns your device.">MAP DEVICE</button><button data-do="unmap" id="mdUnmap" title="Forget what MAP found and go back to the model's own">RESET MAP</button><button data-do="export" title="Save the device's map as a file (to keep it, to share it, to add the device to the Pocket apps)">EXPORT</button><button data-do="import" title="Read a device map from a file">IMPORT</button><button data-do="report" title="Copy a report of everything this device sent, to paste in an issue or a message">COPY REPORT</button><button data-do="lights" title="Send notes to the device: pads with lights light up if the device takes lights from the computer">LIGHT TEST</button><input type="file" id="mdFile" accept=".json,application/json" hidden></div><div id="mdWiz" hidden></div><div id="mdLive" aria-live="off"></div><div class="mdMap"><div class="mdRow"><strong id="mdSelected">Select a key, pad or knob</strong><button data-do="deselect" title="Close">✕</button><label>Pocket function<select id="mdAction"></select></label><button data-do="learn">LEARN FROM HARDWARE</button><button data-do="clear">CLEAR CONTROL</button><button data-do="defaults" id="mdDefaults" title="The functions the app gives the knobs and pads before you assign anything"></button></div><div class="mdHint" id="mdHint"></div><small>Choose a diagram control and a Pocket function, then press or turn its real counterpart. Assignments are saved for this input port and this Pocket app. Unassigned keys still play normally. Click a drawn key to preview it.</small><p><a id="mdSourceLink" target="_blank" rel="noopener noreferrer">Manufacturer reference ↗</a></p></div></div><div class="mdDevWrap"><small>A line sketch of the layout, not to scale. Pick the model that matches yours. Keys, pads and knobs light up as you use them; knobs are matched in the order of their CC numbers. LEARN pins a drawn control to the real one.</small><div class="mdDevice"></div></div></div></div>`;
       document.body.appendChild(el);
       sourceOptions();
       addEventListener("resize", fitPanel);
@@ -2876,12 +2918,19 @@
       el.querySelector("#mdProfile").onchange = (e) => { profile = e.target.value; record().profile = profile; persist(); selected = ""; draw(); };
       el.querySelector("#mdFile").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; if (f && f.size < 100000) f.text().then(importHw).catch(() => hint("Could not read that file.")); };
       el.querySelector("#mdAction").onchange = () => { if (selected) setAssignment(selected, el.querySelector("#mdAction").value); };
+      for (const id of ["#mdSource", "#mdProfile", "#mdAction"]) {
+        const sl = el.querySelector(id);
+        sl.addEventListener("mousedown", (e) => e.preventDefault());
+        sl.addEventListener("click", (e) => { e.preventDefault(); if (!sl.disabled) listPick(sl); });
+        sl.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!sl.disabled) listPick(sl); } });
+      }
       const pick = (control) => { select(control.dataset.control); if (control.dataset.control.startsWith("k")) preview(+control.dataset.control.slice(1)); };
       el.onclick = (e) => {
         const control = e.target.closest("[data-control]");
         if (control) return pick(control);
         const action = e.target.closest("[data-do]")?.dataset.do;
         if (action === "close") close();
+        if (action === "deselect") select("");
         if (action === "map") wizStart();
         if (action === "wizNext") wizNext();
         if (action === "wizBack") wizBack();
@@ -2912,10 +2961,25 @@
       const card = el.querySelector(".mdCard");
       if (!el.classList.contains("cmp") && card.scrollHeight > card.clientHeight + 1) el.classList.add("cmp"); // too tall as one column: controls beside the diagram
     }
-    function close() { learning = false; wiz = null; removeEventListener("resize", fitPanel); el?.remove(); el = null; document.getElementById("mdStyle")?.remove(); }
-    function hint(text) { if (el) el.querySelector("#mdHint").textContent = text; }
+    function close() { learning = false; wiz = null; removeEventListener("resize", fitPanel); el?.remove(); el = null; document.getElementById("mdStyle")?.remove(); if (inl) embed(inl); }
+    // the diagram alone, drawn into a box of the app's own page and lit as the device plays; null (or no device) takes it away
+    let inl = null;
+    function embed(box) {
+      if (el && !el.dataset.inline) return inl = box || null; // the full panel is open: it comes back on close
+      if (el) el = null;
+      inl = box || null;
+      if (!box || !MI.names.length) return box?.replaceChildren();
+      if (!document.getElementById("mdEmbStyle")) { const st = document.createElement("style"); st.id = "mdEmbStyle"; st.textContent = css.replace(/#mdPanel /g, ".mdEmb "); document.head.appendChild(st); }
+      if (!MI.names.includes(device)) device = MI.names[0];
+      profile = record().profile || guess(device); base = prof().base;
+      box.className = "mdEmb"; box.dataset.inline = "1"; box.innerHTML = '<div class="mdDevice"></div>';
+      el = box;
+      drawDevice();
+    }
+    function hint(text) { const h = el?.querySelector("#mdHint"); if (h) h.textContent = text; }
     function draw() {
       if (!el) return;
+      if (el.dataset.inline) return drawDevice(); // the inline drawing has no profile list or hint
       profile = record().profile || guess(device);
       const p = prof(); base = p.base;
       const sel = el.querySelector("#mdProfile");
@@ -2929,13 +2993,14 @@
       if (!el) return;
       const box = el.querySelector(".mdDevice");
       box.innerHTML = schematic(prof(), base);
-      tags(box.querySelector("svg"));
-      el.querySelector("#mdUnmap").hidden = !hw[device];
+      if (!el.dataset.inline) tags(box.querySelector("svg")); // the inline view has no room for the tags
+      const um = el.querySelector("#mdUnmap"); if (um) um.hidden = !hw[device];
       const b = el.querySelector("#mdDefaults");
       if (b) b.textContent = "DEFAULTS " + (record().defaults === false ? "OFF" : "ON");
     }
     function select(id) {
       selected = id; if (!el) return;
+      el.classList.toggle("sel", !!id);
       el.querySelectorAll(".chosen").forEach((x) => x.classList.remove("chosen"));
       el.querySelector(`[data-control="${id}"]`)?.classList.add("chosen");
       const CTL = { j: "Joystick", xy: "X-Y pad", "o-": "Octave −", "o+": "Octave +", "b-": "Pitch −", "b+": "Pitch +", m: "Mod", s: "Sustain" };
@@ -2980,6 +3045,7 @@
     // The Play mk3 sends one of two layouts depending on its program (FAVORITE + pad 5 = the standard one). A message that only one layout has says which one it is.
     const GB_NOTES = new Set([37, 39, 40, 41, 43, 44, 47, 50]), INT_NOTES = new Set([60, 62, 63, 64, 58, 75, 56, 77]);
     function sniffLayout(from, d) {
+      if (guess(from) === "fm1") return /fm1-pocket/.test(location.pathname) ? undefined : layoutTip("fm1"); // once: what Tether is and what it does for the FM-1 (FM1.Pocket says it itself)
       if (guess(from) !== "akai") return;
       const st = d[0], a = d[1], cmd = st & 0xf0;
       const l = cmd === 0xb0 ? ([70, 75, 76, 77].includes(a) ? "akaigb" : [91, 93, 6].includes(a) ? "akai" : "") : cmd === 0x90 && (st & 15) === 9 && d[2] > 0 ? (GB_NOTES.has(a) ? "akaigb" : INT_NOTES.has(a) ? "akai" : "") : "";
@@ -2989,19 +3055,29 @@
         r.profile = l; persist();
         if (el && from === device) { draw(); hint(`This MPK is sending its ${l === "akai" ? "internal-sounds" : "standard"} layout.`); }
       }
-      if (l === "akai" && !hw[from]) layoutTip();
+      if (l === "akai" && !hw[from]) layoutTip("akai");
     }
-    // a dialog, once: how to get the standard layout (the apps work with the internal one too, but its knobs are fewer and shared)
-    function layoutTip() {
-      let seen = ""; try { seen = sessionStorage.getItem("pocket.midi.tip") || localStorage.getItem("pocket.midi.tip.off") || ""; } catch {}
+    // a dialog, once a visit: how to get the MPK's standard layout (the apps work with the internal one too, but its knobs are fewer and shared),
+    // or what Tether is (an FM-1 on M-VAVE's firmware sends only its keys)
+    const TIPS = {
+      akai: {
+        en: ["Your MPK mini Play is on its internal-sounds layout", "This layout has fewer separate knobs and other notes on the pads. For the standard layout (8 knobs and 16 pads): hold FAVORITE and press pad 5. The screen will read FAV: Garageband."],
+        es: ["Tu MPK mini Play usa su disposición de sonidos internos", "Esta disposición tiene menos potes separados y otras notas en los pads. Para la disposición estándar (8 potes y 16 pads): mantén FAVORITE y pulsa el pad 5. La pantalla dirá «FAV: Garageband»."],
+      },
+      fm1: {
+        en: ["Tether: a custom firmware for the FM‑1", "Tether is a free, open-source (GPL) firmware for the M-VAVE FM-1, made for the Pocket apps. It replaces M-VAVE's own firmware, which only sends the 27 keys. With Tether the FM-1 is a full controller: its 12 buttons are pads, its 8 knobs (MASTER too) are knobs, OCT- and OCT+ shift the keys, the apps can light its keys and pads, and its screen shows what you touch and the MIDI clock. It is also a USB speaker: an app's sound can play out of the FM-1. With FM1.Pocket open it becomes the panel of the emulated FM-1, screen included. To install it: open FM1.Pocket, CONNECT, then PLAY WITH THE REAL FM-1. It makes a backup first, and M-VAVE's firmware can always be put back."],
+        es: ["Tether: un firmware alternativo para el FM‑1", "Tether es un firmware libre y de código abierto (GPL) para el M-VAVE FM-1, hecho para las apps Pocket. Sustituye al firmware de M-VAVE, que solo envía las 27 teclas. Con Tether el FM-1 es un controlador completo: sus 12 botones son pads, sus 8 potes (MASTER también) son potes, OCT- y OCT+ mueven las teclas de octava, las apps pueden encender sus teclas y pads, y su pantalla muestra lo que tocas y el reloj MIDI. También es un altavoz USB: el sonido de una app puede salir por el FM-1. Con FM1.Pocket abierto se convierte en el panel del FM-1 emulado, pantalla incluida. Para instalarlo: abre FM1.Pocket, CONNECT y luego PLAY WITH THE REAL FM-1. Primero hace una copia de seguridad, y el firmware de M-VAVE siempre se puede volver a poner."],
+      },
+    };
+    function layoutTip(kind) {
+      const sk = "pocket.midi.tip" + (kind === "akai" ? "" : "." + kind), off = sk + ".off"; // (the MPK's keys are the old ones: a choice already made stays)
+      let seen = ""; try { seen = sessionStorage.getItem(sk) || localStorage.getItem(kind === "akai" ? "pocket.midi.tip.off" : off) || ""; } catch {}
       if (seen || typeof document === "undefined" || document.getElementById("mdTip")) return;
-      try { sessionStorage.setItem("pocket.midi.tip", "1"); } catch {}
+      try { sessionStorage.setItem(sk, "1"); } catch {}
       const meta = document.querySelector('meta[name="apple-mobile-web-app-title"]'), app = ((meta && meta.content) || "").slice(0, 4).toLowerCase();
       let l = ""; try { l = localStorage.getItem(app + (document.title.startsWith("TEST") ? "-test" : "") + ".lang") || ""; } catch {}
       const es = (l || navigator.language || "en").toLowerCase().startsWith("es");
-      const T = es
-        ? ["Tu MPK mini Play usa su disposición de sonidos internos", "Esta disposición tiene menos potes separados y otras notas en los pads. Para la disposición estándar (8 potes y 16 pads): mantén FAVORITE y pulsa el pad 5. La pantalla dirá «FAV: Garageband».", "ENTENDIDO", "NO MOSTRAR MÁS"]
-        : ["Your MPK mini Play is on its internal-sounds layout", "This layout has fewer separate knobs and other notes on the pads. For the standard layout (8 knobs and 16 pads): hold FAVORITE and press pad 5. The screen will read FAV: Garageband.", "GOT IT", "DON'T SHOW AGAIN"];
+      const T = [...TIPS[kind][es ? "es" : "en"], ...(es ? ["ENTENDIDO", "NO MOSTRAR MÁS"] : ["GOT IT", "DON'T SHOW AGAIN"])];
       const box = document.createElement("div");
       box.id = "mdTip"; box.setAttribute("role", "alertdialog");
       box.style.cssText = "position:fixed;inset:0;z-index:9050;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:12px";
@@ -3010,7 +3086,7 @@
       box.querySelector('[data-t="ok"]').textContent = T[2]; box.querySelector('[data-t="off"]').textContent = T[3];
       box.onclick = (e) => {
         const t = e.target.closest("[data-t]")?.dataset.t;
-        if (t === "off") { try { localStorage.setItem("pocket.midi.tip.off", "1"); } catch {} }
+        if (t === "off") { try { localStorage.setItem(kind === "akai" ? "pocket.midi.tip.off" : off, "1"); } catch {} }
         if (t || e.target === box) box.remove();
       };
       document.body.appendChild(box);
@@ -3057,7 +3133,7 @@
         blink(id);
         hint(text);
       } else if (cc) {
-        const r = bound && !bound.startsWith("k") ? bound : knobRank(seenCC[from], a, p.cc0, p.ccs);
+        const r = bound && !bound.startsWith("k") ? bound : knobRank(seenCC[from], a, p.cc0, p.ccs, p.fold);
         const id = typeof r === "string" ? r : r >= 0 && r < p.knobs ? "c" + r : "";
         if (id) { blink(id); hint(id === "j" ? `Joystick · CC ${a} = ${b}` : `Knob ${+id.slice(1) + 1} · CC ${a} = ${b}`); }
       }
@@ -3078,11 +3154,12 @@
     const modPedal = (on) => { if (on !== undefined) { try { localStorage.setItem(MODP, on ? "1" : "0"); } catch {} for (const k in layer) layer[k] = false; } return modPedalOn(); };
     // is this control ("c0:64", "n0:60") the mod key of this device?
     const isMod = (from, tok) => { const mk = profOf(from).modKey; return modPedalOn() && (mk ? tok === mk : /^c\d+:64$/.test(tok)); };
-    return { open, close, observe, route, fallback, defaultsOff, isPad, padNo, susCc, modPedal, layerOf: (from) => !!layer[from], isMod };
+    return { open, close, embed, observe, route, fallback, padList, lightsOf: (from) => profOf(from).lights, defaultsOff, isPad, padNo, susCc, modPedal, layerOf: (from) => !!layer[from], isMod };
   }
   window.createMidiPanel = createMidiPanel;
   window.pocketMidiHelpers = { padIndex, knobRank, guess, vetHw };
 })();
+    
     </script>
     <script>
       "use strict";

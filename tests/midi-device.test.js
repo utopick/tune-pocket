@@ -104,6 +104,28 @@ test("the starting assignment: pads and knobs do what the app says until the use
   assert.equal(gen.fallback("Some keyboard", "n9:36", false, true, 100), true); // but its pads (8 on the generic layout) do
 });
 
+test("the FM-1 on Tether: MASTER is knob 1, the knobs in the order they sit, its 12 buttons are pads, notes sent back are its lights", () => {
+  const context = { performance, setTimeout, window: {}, location: { pathname: "/track-pocket/" }, localStorage: { getItem: () => null, setItem: () => {} } };
+  vm.createContext(context);
+  vm.runInContext(source, context);
+  assert.equal(context.window.pocketMidiHelpers.guess("Felucca"), "fm1"); // Tether's port is named after Felucca
+  const calls = [], dev = "FM-1";
+  const MI = {
+    names: [dev], map: {},
+    defaults: () => ({ knobs: [["master", "MASTER"], ["swing", "SWING"], ...Array.from({ length: 6 }, (_, i) => ["k" + i, "K" + i])], pads: Array.from({ length: 12 }, (_, i) => ["p" + i, "P" + i]) }),
+    actions: () => ["master", "swing", "k5", "p0", "p11"].map((id) => ({ id, group: "g", name: id, kind: "tap" })),
+  };
+  const panel = context.window.createMidiPanel(MI, (a) => calls.push(a.id), () => {});
+  assert.equal(panel.fallback(dev, "c0:7", true, false, 64), true); // MASTER (CC 7): knob 1
+  assert.equal(panel.fallback(dev, "c0:74", true, false, 64), true); // SELECT: knob 2
+  assert.equal(panel.fallback(dev, "c0:73", true, false, 64), true); // K4: knob 8
+  assert.equal(panel.fallback(dev, "n9:36", false, true, 100), true); // FX: pad 1
+  assert.equal(panel.fallback(dev, "n9:47", false, true, 100), true); // REC: pad 12
+  assert.deepEqual(calls, ["master", "swing", "k5", "p0", "p11"]);
+  assert.equal(panel.lightsOf(dev), "tether");
+  assert.equal(panel.padList(dev).map((p) => p.ch + ":" + p.note).join(), Array.from({ length: 12 }, (_, i) => "9:" + (36 + i)).join());
+});
+
 test("Korg nanoPAD2 pads (channel 1, 16 pads) and the nanoKEY2 are recognised", () => {
   const context = { performance, setTimeout, window: {}, location: { pathname: "/sing-pocket/" }, localStorage: { getItem: () => null } };
   vm.createContext(context);
