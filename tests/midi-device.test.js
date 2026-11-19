@@ -126,6 +126,28 @@ test("the FM-1 on Tether: MASTER is knob 1, the knobs in the order they sit, its
   assert.equal(panel.padList(dev).map((p) => p.ch + ":" + p.note).join(), Array.from({ length: 12 }, (_, i) => "9:" + (36 + i)).join());
 });
 
+test("Tether shows the app's function names on the FM-1's screen, once SysEx is allowed; the stock firmware gets nothing", () => {
+  const sent = [];
+  const context = { performance, setTimeout, window: {}, location: { pathname: "/track-pocket/" }, localStorage: { getItem: () => null, setItem: () => {} } };
+  vm.createContext(context);
+  vm.runInContext(source, context);
+  const out = { name: "FM-1", state: "connected", send: (m) => sent.push(String.fromCharCode(...m.slice(7, -2))) };
+  const MI = {
+    names: ["FM-1"], map: {}, acc: { sysexEnabled: true, outputs: new Map([["o", out]]) },
+    defaults: () => ({ knobs: [["master", "MASTER"], ["swing", "SWING"]], pads: [["p0", "P0"]] }),
+    actions: () => [{ id: "master", name: "MASTER VOL" }, { id: "swing", name: "Swing é" }, { id: "p0", name: "PAT A" }],
+  };
+  const panel = context.window.createMidiPanel(MI, () => {}, () => {});
+  panel.observe([0x90, 53, 100], "FM-1"); // a key: either firmware sends those
+  panel.fallback("FM-1", "c0:7", true, false, 64);
+  assert.equal(sent.length, 0, "a name went to a unit not known to run Tether");
+  panel.observe([0xb0, 74, 66], "FM-1"); // a knob: only Tether sends that
+  panel.fallback("FM-1", "c0:74", true, false, 66);
+  panel.fallback("FM-1", "c0:74", true, false, 68); // the same knob at once: the unit keeps the name
+  panel.fallback("FM-1", "n9:36", false, true, 100);
+  assert.equal(sent.join(), "Swing e,PAT A");
+});
+
 test("Korg nanoPAD2 pads (channel 1, 16 pads) and the nanoKEY2 are recognised", () => {
   const context = { performance, setTimeout, window: {}, location: { pathname: "/sing-pocket/" }, localStorage: { getItem: () => null } };
   vm.createContext(context);

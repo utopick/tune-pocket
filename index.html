@@ -2613,6 +2613,7 @@
       const e = effective(from, profOf(from), id), action = e && e[0] && MI.actions().find((a) => a.id === e[0]);
       if (!action) return false;
       run(action, from + "/" + key, cc, on, value);
+      if (cc || on) sendName(from, key, action);
       return true;
     }
     function defaultsOff() {
@@ -3045,7 +3046,13 @@
     // The Play mk3 sends one of two layouts depending on its program (FAVORITE + pad 5 = the standard one). A message that only one layout has says which one it is.
     const GB_NOTES = new Set([37, 39, 40, 41, 43, 44, 47, 50]), INT_NOTES = new Set([60, 62, 63, 64, 58, 75, 56, 77]);
     function sniffLayout(from, d) {
-      if (guess(from) === "fm1") return /fm1-pocket/.test(location.pathname) ? undefined : layoutTip("fm1"); // once: what Tether is and what it does for the FM-1 (FM1.Pocket says it itself)
+      if (guess(from) === "fm1") { // (FM1.Pocket links the unit and says all this itself)
+        if (/fm1-pocket/.test(location.pathname)) return;
+        const st = d[0];
+        if (!tether.has(from) && ((st === 0x99 && d[2] > 0) || (st === 0xb0 && (d[1] === 7 || (d[1] >= 70 && d[1] <= 76))))) { tether.add(from); nameAccess(); } // only Tether sends pads and knobs
+        if (!tether.has(from)) layoutTip("fm1"); // once: what Tether is and what it does for the FM-1
+        return;
+      }
       if (guess(from) !== "akai") return;
       const st = d[0], a = d[1], cmd = st & 0xf0;
       const l = cmd === 0xb0 ? ([70, 75, 76, 77].includes(a) ? "akaigb" : [91, 93, 6].includes(a) ? "akai" : "") : cmd === 0x90 && (st & 15) === 9 && d[2] > 0 ? (GB_NOTES.has(a) ? "akaigb" : INT_NOTES.has(a) ? "akai" : "") : "";
@@ -3069,7 +3076,11 @@
         es: ["Tether: un firmware alternativo para el FM‑1", "Tether es un firmware libre y de código abierto (GPL) para el M-VAVE FM-1, hecho para las apps Pocket. Sustituye al firmware de M-VAVE, que solo envía las 27 teclas. Con Tether el FM-1 es un controlador completo: sus 12 botones son pads, sus 8 potes (MASTER también) son potes, OCT- y OCT+ mueven las teclas de octava, las apps pueden encender sus teclas y pads, y su pantalla muestra lo que tocas y el reloj MIDI. También es un altavoz USB: el sonido de una app puede salir por el FM-1. Con FM1.Pocket abierto se convierte en el panel del FM-1 emulado, pantalla incluida. Para instalarlo: abre FM1.Pocket, CONNECT y luego PLAY WITH THE REAL FM-1. Primero hace una copia de seguridad, y el firmware de M-VAVE siempre se puede volver a poner."],
       },
     };
-    function layoutTip(kind) {
+    TIPS.sysex = {
+      en: ["Show this app's functions on the FM-1's screen?", "Your FM-1 runs Tether. Its screen can show what each pad and knob does in this app (SWING, MUTE CH3...). For that the browser must let this app send the FM-1 a special kind of MIDI message (SysEx): it asks you next, in words like \"control and reprogram your MIDI devices\". This app only sends names for the FM-1's screen. If you say no, everything else works the same.", "ALLOW", "NO THANKS"],
+      es: ["¿Mostrar las funciones de esta app en la pantalla del FM\u20111?", "Tu FM-1 usa Tether. Su pantalla puede mostrar qué hace cada pad y cada pote en esta app (SWING, MUTE CH3...). Para eso el navegador tiene que dejar que esta app envíe al FM-1 un tipo especial de mensaje MIDI (SysEx): te lo pregunta a continuación, con palabras como «controlar y reprogramar tus dispositivos MIDI». Esta app solo envía nombres para la pantalla del FM-1. Si dices que no, todo lo demás funciona igual.", "PERMITIR", "NO, GRACIAS"],
+    };
+    function layoutTip(kind, onOk) {
       const sk = "pocket.midi.tip" + (kind === "akai" ? "" : "." + kind), off = sk + ".off"; // (the MPK's keys are the old ones: a choice already made stays)
       let seen = ""; try { seen = sessionStorage.getItem(sk) || localStorage.getItem(kind === "akai" ? "pocket.midi.tip.off" : off) || ""; } catch {}
       if (seen || typeof document === "undefined" || document.getElementById("mdTip")) return;
@@ -3077,7 +3088,7 @@
       const meta = document.querySelector('meta[name="apple-mobile-web-app-title"]'), app = ((meta && meta.content) || "").slice(0, 4).toLowerCase();
       let l = ""; try { l = localStorage.getItem(app + (document.title.startsWith("TEST") ? "-test" : "") + ".lang") || ""; } catch {}
       const es = (l || navigator.language || "en").toLowerCase().startsWith("es");
-      const T = [...TIPS[kind][es ? "es" : "en"], ...(es ? ["ENTENDIDO", "NO MOSTRAR MÁS"] : ["GOT IT", "DON'T SHOW AGAIN"])];
+      const t0 = TIPS[kind][es ? "es" : "en"], T = t0.length > 2 ? t0 : [...t0, ...(es ? ["ENTENDIDO", "NO MOSTRAR MÁS"] : ["GOT IT", "DON'T SHOW AGAIN"])];
       const box = document.createElement("div");
       box.id = "mdTip"; box.setAttribute("role", "alertdialog");
       box.style.cssText = "position:fixed;inset:0;z-index:9050;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:12px";
@@ -3087,6 +3098,7 @@
       box.onclick = (e) => {
         const t = e.target.closest("[data-t]")?.dataset.t;
         if (t === "off") { try { localStorage.setItem(kind === "akai" ? "pocket.midi.tip.off" : off, "1"); } catch {} }
+        if (t === "ok" && onOk) onOk();
         if (t || e.target === box) box.remove();
       };
       document.body.appendChild(box);
@@ -3142,7 +3154,32 @@
       const id = saved[from]?.map?.[key], action = id && MI.actions().find((a) => a.id === id);
       if (!action) return false;
       run(action, from + "/" + key, cc, on, value);
+      sendName(from, key, action);
       return true;
+    }
+    // Tether (0.9): the FM-1's screen shows the name of the app's function a pad or knob just worked (NAME, F0 7D "FPT" 01 05 ascii sum F7).
+    // SysEx needs the browser's permission: asked once, after a dialog says why (nameAccess), and only for a unit that runs Tether.
+    const tether = new Set(), named = {};
+    let sx = null;
+    function nameAccess() {
+      if (sx) return;
+      if (MI.acc && MI.acc.sysexEnabled) { sx = MI.acc; return; }
+      if (typeof navigator === "undefined" || !navigator.requestMIDIAccess) return;
+      const ask = () => navigator.requestMIDIAccess({ sysex: true }).then((a) => { sx = a; try { localStorage.setItem("pocket.midi.sysex", "1"); } catch {} }, () => {});
+      let ok = ""; try { ok = localStorage.getItem("pocket.midi.sysex") || ""; } catch {}
+      if (ok) ask(); // allowed on an earlier visit: the browser remembers, no question
+      else layoutTip("sysex", ask);
+    }
+    function sendName(from, key, action) {
+      if (!sx || !tether.has(from)) return;
+      const label = String(action.name || action.id).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7e]/g, "?").replace(/\|/g, "/").slice(0, 20);
+      const last = named[from], now = Date.now();
+      if (last && last.key === key && last.label === label && now - last.t < 250) return; // a knob turning: the unit keeps the name, now and then is enough
+      named[from] = { key, label, t: now };
+      const out = [...sx.outputs.values()].find((o) => o.name === from && o.state !== "disconnected");
+      if (!out) return;
+      const data = [1, 5, ...[...label].map((c) => c.charCodeAt(0))];
+      try { out.send([0xf0, 0x7d, 0x46, 0x50, 0x54, ...data, data.reduce((a, b) => a + b, 0) & 0x7f, 0xf7]); } catch {}
     }
     // is this note-on from one of the controller's pads (its pad channel) and not from a key?
     const isPad = (from, ch) => { const p = profOf(from); return !!p.pads && ch === (p.padCh ?? 9); };
