@@ -607,6 +607,46 @@ class Tune(Page):
                 self.js("if (J.on) jamStop()")
                 self.assertClean()
 
+    def test_studio_sounds_and_kits_play_cleanly(self):
+        self.open()
+        # every Studio instrument and studio kit, rendered offline: sound comes out, no NaN, nothing far past full scale
+        res = self.d.execute_async_script("""
+          const done = arguments[0], out = {};
+          (async () => {
+            const jobs = TK.EXT.map((x, i) => [x, i]).filter(([x]) => x.fam === 'Studio').map(([x, i]) => [x.name, (c, d) => [48, 55, 60, 64].forEach((n, k) => TK.voice(c, d, TK.EXT_BASE + i, n, 0.05 + k * 0.4, 0.3, 0.6))]);
+            for (let kit = 8; kit < TK.KITS.length; kit++)
+              jobs.push([TK.KITS[kit], (c, d) => { TK.song.kit = kit; for (let k = 0; k < 12; k++) TK.drum(c, d, k, 0.05 + k * 0.12, 1); }]);
+            for (const [name, play] of jobs) {
+              const c = new OfflineAudioContext(2, 44100 * 2.5, 44100);
+              play(c, c.destination);
+              const b = await c.startRendering(), d = b.getChannelData(0);
+              let peak = 0, bad = false;
+              for (const x of d) { if (!Number.isFinite(x)) bad = true; peak = Math.max(peak, Math.abs(x)); }
+              out[name] = bad ? 'NaN' : +peak.toFixed(3);
+            }
+            TK.song.kit = 0;
+            done(out);
+          })().catch((e) => done(String(e)));""")
+        self.assertIsInstance(res, dict, res)
+        self.assertGreaterEqual(len(res), 22)  # 18 instruments and 4 kits
+        for name, peak in res.items():
+            with self.subTest(name):
+                self.assertNotEqual(peak, "NaN")
+                self.assertGreater(peak, 0.01)
+                self.assertLess(peak, 2.5)
+
+    # a saved band that still has a style's old default sounds moves to the studio sounds once; a chosen one is kept
+    def test_old_default_jam_sounds_move_to_studio_once(self):
+        self.open()
+        old = self.js("return {kit: 4, bass: tkByName('Picked bass'), chord: tkByName('Overdrive guitar')}")
+        mine = self.js("return {kit: 2, bass: tkByName('Picked bass'), chord: tkByName('Overdrive guitar')}")
+        self.js("localStorage.setItem('tune.state', JSON.stringify({jam: {genre: 'rock', snd: arguments[0]}}))", old)
+        self.reopen()
+        self.assertEqual(self.js("return [S.jam.snd.kit, TK.instObj(S.jam.snd.chord).name, S.jam.studio]"), [8, "Studio crunch guitar", 1])
+        self.js("localStorage.setItem('tune.state', JSON.stringify({jam: {genre: 'rock', snd: arguments[0]}}))", mine)
+        self.reopen()
+        self.assertEqual(self.js("return S.jam.snd"), mine)
+
     def test_jam_knobs_are_master_swing_bass_bpm_chords_drums_on_midi(self):
         self.d.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": FAKE_MIDI})
         self.open()
