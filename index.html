@@ -1277,6 +1277,10 @@
       .jp[hidden] {
         display: none;
       }
+      /* the mixer panel keeps its height, so the step row never slides under the waveform below it */
+      .jp[data-jp="mix"] {
+        flex: none;
+      }
       #jFx {
         grid-template-columns: repeat(5, 1fr);
         flex: 1;
