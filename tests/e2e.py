@@ -647,6 +647,21 @@ class Tune(Page):
         self.reopen()
         self.assertEqual(self.js("return S.jam.snd"), mine)
 
+    # (was a bug, fixed) on shorter phones the step row slid under the waveform, then the genre pads under the key row
+    def test_jam_parts_never_overlap_on_short_screens(self):
+        self.open()
+        self.js("document.querySelector('button[data-v=jam]').click(); document.querySelector('#genres [data-g=lofi]').click()")
+        for w, h in [(412, 892), (412, 720), (360, 640)]:
+            self.d.execute_cdp_cmd("Emulation.setDeviceMetricsOverride", {"width": w, "height": h, "deviceScaleFactor": 2, "mobile": True})
+            self.wait(0.4)
+            box = self.js("""const r = (s) => { const b = document.querySelector(s).getBoundingClientRect(); return [b.top, b.bottom]; };
+              return [r('#genres .sq:last-child'), r('#jam .prow'), r('#jProg'), r('#steps'), r('#jLow'), r('#jam .prow.rib'), innerHeight]""")
+            parts, ih = box[:-1], box[-1]
+            for a, b in zip(parts, parts[1:]): self.assertLessEqual(a[1], b[0] + 0.5, (w, h, parts))
+            self.assertLessEqual(parts[-1][1], ih + 0.5, (w, h))
+        self.js("if (J.on) jamStop()")
+        self.assertEqual(self.errors(), [])
+
     def test_jam_knobs_are_master_swing_bass_bpm_chords_drums_on_midi(self):
         self.d.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": FAKE_MIDI})
         self.open()

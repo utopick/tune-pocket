@@ -1188,7 +1188,7 @@
       }
       #jLow[data-m="def"] {
         flex: 1;
-        min-height: 56px;
+        min-height: 0; /* the waveform is decoration: on the shortest screens it shrinks away before anything else */
       }
       #jWave {
         flex: 1;
@@ -1299,7 +1299,7 @@
         grid-template-columns: repeat(4, 1fr);
         flex: 1;
         grid-auto-rows: 1fr;
-        min-height: 120px;
+        min-height: 170px; /* three rows of 54 px pads: on short screens the waveform below gives way first */
       }
       #genres .sq .nt {
         font-size: 15px;
