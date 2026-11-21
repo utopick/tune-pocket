@@ -613,7 +613,7 @@ class Tune(Page):
         res = self.d.execute_async_script("""
           const done = arguments[0], out = {};
           (async () => {
-            await TK.hitsLoad(new OfflineAudioContext(2, 1, 44100)); // the recorded power chords decode first
+            await TK.recLoad(new OfflineAudioContext(2, 1, 44100)); // the recorded power chords decode first
             const jobs = TK.EXT.map((x, i) => [x, i]).filter(([x]) => x.fam === 'Studio').map(([x, i]) => [x.name, (c, d) => [48, 55, 60, 64].forEach((n, k) => TK.voice(c, d, TK.EXT_BASE + i, n, 0.05 + k * 0.4, 0.3, 0.6))]);
             for (let kit = 8; kit < TK.KITS.length; kit++)
               jobs.push([TK.KITS[kit], (c, d) => { TK.song.kit = kit; for (let k = 0; k < 12; k++) TK.drum(c, d, k, 0.05 + k * 0.12, 1); }]);
@@ -629,7 +629,7 @@ class Tune(Page):
             done(out);
           })().catch((e) => done(String(e)));""")
         self.assertIsInstance(res, dict, res)
-        self.assertGreaterEqual(len(res), 23)  # 19 instruments (the last one recorded) and 4 kits
+        self.assertGreaterEqual(len(res), 25)  # 21 instruments (the last three recorded) and 4 kits
         for name, peak in res.items():
             with self.subTest(name):
                 self.assertNotEqual(peak, "NaN")
@@ -643,7 +643,7 @@ class Tune(Page):
         mine = self.js("return {kit: 2, bass: tkByName('Picked bass'), chord: tkByName('Overdrive guitar')}")
         self.js("localStorage.setItem('tune.state', JSON.stringify({jam: {genre: 'rock', snd: arguments[0]}}))", old)
         self.reopen()
-        self.assertEqual(self.js("return [S.jam.snd.kit, TK.instObj(S.jam.snd.chord).name, S.jam.studio]"), [8, "Studio crunch guitar", 2])
+        self.assertEqual(self.js("return [S.jam.snd.kit, TK.instObj(S.jam.snd.chord).name, S.jam.studio]"), [8, "Studio crunch chords", 2])
         self.js("localStorage.setItem('tune.state', JSON.stringify({jam: {genre: 'rock', snd: arguments[0]}}))", mine)
         self.reopen()
         self.assertEqual(self.js("return S.jam.snd"), mine)
@@ -663,12 +663,12 @@ class Tune(Page):
         self.js("if (J.on) jamStop()")
         self.assertEqual(self.errors(), [])
 
-    def test_saved_metal_moves_to_the_recorded_power_chords_once(self):
+    def test_saved_metal_moves_to_the_recorded_guitar_and_bass_once(self):
         self.open()
         st = self.js("return {genre: 'metal', studio: 1, snd: {kit: 8, bass: tkByName('Studio pick bass'), chord: tkByName('Studio metal guitar')}}")
         self.js("localStorage.setItem('tune.state', JSON.stringify({jam: arguments[0]}))", st)
         self.reopen()
-        self.assertEqual(self.js("return [TK.instObj(S.jam.snd.chord).name, S.jam.studio]"), ["Studio power chords", 2])
+        self.assertEqual(self.js("return [TK.instObj(S.jam.snd.bass).name, TK.instObj(S.jam.snd.chord).name, S.jam.studio]"), ["Studio recorded bass", "Studio power chords", 2])
         st["studio"] = 2
         self.js("localStorage.setItem('tune.state', JSON.stringify({jam: arguments[0]}))", st)
         self.reopen()

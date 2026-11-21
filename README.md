@@ -175,7 +175,7 @@ Have fun.
 
 The banner, app icons and favicons are lettered in [Inter](https://rsms.me/inter/) (SIL Open Font License 1.1), converted to shapes, so no font file is included. The app itself has no third-party code.
 
-The JAM's recorded power chords (the "Studio power chords" sound) are trimmed from Carbonthief's "Power Chords Std Processed" Renoise instrument, released as CC0 (public domain) on [files.renoise.com](https://files.renoise.com/forum/downloads/Instruments/Carbonthief-Power_Chords_Std_Processed/description.html). Thanks!
+The JAM's recorded guitar and bass (the "Studio power chords", "Studio crunch chords" and "Studio recorded bass" sounds) are trimmed from two of Carbonthief's Renoise instruments, [Power Chords Std DI](https://files.renoise.com/forum/downloads/Instruments/Carbonthief-Power_Chords_Std_DI/description.html) and [Bass Guitar Short Plucks](https://files.renoise.com/forum/downloads/Instruments/Carbonthief-Bass_Guitar_Short_Plucks/description.html), both released as CC0 (public domain). Thanks!
 
 ## The readmes
 
