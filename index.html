@@ -5185,8 +5185,8 @@
           ["Studio", "Studio clav", { pro: "pluck", ks: { id: "clav", damp: 0.75, bright: 0.9, pick: 0.1, decay: 0.9, len: 1.2, rel: 0.04 }, fx: ["clav"], g: 1.3 }],
           ["Studio", "Studio nylon guitar", { pro: "pluck", ks: { id: "nylon", damp: 0.62, bright: 0.45, pick: 0.18, decay: 2.8, len: 3, rel: 0.3 }, fx: ["body", 210, 4, 4200], g: 1.8 }],
           ["Studio", "Studio chop guitar", { pro: "pluck", ks: { id: "chop", damp: 0.8, bright: 0.8, pick: 0.2, decay: 1.2, len: 0.6, rel: 0.05 }, fx: ["chop"], g: 1.5 }],
-          ["Studio", "Studio crunch guitar", { pro: "pluck", ks: { id: "egtr", damp: 0.9, bright: 0.85, pick: 0.15, decay: 3.5, len: 3.5, rel: 0.12 }, fx: ["amp", 5, -2, 3, 0.22], g: 0.6 }],
-          ["Studio", "Studio metal guitar", { pro: "pluck", ks: { id: "egtr", damp: 0.9, bright: 0.85, pick: 0.15, decay: 3.5, len: 3.5, rel: 0.08 }, fx: ["amp", 14, -7, 5, 0.18], g: 0.5 }],
+          ["Studio", "Studio crunch guitar", { pro: "pluck", ks: { id: "egtr", damp: 0.9, bright: 0.85, pick: 0.15, decay: 3.5, len: 3.5, rel: 0.12 }, fx: ["amp", 5, -2, 3, 0.22], g: 0.47 }],
+          ["Studio", "Studio metal guitar", { pro: "pluck", ks: { id: "egtr", damp: 0.9, bright: 0.85, pick: 0.15, decay: 3.5, len: 3.5, rel: 0.08 }, fx: ["amp", 14, -7, 5, 0.23], g: 0.66 }],
           ["Studio", "Studio finger bass", { pro: "pluck", ks: { id: "fbass", damp: 0.6, bright: 0.35, pick: 0.25, decay: 3, len: 2.5, rel: 0.08, thump: [400, 0.3] }, fx: ["bassAmp", 1600, 1.3], g: 0.85 }],
           ["Studio", "Studio pick bass", { pro: "pluck", ks: { id: "pbass", damp: 0.7, bright: 0.7, pick: 0.12, decay: 2.5, len: 2.5, rel: 0.06, thump: [900, 0.25] }, fx: ["bassAmp", 2600, 1.8], g: 0.65 }],
           ["Studio", "Studio slap bass", { pro: "pluck", ks: { id: "sbass", damp: 0.85, bright: 1, pick: 0.08, decay: 2, len: 2, rel: 0.05, thump: [1500, 0.6] }, fx: ["bassAmp", 4500, 1.5], g: 0.9 }],
@@ -5391,12 +5391,15 @@
           amp: (k, scoop, gain, level) => (c, out) => {
             const pre = gainOf(c, gain),
               hp = node(c, "highpass", 110, 0.7),
+              push = node(c, "peaking", 850, 0.7, 6), // a boost pedal's mid push before the drive keeps the lows tight
               sh = shaperOf(c, k),
               mid = node(c, "peaking", 750, 0.8, scoop),
               pres = node(c, "peaking", 2400, 1, 3),
-              cab = node(c, "lowpass", 4800, 0.9),
+              thump = node(c, "peaking", 110, 1.2, 3), // the closed cabinet's low resonance
+              cab = node(c, "lowpass", 5000, 0.7),
+              cab2 = node(c, "lowpass", 6500, 0.7), // two filters: a speaker's top falls off steeply, which hides the fizz
               post = gainOf(c, level);
-            pre.connect(hp).connect(sh).connect(mid).connect(pres).connect(cab).connect(post).connect(out);
+            pre.connect(hp).connect(push).connect(sh).connect(mid).connect(pres).connect(thump).connect(cab).connect(cab2).connect(post).connect(out);
             return pre;
           },
           // a body for acoustic strings and basses: a low resonance and a high roll-off
@@ -7730,13 +7733,14 @@
       }
       S.jam.studio = 1;
       // How each style plays: chord voicing (power, close, rootless, spread), hold (how much of the time to the next
-      // chord it rings), strum (s between strings), bass (longest note, in steps), rev (room send), tape (lo-fi)
+      // chord it rings), strum (s between strings), bass (longest note, in steps), rev (room send), tape (lo-fi),
+      // chug (open chords on 1 and 3, palm-muted chugs on the kicks between), dbl (the guitar recorded twice, panned left and right)
       const STYLE = {
         rock: { voicing: "power", hold: 0.95, strum: 0.008, bass: 1.7, rev: 0.12 },
         blues: { voicing: "close", hold: 0.9, strum: 0, bass: 1.9, rev: 0.15 },
         funk: { voicing: "close", hold: 0.3, strum: 0.004, bass: 1, rev: 0.08 },
         reggae: { voicing: "close", hold: 0.25, strum: 0.006, bass: 3, rev: 0.18 },
-        metal: { voicing: "power", hold: 0.9, strum: 0.004, bass: 1.2, rev: 0.08 },
+        metal: { voicing: "power", hold: 0.9, strum: 0.004, bass: 1.2, rev: 0.08, chug: 1, dbl: 1 },
         jazz: { voicing: "rootless", hold: 0.85, strum: 0, bass: 2.6, rev: 0.2 },
         bossa: { voicing: "rootless", hold: 0.8, strum: 0.018, bass: 2.6, rev: 0.16 },
         hiphop: { voicing: "rootless", hold: 1, strum: 0.01, bass: 3, rev: 0.14 },
@@ -7938,6 +7942,13 @@
         back.gain.value = 0.6;
         room.connect(back).connect(J.tape);
         J.g = { drums: c.createGain(), bass: c.createGain(), chord: c.createGain(), lead: c.createGain() }; // lead: the keys, through the same effects
+        // two sides for double-tracked chords: each gets its own amp, so the two takes distort apart like two recordings
+        J.dbl = [-0.8, 0.8].map((p) => {
+          const sp = c.createStereoPanner();
+          sp.pan.value = p;
+          sp.connect(J.g.chord);
+          return sp;
+        });
         J.sends = {};
         for (const [k, g] of Object.entries(J.g)) {
           g.connect(J.tape);
@@ -8387,11 +8398,15 @@
           if (bar.first && s === 0) hit(8, 0.7);
           const bi = BASS_PATTERNS[S.jam.pattern][s],
             hits = CHORD_PATTERNS[S.jam.pattern].map(([cs]) => cs);
-          const chord = (len, v, up) => {
-            const notes = jamVoicing(st.voicing, cr, ch.ivs);
-            (up ? [...notes].reverse() : notes).forEach((n, i) =>
-              TK.voice(c, J.g.chord, +snd.chord, n, t + i * st.strum + Math.random() * 0.004, len, v * (0.9 + Math.random() * 0.2) * (up ? 0.85 : 1)),
-            );
+          const chord = (len, v, up, mute) => {
+            let notes = jamVoicing(st.voicing, cr, ch.ivs);
+            if (mute) notes = notes.slice(0, 2); // a palm-muted chug: root and fifth only, tight
+            const outs = st.dbl ? J.dbl : [J.g.chord];
+            for (const out of outs)
+              (up ? [...notes].reverse() : notes).forEach((n, i) =>
+                TK.voice(c, out, +snd.chord, n, t + i * st.strum + Math.random() * (st.dbl ? 0.012 : 0.004), len,
+                  v * (0.9 + Math.random() * 0.2) * (up ? 0.85 : 1) * (st.dbl ? 0.7 : 1)),
+              );
           };
           if (bar.sec === "X") {
             if (s === 0) {
@@ -8404,7 +8419,10 @@
                 gap = (bp.findIndex((x, i) => i > s && x != null) + 1 || 17 + bp.findIndex((x) => x != null)) - 1 - s;
               TK.voice(c, J.g.bass, +snd.bass, 36 + cr + bi, t, sd * Math.min(st.bass, gap * 0.95), 0.9 * (0.92 + Math.random() * 0.16));
             }
-            if (hits.includes(s)) {
+            if (st.chug) {
+              if (s % 8 === 0) chord(sd * 2.8, 0.6, false);
+              else if (k && s % 8 >= 3) chord(sd * 0.55, 0.42, false, true);
+            } else if (hits.includes(s)) {
               const nx = hits.find((x) => x > s) ?? 16 + hits[0];
               chord((nx - s) * sd * st.hold, 0.55, st.strum > 0 && hits.indexOf(s) % 2 === 1); // guitars strum down, then up
             }
