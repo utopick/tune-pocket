@@ -629,7 +629,7 @@ class Tune(Page):
             done(out);
           })().catch((e) => done(String(e)));""")
         self.assertIsInstance(res, dict, res)
-        self.assertGreaterEqual(len(res), 30)  # 24 instruments (the last six recorded) and 6 kits
+        self.assertGreaterEqual(len(res), 37)  # 31 instruments (the last thirteen recorded) and 6 kits
         for name, peak in res.items():
             with self.subTest(name):
                 self.assertNotEqual(peak, "NaN")
@@ -643,7 +643,7 @@ class Tune(Page):
         mine = self.js("return {kit: 2, bass: tkByName('Picked bass'), chord: tkByName('Overdrive guitar')}")
         self.js("localStorage.setItem('tune.state', JSON.stringify({jam: {genre: 'rock', snd: arguments[0]}}))", old)
         self.reopen()
-        self.assertEqual(self.js("return [S.jam.snd.kit, TK.instObj(S.jam.snd.chord).name, S.jam.studio]"), [12, "Studio crunch chords", 4])
+        self.assertEqual(self.js("return [S.jam.snd.kit, TK.instObj(S.jam.snd.chord).name, S.jam.studio]"), [12, "Studio crunch chords", 5])
         self.js("localStorage.setItem('tune.state', JSON.stringify({jam: {genre: 'rock', snd: arguments[0]}}))", mine)
         self.reopen()
         self.assertEqual(self.js("return S.jam.snd"), mine)
@@ -668,8 +668,8 @@ class Tune(Page):
         st = self.js("return {genre: 'metal', studio: 1, snd: {kit: 8, bass: tkByName('Studio pick bass'), chord: tkByName('Studio metal guitar')}}")
         self.js("localStorage.setItem('tune.state', JSON.stringify({jam: arguments[0]}))", st)
         self.reopen()
-        self.assertEqual(self.js("return [TK.instObj(S.jam.snd.bass).name, TK.instObj(S.jam.snd.chord).name, S.jam.studio]"), ["Studio recorded bass", "Studio power chords", 4])
-        st["studio"] = 4
+        self.assertEqual(self.js("return [TK.instObj(S.jam.snd.bass).name, TK.instObj(S.jam.snd.chord).name, S.jam.studio]"), ["Studio recorded bass", "Studio power chords", 5])
+        st["studio"] = 5
         self.js("localStorage.setItem('tune.state', JSON.stringify({jam: arguments[0]}))", st)
         self.reopen()
         self.assertEqual(self.js("return TK.instObj(S.jam.snd.chord).name"), "Studio metal guitar")  # chosen by hand later: kept
@@ -677,12 +677,17 @@ class Tune(Page):
         st = self.js("return {genre: 'rock', studio: 2, snd: {kit: 8, bass: tkByName('Studio recorded bass'), chord: tkByName('Studio crunch chords')}}")
         self.js("localStorage.setItem('tune.state', JSON.stringify({jam: arguments[0]}))", st)
         self.reopen()
-        self.assertEqual(self.js("return [TK.KITS[S.jam.snd.kit], S.jam.studio]"), ["Studio acoustic", 4])
+        self.assertEqual(self.js("return [TK.KITS[S.jam.snd.kit], S.jam.studio]"), ["Studio acoustic", 5])
         # jazz, on the first studio sounds, gets the recorded upright bass
         st = self.js("return {genre: 'jazz', studio: 3, snd: {kit: 8, bass: tkByName('Studio upright bass'), chord: tkByName('Studio e-piano')}}")
         self.js("localStorage.setItem('tune.state', JSON.stringify({jam: arguments[0]}))", st)
         self.reopen()
-        self.assertEqual(self.js("return TK.instObj(S.jam.snd.bass).name"), "Studio upright pizz")
+        self.assertEqual(self.js("return [TK.instObj(S.jam.snd.bass).name, TK.instObj(S.jam.snd.chord).name]"), ["Studio upright pizz", "Studio upright piano"])
+        # dungeon synth, on its first recorded pad, gets the organ drone and the harpsichord
+        st = self.js("return {genre: 'dungeon', studio: 4, snd: {kit: 7, bass: tkByName('Studio drone'), chord: tkByName('Studio string pad')}}")
+        self.js("localStorage.setItem('tune.state', JSON.stringify({jam: arguments[0]}))", st)
+        self.reopen()
+        self.assertEqual(self.js("return [TK.instObj(S.jam.snd.bass).name, TK.instObj(S.jam.snd.chord).name, S.jam.studio]"), ["Studio organ drone", "Studio harpsichord", 5])
 
     def test_jam_knobs_are_master_swing_bass_bpm_chords_drums_on_midi(self):
         self.d.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": FAKE_MIDI})
