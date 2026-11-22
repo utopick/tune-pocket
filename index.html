@@ -5214,6 +5214,7 @@
           ["Studio", "Studio blues guitar", { pro: "rec", set: "l", rel: 0.05, fx: ["rig", "crunch", "c212", 0.23], g: 0.5 }],
           ["Studio", "Studio muted guitar", { pro: "rec", set: "m", rel: 0.03, fx: ["rig", "clean", "cab", 0.8], g: 0.5 }],
           ["Studio", "Studio dub bass", { pro: "rec", set: "b", fx: ["bassAmp", 900, 1.2], g: 0.2 }],
+          ["Studio", "Studio dark bass", { pro: "synth", syn: { n: 2, det: 7, sub: 0.8, f: 240, q: 3, q2: 1, fe: 3, fd: 0.07, a: 0.003, d: 0.22, s: 0.55, r: 0.05 }, g: 0.32 }],
         ].map(([fam, name, o]) => ({ fam, name, ...o }));
 
         const instObj = (i) => (i >= EXT_BASE ? EXT[i - EXT_BASE] : INST[i]);
@@ -5823,8 +5824,8 @@
         // "Acoustic Kit Two Handed"); the toms, crash and the rest stay synthesized
         SKITS.push({ ...SKITS[0], rec: 1, lv: 1.4 });
         const REC_MIX = { 0: 1, 1: 0.85, 7: 0.5, 3: 0.3, 4: 0.35 }; // every clip is normalized: this is the kit's balance
-        // Techno: the Machine kit with a long, driven kick, the one the bass and chords duck under (STYLE pump)
-        SKITS.push({ ...SKITS[1], kick: [170, 43, 0.07, 0.85, 0.5, 3], lv: 0.34 });
+        // Techno: the Machine kit with a long, heavily driven kick (the one the bass and chords duck under, STYLE pump) and darker hats
+        SKITS.push({ ...SKITS[1], kick: [150, 40, 0.08, 1, 0.3, 7], lp: 8000, lv: 0.34 });
         let hand = 0;
         const METAL = [205.3, 304.4, 369.6, 522.7, 540, 800];
         function studioDrum(c, out, k, K, t, vol) {
@@ -7866,7 +7867,7 @@
         lofi: [11, "Studio finger bass", "Studio e-piano"],
         synthwave: [9, "Studio synth bass", "Studio pad"],
         dungeon: [7, "Studio organ drone", "Studio harpsichord"],
-        techno: [13, "Studio acid", "Studio stab"],
+        techno: [13, "Studio dark bass", "Studio upright piano"],
       };
       // the sets before the studio sounds: a saved set that is still a style's old one moves to its new one, once
       const OLD_SND = {
@@ -7909,11 +7910,15 @@
       const STUDIO4 = { blues: [8, "Studio recorded bass", "Studio organ"], funk: [8, "Studio funk bass", "Studio clav"], reggae: [8, "Studio finger bass", "Studio chop guitar"], jazz: [8, "Studio upright pizz", "Studio e-piano"], bossa: [8, "Studio upright bass", "Studio nylon guitar"], dungeon: [7, "Studio drone", "Studio string pad"] },
         o4 = STUDIO4[S.jam.genre];
       if ((S.jam.studio || 0) < 5 && o4 && S.jam.snd.kit === o4[0] && S.jam.snd.bass === tkByName(o4[1]) && S.jam.snd.chord === tkByName(o4[2])) S.jam.snd = genreSnd(S.jam.genre);
-      S.jam.studio = 5;
+      // ... and techno from the acid line and stabs to a dark rolling bass and a piano arpeggio
+      if ((S.jam.studio || 0) < 6 && S.jam.genre === "techno" && S.jam.snd.kit === 13 && S.jam.snd.bass === tkByName("Studio acid") && S.jam.snd.chord === tkByName("Studio stab"))
+        S.jam.snd = genreSnd("techno");
+      S.jam.studio = 6;
       // How each style plays: chord voicing (power, close, rootless, spread), hold (how much of the time to the next
       // chord it rings), strum (s between strings), bass (longest note, in steps), rev (room send), tape (lo-fi),
       // chug (open chords on 1 and 3, palm-muted chugs on the kicks between), dbl (the guitar recorded twice, panned left and right),
-      // amb (a long cave reverb and a slow wind), drone (the bass holds the root under the whole bar), pump (the bass and chords duck under every kick)
+      // amb (a long cave reverb and a slow wind), drone (the bass holds the root under the whole bar), pump (the bass and chords duck under every kick),
+      // arp (the chord picked one note at a time: seq = which note of the voicing on each of the 16 steps, ring = steps it lasts, up = semitones)
       const STYLE = {
         rock: { voicing: "power", hold: 0.95, strum: 0.008, bass: 1.7, rev: 0.12 },
         blues: { voicing: "close", hold: 0.9, strum: 0, bass: 1.9, rev: 0.15 },
@@ -7921,12 +7926,12 @@
         reggae: { voicing: "close", hold: 0.25, strum: 0.006, bass: 3, rev: 0.18 },
         metal: { voicing: "power", hold: 0.9, strum: 0.004, bass: 1.2, rev: 0.08, chug: 1, dbl: 1 },
         jazz: { voicing: "rootless", hold: 0.85, strum: 0, bass: 3.6, rev: 0.2 },
-        bossa: { voicing: "rootless", hold: 0.8, strum: 0.018, bass: 2.6, rev: 0.16 },
+        bossa: { voicing: "rootless", hold: 0.8, strum: 0.018, bass: 2.6, rev: 0.16, arp: { seq: [0,null,1,null,2,null,3,null,2,null,1,null,2,null,3,null], ring: 5, up: 0 } },
         hiphop: { voicing: "rootless", hold: 1, strum: 0.01, bass: 3, rev: 0.14 },
         lofi: { voicing: "rootless", hold: 1, strum: 0.014, bass: 3, rev: 0.2, tape: 1 },
         synthwave: { voicing: "spread", hold: 1, strum: 0, bass: 1.6, rev: 0.3 },
         dungeon: { voicing: "spread", hold: 1, strum: 0.03, bass: 8, rev: 0.45, amb: 1, drone: 1 },
-        techno: { voicing: "close", hold: 0.3, strum: 0, bass: 0.9, rev: 0.2, pump: 1 },
+        techno: { voicing: "spread", hold: 1, strum: 0, bass: 1.6, rev: 0.32, pump: 1, arp: { seq: [0,null,2,null,3,null,1,null,2,null,3,null,2,null,1,null], ring: 6, up: 0 } },
       };
       const jStyle = () => STYLE[S.jam.genre] || STYLE.rock;
       // The notes of a chord as the style voices it; close and rootless chords take the inversion nearest the last one.
@@ -8529,7 +8534,7 @@
         lofi: { maj: ["ii7 V7 Imaj7 vi7", "Imaj7 iii7 IVmaj7 V7"], min: ["i7 iv7 VImaj7 v7", "i7 i7 iv7 v7"] },
         synthwave: { maj: ["I V vi IV", "vi IV I V"], min: ["i VI III VII", "i VII VI VII"] },
         dungeon: { maj: ["I IV I V", "I vi IV V"], min: ["i VI III VII", "i iv v i"] },
-        techno: { maj: ["I I IV I", "I V I IV"], min: ["i i VI i", "i VII i VII"] },
+        techno: { maj: ["vi IV I V", "I I IV V"], min: ["i VI III VII", "i i VI VII"] },
       };
       function chordOf(sym, minor) {
         const x = /^([b#]?)(VII|VI|V|IV|III|II|I|vii|vi|v|iv|iii|ii|i)(maj7|ø7|7|5)?$/.exec(sym),
@@ -8651,6 +8656,12 @@
             if (st.chug) {
               if (s % 8 === 0) chord(sd * 2.8, 0.6, false);
               else if (k && s % 8 >= 3) chord(sd * 0.55, 0.42, false, true);
+            } else if (st.arp) {
+              const ai = st.arp.seq[s];
+              if (ai != null) {
+                const notes = jamVoicing(st.voicing, cr, ch.ivs);
+                TK.voice(c, J.g.chord, +snd.chord, notes[ai % notes.length] + st.arp.up, t, sd * st.arp.ring, 0.8 * (0.9 + Math.random() * 0.2));
+              }
             } else if (hits.includes(s)) {
               const nx = hits.find((x) => x > s) ?? 16 + hits[0];
               chord((nx - s) * sd * st.hold, 0.55, st.strum > 0 && hits.indexOf(s) % 2 === 1); // guitars strum down, then up
@@ -11388,14 +11399,14 @@
               en: [
                 "## Version 2.4.0",
                 "- **JAM knobs:** the bars are now six knobs: MASTER (new), SWING (new), BASS, BPM, CHORDS and DRUMS, in the order of the first MIDI knobs (1 is the master, 4 the tempo).",
-                "- **Techno** joins the JAM styles (four on the floor, off-beat open hats, off-beat stabs and an acid bass), the same style as the Variator in TRACK.",
+                "- **Techno** joins the JAM styles (four on the floor, off-beat open hats and a rolling off-beat bass), the same style as the Variator in TRACK.",
                 "- **ASSIGN is a function mapper:** it learns your leftmost and rightmost key first (they never get a function), then asks for each function: turn a knob, or hold a key, pad or button for 3 seconds. Rightmost then leftmost skips a function, leftmost then rightmost ends the mapper. Hold the MOD pedal while you press or turn to map MOD + that control. A control is taken only once in a run.",
                 "- **MOD pedal:** on every keyboard the sustain pedal (or button) is now a shift: while it is held, the default pad and knob functions become a second set (knob 1 acts as knob 9, and so on). It keeps sustaining notes. The MOD button in the MIDI options turns this on or off; MAP can pick another key instead of the pedal.",
                 "- **MIDI DEVICE panel without scrolling:** it fits the screen. On an upright phone it turns sideways, and on a short window the controls go beside the diagram.",
                 "- **Knob card:** turning a MIDI knob shows a small card in the middle of the screen with its name, a little knob and its value, so you see what you are changing. It does not appear where the screen already shows that knob (the mixer, the Variator's own views, the metronome).",
                 "- **Pads follow the screen:** on a screen made of squares (the effects, the loop pads, the samples, the exercises...) the pads of a MIDI controller are those squares, numbered from the top left, left to right and then down. MAP now asks for the pads from the top left pad to the bottom right one. The drum pads keep playing drums.",
                 "- **Three more JAM styles:** Lo-fi (lazy beat, a light swing), Synthwave (driving 8ths) and Dungeon (slow march), the same styles as the Variator in TRACK, with their own drums, bass, chords and sounds.",
-                "- **A studio band in JAM:** every style now plays its own studio sounds. The guitars and basses are modelled plucked strings, and there is an electric piano, a Hammond-style organ, a clavinet, warm synths and a choir. Four new drum kits (Studio, Machine, Boom bap and Dusty) have real-sounding cymbals. The band voices its chords like a player would, strums the guitars and never plays two hits alike, in a mix with a shared room that no longer distorts when it gets loud. Lo-fi gets tape and vinyl crackle. Rock and metal play a recorded guitar and bass: a clean, double-tracked guitar through the amps and cabinets of PLAY.Pocket (crunch for rock, high gain for metal, with palm-muted chugs on the double kick), from free public-domain samples by Carbonthief and remsky, and they have a new kit, Studio acoustic, with a recorded kick, snare and hi-hat by crash noise division. Blues and funk play that recorded bass too, jazz a recorded upright bass by thanatos, and dungeon synth a recorded string pad by Carbonthief in a long cave reverb with a slow wind. Techno has its own kit with a deep kick, and the bass and chords duck under every kick so the groove pumps. Blues, funk, reggae and bossa play a recorded Les Paul guitar (crunch for the blues, clean and muted for funk and reggae, clean for bossa), jazz a recorded upright piano, and the basses play the lines of each style: a boogie in the blues, a walking line in jazz, octaves in funk. Dungeon synth is a harpsichord over the drone of a Renaissance organ, from the free Versilian Community Sample Library. Your own choice of sounds is kept, and the old ones are still in SOUNDS.",
+                "- **A studio band in JAM:** every style now plays its own studio sounds. The guitars and basses are modelled plucked strings, and there is an electric piano, a Hammond-style organ, a clavinet, warm synths and a choir. Four new drum kits (Studio, Machine, Boom bap and Dusty) have real-sounding cymbals. The band voices its chords like a player would, strums the guitars and never plays two hits alike, in a mix with a shared room that no longer distorts when it gets loud. Lo-fi gets tape and vinyl crackle. Rock and metal play a recorded guitar and bass: a clean, double-tracked guitar through the amps and cabinets of PLAY.Pocket (crunch for rock, high gain for metal, with palm-muted chugs on the double kick), from free public-domain samples by Carbonthief and remsky, and they have a new kit, Studio acoustic, with a recorded kick, snare and hi-hat by crash noise division. Blues and funk play that recorded bass too, jazz a recorded upright bass by thanatos, and dungeon synth a recorded string pad by Carbonthief in a long cave reverb with a slow wind. Techno has its own kit with a deep, driven kick and darker hats, a dark rolling bass on the off-beats and a recorded piano picking out the chords in a long reverb, and the bass and piano duck under every kick so the groove pumps. Blues, funk, reggae and bossa play a recorded Les Paul guitar (crunch for the blues, clean and muted for funk and reggae, clean for bossa, where it picks the chords one note at a time), jazz a recorded upright piano, and the basses play the lines of each style: a boogie in the blues, a walking line in jazz, octaves in funk. Dungeon synth is a harpsichord over the drone of a Renaissance organ, from the free Versilian Community Sample Library. Your own choice of sounds is kept, and the old ones are still in SOUNDS.",
                 "- **MOD key:** MAP asks if you want a MOD key (the sustain pedal is a good one, and keeps its own job). While it is held, the pads and knobs become a second set: knob 1 acts as knob 9, and so on, so a few controls do double duty. The leftmost and rightmost keys cannot be the MOD key.",
                 "- **MAP:** the old MIDI TEST is now a step-by-step mapper, like an emulator's. Press any key, then the leftmost and the rightmost key (it counts the physical keys, whatever octave is selected), every pad and every knob in order, the sustain pedal, the bend, the mod, play, stop, record and any other function button (a list ends with the rightmost key and then the leftmost key). The map is saved for the controller (shared by the apps), and can be exported and imported as a file. It also shows the MIDI clock (BPM), start and stop, COPY REPORT, and a LIGHT TEST that sends notes to the device.",
                 "- **MIDI, Akai MPK mini Play mk3:** its pads (a drum kit, in both banks) and its knobs (their own CC numbers) are now matched in order, from a real report. Before, the panel saw one knob and the pads out of order.",
@@ -11418,14 +11429,14 @@
               es: [
                 "## Versión 2.4.0",
                 "- **Potes de JAM:** las barras son ahora seis potes: MASTER (nuevo), SWING (nuevo), BASS, BPM, CHORDS y DRUMS, en el orden de los primeros potes MIDI (el 1 es el master, el 4 el tempo).",
-                "- **Techno** se une a los estilos de JAM (bombo a negras, hats abiertos a contratiempo, stabs a contratiempo y bajo ácido), el mismo estilo que el Variator de TRACK.",
+                "- **Techno** se une a los estilos de JAM (bombo a negras, hats abiertos a contratiempo y un bajo que rueda a contratiempo), el mismo estilo que el Variator de TRACK.",
                 "- **ASSIGN es un mapeador de funciones:** primero aprende tu tecla de más a la izquierda y la de más a la derecha (nunca reciben función), y luego pide cada función: gira un pote, o mantén una tecla, pad o botón 3 segundos. La de la derecha y luego la de la izquierda salta una función, la de la izquierda y luego la de la derecha termina. Mantén el pedal MOD mientras pulsas o giras para asignar MOD + ese control. Un control se usa solo una vez por sesión.",
                 "- **Pedal MOD:** en todos los teclados el pedal (o botón) de sustain es ahora una tecla de cambio: mientras se mantiene, las funciones por defecto de pads y potes pasan a ser un segundo juego (el pote 1 actúa como el 9, y así). Sigue sosteniendo notas. El botón MOD de las opciones MIDI lo activa o desactiva, y MAP puede elegir otra tecla en lugar del pedal.",
                 "- **Panel MIDI DEVICE sin desplazamiento:** cabe en la pantalla. En un móvil vertical se gira de lado, y en una ventana baja los controles van junto al dibujo.",
                 "- **Tarjeta del pote:** al girar un pote MIDI aparece una tarjeta pequeña en el centro con su nombre, un potenciómetro y su valor, para ver qué estás cambiando. No aparece donde la pantalla ya muestra ese pote (el mezclador, las vistas del Variator, el metrónomo).",
                 "- **Los pads siguen la pantalla:** en una pantalla hecha de cuadrados (los efectos, los pads de loops, los samples, los ejercicios...) los pads de un controlador MIDI son esos cuadrados, numerados desde arriba a la izquierda, de izquierda a derecha y luego hacia abajo. MAP ahora pide los pads del pad de arriba a la izquierda al de abajo a la derecha. Los pads de bateria siguen tocando bateria.",
                 "- **Tres estilos más en JAM:** Lo-fi (ritmo perezoso, con un swing ligero), Synthwave (corcheas constantes) y Dungeon (marcha lenta), los mismos estilos que el Variator de TRACK, con sus propias baterías, bajos, acordes y sonidos.",
-                "- **Una banda de estudio en JAM:** cada estilo suena ahora con sus propios sonidos de estudio. Las guitarras y los bajos son cuerdas pulsadas modeladas, y hay un piano eléctrico, un órgano tipo Hammond, un clavinet, sintes cálidos y un coro. Cuatro baterías nuevas (Studio, Machine, Boom bap y Dusty) tienen platos que suenan de verdad. La banda coloca los acordes como lo haría un músico, rasguea las guitarras y nunca toca dos golpes iguales, en una mezcla con una sala compartida que ya no distorsiona cuando sube el volumen. El lo-fi trae cinta y crujido de vinilo. El rock y el metal tocan una guitarra y un bajo grabados: una guitarra limpia y doblada que pasa por los amplificadores y pantallas de PLAY.Pocket (crunch para el rock, alta ganancia para el metal, con golpes apagados con la palma sobre el doble bombo), con muestras libres de dominio público de Carbonthief y remsky, y tienen una batería nueva, Studio acoustic, con bombo, caja y charles grabados por crash noise division. El blues y el funk tocan también ese bajo grabado, el jazz un contrabajo grabado por thanatos y el dungeon synth un pad de cuerdas grabado por Carbonthief, con una reverb larga de cueva y un viento lento. El techno tiene su propia batería con un bombo profundo, y el bajo y los acordes se agachan en cada bombo para que el ritmo bombee. El blues, el funk, el reggae y la bossa tocan una guitarra Les Paul grabada (crunch para el blues, limpia y apagada para el funk y el reggae, limpia para la bossa), el jazz un piano vertical grabado, y los bajos tocan las líneas de cada estilo: un boogie en el blues, una línea caminante en el jazz, octavas en el funk. El dungeon synth es un clavecín sobre el bordón de un órgano renacentista, de la biblioteca libre Versilian Community Sample Library. Si elegiste tus propios sonidos, se quedan, y los antiguos siguen en SOUNDS.",
+                "- **Una banda de estudio en JAM:** cada estilo suena ahora con sus propios sonidos de estudio. Las guitarras y los bajos son cuerdas pulsadas modeladas, y hay un piano eléctrico, un órgano tipo Hammond, un clavinet, sintes cálidos y un coro. Cuatro baterías nuevas (Studio, Machine, Boom bap y Dusty) tienen platos que suenan de verdad. La banda coloca los acordes como lo haría un músico, rasguea las guitarras y nunca toca dos golpes iguales, en una mezcla con una sala compartida que ya no distorsiona cuando sube el volumen. El lo-fi trae cinta y crujido de vinilo. El rock y el metal tocan una guitarra y un bajo grabados: una guitarra limpia y doblada que pasa por los amplificadores y pantallas de PLAY.Pocket (crunch para el rock, alta ganancia para el metal, con golpes apagados con la palma sobre el doble bombo), con muestras libres de dominio público de Carbonthief y remsky, y tienen una batería nueva, Studio acoustic, con bombo, caja y charles grabados por crash noise division. El blues y el funk tocan también ese bajo grabado, el jazz un contrabajo grabado por thanatos y el dungeon synth un pad de cuerdas grabado por Carbonthief, con una reverb larga de cueva y un viento lento. El techno tiene su propia batería con un bombo profundo y saturado y charles más oscuros, un bajo oscuro que rueda a contratiempo y un piano grabado que arpegia los acordes en una reverb larga, y el bajo y el piano se agachan en cada bombo para que el ritmo bombee. El blues, el funk, el reggae y la bossa tocan una guitarra Les Paul grabada (crunch para el blues, limpia y apagada para el funk y el reggae, limpia para la bossa, donde puntea los acordes nota a nota), el jazz un piano vertical grabado, y los bajos tocan las líneas de cada estilo: un boogie en el blues, una línea caminante en el jazz, octavas en el funk. El dungeon synth es un clavecín sobre el bordón de un órgano renacentista, de la biblioteca libre Versilian Community Sample Library. Si elegiste tus propios sonidos, se quedan, y los antiguos siguen en SOUNDS.",
                 "- **Tecla MOD:** MAP pregunta si quieres una tecla MOD (el pedal de sustain es buena opción y sigue haciendo su trabajo). Mientras se mantiene pulsada, los pads y potes pasan a ser un segundo juego: el pote 1 actúa como el 9, y así, para que pocos controles hagan doble trabajo. La tecla de más a la izquierda y la de más a la derecha no pueden ser la tecla MOD.",
                 "- **MAP:** el antiguo MIDI TEST ahora es un mapeador paso a paso, como el de los emuladores. Pulsa una tecla, luego la tecla de más a la izquierda y la de más a la derecha (cuenta las teclas físicas, sea cual sea la octava), cada pad y cada pote en orden, el pedal de sustain, el bend, el mod, play, stop, record y cualquier otro botón de función (una lista termina con la tecla de la derecha y luego la de la izquierda). El mapa se guarda para el controlador (compartido por las apps) y se puede exportar e importar como archivo. También muestra el reloj MIDI (BPM), start y stop, COPY REPORT y un LIGHT TEST que envía notas al dispositivo.",
                 "- **MIDI, Akai MPK mini Play mk3:** sus pads (un kit de batería, en los dos bancos) y sus potenciómetros (con sus propios números de CC) ahora se reconocen en orden, a partir de un informe real. Antes el panel veía un solo potenciómetro y los pads desordenados.",
